@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biên Soạn Sách Toán - Vật Lý Pro | AI Book Publisher</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Top Navigation -->
+        <header class="navbar">
+            <div class="brand">
+                <div class="brand-icon">📚</div>
+                <div class="brand-text">
+                    <h1>Biên Soạn Sách Pro</h1>
+                    <span class="badge-tag">Toán & Vật Lý AI</span>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button id="btn-open-folder" class="btn btn-outline" title="Mở thư mục output trên máy tính">
+                    <span class="icon">📂</span> Thư Mục Kết Quả
+                </button>
+                <button id="btn-settings" class="btn btn-outline" title="Cấu hình Google Gemini API Key">
+                    <span class="icon">⚙️</span> Cài Đặt AI
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Workspace -->
+        <main class="main-content">
+            <!-- Hero Banner -->
+            <section class="hero-card">
+                <div class="hero-body">
+                    <h2>Tự Động Hóa Tái Cấu Trúc & Xuất Bản Sách</h2>
+                    <p>Nhập file Word (.docx) hoặc Excel (.xlsx) gốc ➔ AI và Thuật toán Toán học sẽ tự động viết lại đề, đổi số liệu nghiệm đẹp, thêm mẹo Casio, chỉ ra bẫy sai lầm và đóng khung chuẩn sách in ấn.</p>
+                </div>
+                <div class="hero-stats">
+                    <div class="stat-item">
+                        <span class="stat-num">100%</span>
+                        <span class="stat-label">Nội Dung Đổi Mới</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-num">2 Cách</span>
+                        <span class="stat-label">Tự Luận & Casio</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-num">Native</span>
+                        <span class="stat-label">Word DOCX Chuẩn In</span>
+                    </div>
+                </div>
+            </section>
+
+            <div class="grid-layout">
+                <!-- Left Column: Input & Configuration -->
+                <div class="control-column">
+                    <!-- Step 1: Upload Card -->
+                    <div class="card card-step">
+                        <div class="step-header">
+                            <span class="step-badge">1</span>
+                            <h3>Tải Lên File Gốc</h3>
+                        </div>
+
+                        <div class="subject-selector">
+                            <label class="radio-card active" data-subject="toan">
+                                <input type="radio" name="subject" value="toan" checked>
+                                <span class="radio-icon">📐</span>
+                                <span class="radio-label">Toán Học</span>
+                            </label>
+                            <label class="radio-card" data-subject="vatly">
+                                <input type="radio" name="subject" value="vatly">
+                                <span class="radio-icon">⚛️</span>
+                                <span class="radio-label">Vật Lý</span>
+                            </label>
+                        </div>
+
+                        <div id="drop-zone" class="drop-zone">
+                            <div class="drop-content">
+                                <div class="upload-icon">📄</div>
+                                <p class="drop-title">Kéo thả file vào đây hoặc <span>Duyệt chọn</span></p>
+                                <p class="drop-hint">Hỗ trợ Microsoft Word (.docx) hoặc Excel (.xlsx)</p>
+                            </div>
+                            <input type="file" id="file-input" accept=".docx,.xlsx,.doc,.xls" hidden>
+                        </div>
+
+                        <div id="file-status" class="file-status-box hidden">
+                            <div class="file-info">
+                                <span class="file-icon">📑</span>
+                                <div class="file-meta">
+                                    <span id="file-name" class="file-name">filename.docx</span>
+                                    <span id="file-count" class="file-count">Phát hiện: 0 câu</span>
+                                </div>
+                            </div>
+                            <button id="btn-remove-file" class="btn-icon" title="Hủy chọn file">✕</button>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Customization Options -->
+                    <div class="card card-step">
+                        <div class="step-header">
+                            <span class="step-badge">2</span>
+                            <h3>Tùy Chọn Biên Soạn & Nâng Cấp</h3>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="custom-title">Tựa đề sách mới (Để trống để tự động gợi ý):</label>
+                            <input type="text" id="custom-title" class="form-control" placeholder="Ví dụ: 102 Tuyệt Kỹ Giải Toán Thực Chiến - Bứt Phá Điểm 9+">
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="add-count">Số bài mới bổ sung thêm:</label>
+                                <select id="add-count" class="form-control">
+                                    <option value="2" selected>+ 2 bài vận dụng cao</option>
+                                    <option value="5">+ 5 bài vận dụng cao</option>
+                                    <option value="10">+ 10 bài phân hóa sâu</option>
+                                    <option value="0">Không thêm bài mới</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="paper-format">Khổ trang in ấn:</label>
+                                <select id="paper-format" class="form-control">
+                                    <option value="a4" selected>Khổ A4 (210 x 297 mm)</option>
+                                    <option value="b5">Khổ B5 Sách bỏ túi (182 x 257 mm)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="feature-checklist">
+                            <label class="checkbox-row">
+                                <input type="checkbox" id="check-casio" checked>
+                                <span>💡 Thêm hộp <strong>Mẹo Casio fx-580VN X</strong> & Kỹ thuật giải nhanh</span>
+                            </label>
+                            <label class="checkbox-row">
+                                <input type="checkbox" id="check-traps" checked>
+                                <span>⚠️ Thêm hộp <strong>Cảnh báo bẫy đề thi</strong> & Sai lầm thường gặp</span>
+                            </label>
+                            <label class="checkbox-row">
+                                <input type="checkbox" id="check-summary" checked>
+                                <span>📌 Thêm bảng <strong>Công thức vàng & Phương pháp trọng tâm</strong></span>
+                            </label>
+                        </div>
+
+                        <button id="btn-process" class="btn btn-primary btn-large btn-glow" disabled>
+                            <span class="btn-icon">🚀</span> BẮT ĐẦU BIÊN SOẠN RA FILE WORD
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Right Column: Live Progress & Preview -->
+                <div class="preview-column">
+                    <!-- Progress Card -->
+                    <div id="progress-card" class="card hidden">
+                        <div class="step-header">
+                            <div class="spinner"></div>
+                            <h3>Tiến Trình Xử Lý Sách</h3>
+                        </div>
+                        <div class="progress-container">
+                            <div id="progress-bar" class="progress-bar"></div>
+                        </div>
+                        <p id="progress-status" class="progress-status-text">Đang chuẩn bị...</p>
+                    </div>
+
+                    <!-- Result Ready Card -->
+                    <div id="result-card" class="card result-card hidden">
+                        <div class="result-header">
+                            <div class="result-badge">🎉 ĐÃ BIÊN SOẠN THÀNH CÔNG</div>
+                            <h3 id="result-book-title">Tên sách</h3>
+                            <p id="result-book-subtitle" class="subtitle-text">Phụ đề</p>
+                        </div>
+
+                        <div class="download-action-box">
+                            <a id="btn-download" href="#" class="btn btn-success btn-large">
+                                <span class="icon">📥</span> TẢI FILE WORD DOCX
+                            </a>
+                            <button id="btn-open-result-folder" class="btn btn-secondary">
+                                <span class="icon">📂</span> Mở thư mục chứa file
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Preview Card -->
+                    <div class="card preview-card">
+                        <div class="card-header-bar">
+                            <h3>Bảng So Sánh Đối Chiếu Nội Dung</h3>
+                            <span id="preview-badge" class="preview-badge">Chưa có dữ liệu</span>
+                        </div>
+
+                        <div id="preview-placeholder" class="preview-placeholder">
+                            <div class="empty-icon">📖</div>
+                            <p>Tải lên một file Word (.docx) hoặc Excel (.xlsx) để xem trước đối chiếu bài toán trước và sau khi biên soạn.</p>
+                        </div>
+
+                        <div id="preview-list" class="preview-list hidden">
+                            <!-- Injected dynamically via JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Settings Modal -->
+        <div id="modal-settings" class="modal-overlay hidden">
+            <div class="modal-box">
+                <div class="modal-header">
+                    <h3>⚙️ Cấu Hình Google Gemini AI</h3>
+                    <button id="btn-close-modal" class="btn-close">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="gemini-api-key">Gemini API Key (Tùy chọn):</label>
+                        <div class="input-with-button">
+                            <input type="password" id="gemini-api-key" class="form-control" placeholder="Dán khóa API (AIzaSy...)">
+                            <button id="btn-toggle-key" class="btn-small" type="button">Hiện</button>
+                        </div>
+                        <p class="field-hint">
+                            Lấy API Key miễn phí tại <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>. 
+                            Nếu để trống, ứng dụng sẽ chạy tự động bằng <strong>Bộ máy Toán học Thông minh Offline</strong> mà không cần Internet.
+                        </p>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="gemini-model">Mô hình AI:</label>
+                        <select id="gemini-model" class="form-control">
+                            <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash (Siêu nhanh & Tối ưu)</option>
+                            <option value="gemini-2.5-pro">Gemini 2.5 Pro (Chuyên sâu & Sáng tạo cao)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="btn-save-settings" class="btn btn-primary">Lưu Cấu Hình</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
