@@ -152,7 +152,10 @@ if __name__ == "__main__":
     def open_browser():
         import time
         time.sleep(1.2)
-        webbrowser.open("http://127.0.0.1:8501")
+        try:
+            webbrowser.open("http://127.0.0.1:8501")
+        except Exception:
+            pass
 
     threading.Thread(target=open_browser, daemon=True).start()
-    uvicorn.run("app:app", host="127.0.0.1", port=8501, reload=False)
+    uvicorn.run(app, host="127.0.0.1", port=8501, log_level="info")

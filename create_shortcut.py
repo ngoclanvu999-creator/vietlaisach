@@ -17,10 +17,9 @@ target_bat = base_dir / "Chay_Ung_Dung.bat"
 ps_script = f"""
 $ws = New-Object -ComObject WScript.Shell
 $s = $ws.CreateShortcut('{str(shortcut_path)}')
-$s.TargetPath = 'cmd.exe'
-$s.Arguments = '/c "{str(target_bat)}"'
+$s.TargetPath = '{str(target_bat)}'
 $s.WorkingDirectory = '{str(base_dir)}'
-$s.Description = 'Phần Mềm Biên Soạn Sách Toán - Vật Lý Pro'
+$s.Description = 'Phan Mem Bien Soan Sach Toan - Vat Ly Pro'
 $s.IconLocation = 'shell32.dll,43'
 $s.Save()
 """
@@ -28,8 +27,8 @@ $s.Save()
 try:
     res = subprocess.run(["powershell", "-NoProfile", "-Command", ps_script], capture_output=True, text=True, encoding="utf-8")
     if shortcut_path.exists():
-        print(f"[OK] Đã tạo thành công shortcut tại: {shortcut_path}")
+        print(f"[OK] Đã cập nhật thành công shortcut tại: {shortcut_path}")
     else:
-        print(f"[!] PowerShell output: {res.stdout}\n{res.stderr}")
+        print(f"[!] Lỗi tạo shortcut: {res.stderr}")
 except Exception as e:
     print(f"[!] Lỗi: {e}")

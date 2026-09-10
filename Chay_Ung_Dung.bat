@@ -6,20 +6,24 @@ set PYTHONUTF8=1
 set PYTHONIOENCODING=utf-8
 
 echo =====================================================================
-echo           PHAN MEM BIEN SOAN & TAI CAU TRUC SACH TOAN - VAT LY
+echo           PHAN MEM BIEN SOAN VA TAI CAU TRUC SACH TOAN - VAT LY
 echo =====================================================================
 echo.
 echo [*] Dang kiem tra moi truong Python...
 
 set "PYTHON_EXE=python"
-where python >nul 2>nul
-if %errorlevel% neq 0 (
-    if exist "%LOCALAPPDATA%\Programs\Python\Python314\python.exe" (
-        set "PYTHON_EXE=%LOCALAPPDATA%\Programs\Python\Python314\python.exe"
-    ) else (
-        echo [!] Khong tim thay Python! Vui long cai dat Python 3.10 tro len.
-        pause
-        exit /b 1
+if exist "C:\Users\Doanh\AppData\Local\Programs\Python\Python314\python.exe" (
+    set "PYTHON_EXE=C:\Users\Doanh\AppData\Local\Programs\Python\Python314\python.exe"
+) else (
+    where python >nul 2>nul
+    if %errorlevel% neq 0 (
+        if exist "%LOCALAPPDATA%\Programs\Python\Python314\python.exe" (
+            set "PYTHON_EXE=%LOCALAPPDATA%\Programs\Python\Python314\python.exe"
+        ) else (
+            echo [!] Khong tim thay Python! Vui long cai dat Python 3.10 tro len.
+            pause
+            exit /b 1
+        )
     )
 )
 
@@ -31,4 +35,7 @@ echo =====================================================================
 
 cd /d "%~dp0"
 "%PYTHON_EXE%" app.py
+if %errorlevel% neq 0 (
+    echo [!] Chuong trinh bi dung lai voi ma loi: %errorlevel%
+)
 pause
