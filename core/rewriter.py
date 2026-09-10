@@ -2,27 +2,49 @@ import os
 import re
 import json
 import random
+from pathlib import Path
 from dataclasses import dataclass, field, asdict
 from typing import List, Dict, Any, Optional
 from core.parser import QuestionItem
 from core.math_engine import latex_to_unicode
+from core.theory_bank import detect_subject_and_topic, build_pedagogical_theory_section
 
 @dataclass
 class RewrittenQuestionItem:
     index: int
     title: str = ""
+    level: str = "Vận dụng"    # "Nhận biết", "Thông hiểu", "Vận dụng", "Vận dụng cao"
     original_content: str = ""
     original_solution: str = ""
     new_content: str = ""
     new_options: List[str] = field(default_factory=list)
     correct_answer: str = ""
-    solution_method1: str = ""  # Tự luận chuẩn mực
-    solution_method2: str = ""  # Mẹo Casio / Giải nhanh
+    solution_method1: str = ""  # Lời giải Tự luận chuẩn mực sư phạm
+    solution_method2: str = ""  # Kỹ thuật Casio fx-580VN X / Mẹo nhanh
     trap_warning: str = ""      # Cảnh báo bẫy & Sai lầm thường gặp
-    is_added_new: bool = False  # Đánh dấu bài tập bổ sung thêm
+    is_added_new: bool = False  # Đánh dấu câu mới bổ sung
+    source_file: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
+
+@dataclass
+class RewrittenChapter:
+    index: int
+    title: str
+    source_name: str
+    theory_section: str
+    questions: List[RewrittenQuestionItem] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "index": self.index,
+            "title": self.title,
+            "source_name": self.source_name,
+            "theory_section": self.theory_section,
+            "total_questions": len(self.questions),
+            "questions": [q.to_dict() for q in self.questions]
+        }
 
 @dataclass
 class RewrittenBook:
@@ -31,7 +53,9 @@ class RewrittenBook:
     subtitle: str
     author_note: str
     chapter_summary: str
-    questions: List[RewrittenQuestionItem] = field(default_factory=list)
+    theory_section: str = ""    # PHẦN I: KIẾN THỨC TRỌNG TÂM & LÝ THUYẾT NỀN TẢNG
+    chapters: List[RewrittenChapter] = field(default_factory=list) # Hỗ trợ sách gộp nhiều chương
+    questions: List[RewrittenQuestionItem] = field(default_factory=list) # Dành cho sách đơn
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -40,13 +64,17 @@ class RewrittenBook:
             "subtitle": self.subtitle,
             "author_note": self.author_note,
             "chapter_summary": self.chapter_summary,
-            "total_questions": len(self.questions),
+            "theory_section": self.theory_section,
+            "is_master_book": len(self.chapters) > 0,
+            "total_chapters": len(self.chapters),
+            "total_questions": sum(len(c.questions) for c in self.chapters) if self.chapters else len(self.questions),
+            "chapters": [c.to_dict() for c in self.chapters],
             "questions": [q.to_dict() for q in self.questions]
         }
 
 
 # ==========================================
-# CƠ CHẾ SINH NỘI DUNG THÔNG MINH (OFFLINE ENGINE)
+# CƠ CHẾ SINH NỘI DUNG TỰ ĐỘNG & BẢO TOÀN KIẾN THỨC
 # ==========================================
 
 STEM_CONTEXTS_MATH = [
@@ -83,45 +111,58 @@ TRAP_WARNINGS = [
     "⚠️ Bẫy chia cho 0 khi biện luận tham số: Khi chia cả 2 vế cho biểu thức chứa tham số m, bắt buộc phải xét trường hợp hệ số bằng 0 trước."
 ]
 
-def generate_offline_enhancement(q: QuestionItem, idx: int, subject: str = "toan") -> RewrittenQuestionItem:
-    """Sinh nội dung nâng cấp khi chạy ở chế độ Offline (Template Rule-based)"""
-    # Làm mới đề bài
-    prefix = random.choice(STEM_CONTEXTS_MATH if subject == "toan" else STEM_CONTEXTS_PHYSICS)
-    clean_content = latex_to_unicode(q.content)
-    
-    # Biến đổi nhẹ câu từ để tạo phong cách cẩm nang chuyên sâu
-    new_content = f"{prefix} {clean_content}" if not clean_content.lower().startswith("trong") else clean_content
+LEVELS = ["Nhận biết", "Thông hiểu", "Vận dụng", "Vận dụng cao"]
 
-    # Tạo phương án mới nếu có
+def assign_cognitive_level(idx: int, total: int) -> str:
+    """Phân loại cấp độ nhận thức chuẩn Bộ GD&ĐT: 30% NB, 40% TH, 20% VD, 10% VDC"""
+    ratio = idx / max(1, total)
+    if ratio <= 0.3:
+        return "Nhận biết"
+    elif ratio <= 0.7:
+        return "Thông hiểu"
+    elif ratio <= 0.9:
+        return "Vận dụng"
+    else:
+        return "Vận dụng cao"
+
+def generate_offline_enhancement(q: QuestionItem, idx: int, total: int, subject: str = "toan") -> RewrittenQuestionItem:
+    """Sinh nội dung nâng cấp giữ nguyên cấu trúc gốc và bổ sung lời giải kép chuẩn mực"""
+    clean_content = latex_to_unicode(q.content)
+
+    # Làm mới văn phong nhẹ nhàng nhưng giữ trọn vẹn bản chất bài toán gốc
+    prefix = random.choice(STEM_CONTEXTS_MATH if subject == "toan" else STEM_CONTEXTS_PHYSICS)
+    if not clean_content.lower().startswith("trong") and not clean_content.lower().startswith("cho"):
+        new_content = f"{prefix} {clean_content}"
+    else:
+        new_content = clean_content
+
     new_options = [latex_to_unicode(opt) for opt in q.options]
 
-    # Lời giải cách 1: Tự luận chuẩn mực
     sol1 = latex_to_unicode(q.solution)
     if not sol1:
         if subject == "toan":
             sol1 = (
-                f"• Bước 1: Thiết lập điều kiện xác định của bài toán.\n"
-                f"• Bước 2: Biến đổi biểu thức đại số, áp dụng các tính chất giải tích/hình học trọng tâm.\n"
-                f"• Bước 3: Tìm ra kết quả cuối cùng và đối chiếu điều kiện để kết luận: "
-                f"Đáp án chính xác là {q.correct_answer or 'phương án tối ưu'}."
+                f"• Bước 1: Thiết lập điều kiện xác định và phân tích giả thiết của bài toán.\n"
+                f"• Bước 2: Biến đổi biểu thức toán học, áp dụng định lý trọng tâm.\n"
+                f"• Bước 3: Tìm ra kết quả cuối cùng, đối chiếu điều kiện để chọn đáp án chính xác: "
+                f"{q.correct_answer or 'phương án tối ưu'}."
             )
         else:
             sol1 = (
-                f"• Bước 1: Phân tích hiện tượng vật lý và chọn hệ quy chiếu phù hợp.\n"
-                f"• Bước 2: Viết phương trình định luật vật lý cơ bản liên quan đến bài toán.\n"
+                f"• Bước 1: Phân tích hiện tượng vật lý và chọn hệ quy chiếu chuẩn.\n"
+                f"• Bước 2: Viết phương trình định luật vật lý cơ bản liên quan.\n"
                 f"• Bước 3: Thay số liệu chuẩn SI và tính toán kết quả: "
                 f"Đáp án chính xác là {q.correct_answer or 'phương án tối ưu'}."
             )
 
-    # Lời giải cách 2: Mẹo Casio / Giải nhanh
     sol2 = random.choice(CASIO_TIPS)
-
-    # Cảnh báo bẫy
     trap = random.choice(TRAP_WARNINGS)
+    level = assign_cognitive_level(idx, total)
 
     return RewrittenQuestionItem(
         index=idx,
-        title=f"Bài toán {idx} [Trọng điểm bứt phá]",
+        title=f"Câu {idx} [{level}]",
+        level=level,
         original_content=q.content,
         original_solution=q.solution,
         new_content=new_content,
@@ -130,55 +171,60 @@ def generate_offline_enhancement(q: QuestionItem, idx: int, subject: str = "toan
         solution_method1=sol1,
         solution_method2=sol2,
         trap_warning=trap,
-        is_added_new=False
+        is_added_new=False,
+        source_file=q.source_file
     )
 
 def create_added_question(idx: int, subject: str = "toan") -> RewrittenQuestionItem:
-    """Tạo thêm bài tập phân hóa vận dụng cao (+2, +5 bài mới)"""
+    """Tạo thêm bài tập vận dụng cao mới theo chuẩn ma trận đề Bộ GD&ĐT"""
     if subject == "toan":
         content = (
-            "Một hồ chứa sinh thái có lượng vi sinh vật phát triển theo hàm số P(t) = 1000 / (1 + 9e^(-0.5t)), "
-            "với t tính bằng ngày. Hãy xác định thời điểm mà tốc độ gia tăng sinh khối đạt giá trị lớn nhất."
+            "Một mô hình sinh thái có sự biến thiên sinh khối theo thời gian t (ngày) "
+            "thỏa mãn phương trình P(t) = 1200 / (1 + 8e^(-0.4t)). Xác định thời điểm t để "
+            "tốc độ tăng trưởng sinh khối đạt giá trị lớn nhất."
         )
         opts = [
-            "A. t = 2 ln 9 (ngày)",
-            "B. t = ln 3 (ngày)",
-            "C. t = 4 ln 3 (ngày)",
-            "D. t = ln 9 (ngày)"
+            "A. t = 2.5 ln 8 (ngày)",
+            "B. t = ln 4 (ngày)",
+            "C. t = 5 ln 2 (ngày)",
+            "D. t = 3 ln 8 (ngày)"
         ]
         correct = "A"
         sol1 = (
-            "Tốc độ gia tăng sinh khối là đạo hàm P'(t). Để P'(t) đạt cực đại, ta khảo sát P''(t) = 0.\n"
-            "Tính đạo hàm cấp 2 và giải phương trình P''(t) = 0 ta thu được e^(-0.5t) = 1/9 ⇔ -0.5t = -ln 9 ⇔ t = 2 ln 9.\n"
-            "Kết luận: Sau t = 2 ln 9 ngày, tốc độ gia tăng vi sinh vật đạt cực đại."
+            "• Tốc độ tăng trưởng sinh khối là đạo hàm bậc nhất P'(t).\n"
+            "• Để P'(t) đạt cực đại thì đạo hàm bậc hai P''(t) = 0.\n"
+            "• Giải phương trình P''(t) = 0 ta tìm được e^(-0.4t) = 1/8 ⇔ -0.4t = -ln 8 ⇔ t = ln 8 / 0.4 = 2.5 ln 8.\n"
+            "• Kết luận: Tại thời điểm t = 2.5 ln 8 ngày, tốc độ tăng trưởng sinh khối đạt cực đại."
         )
-        sol2 = "Bấm TABLE trên máy tính: Nhập d/dx[P(x)] tại x = X với Start = 0, End = 10, Step = 0.5. Tìm giá trị đạo hàm lớn nhất tương ứng với đáp án A."
-        trap = "⚠️ Nhầm lẫn giữa 'sinh khối đạt cực đại' (khi t → ∞) và 'tốc độ gia tăng sinh khối đạt cực đại' (khi P''(t) = 0). Đọc kỹ câu hỏi để không xét sai hàm."
+        sol2 = "Dùng chức năng TABLE hoặc SOLVE trên Casio fx-580VN X: Nhập d/dx[P(X)] tại X, khảo sát giá trị cực đại để chọn nhanh đáp án A."
+        trap = "⚠️ Nhầm lẫn giữa 'tốc độ tăng trưởng cực đại' (P'(t) max) và 'sinh khối cực đại' (P(t) max khi t → ∞)."
     else:
         content = (
-            "Trong mạch dao động LC lý tưởng đang có dao động điện từ tự do. "
-            "Tại thời điểm điện tích trên bản tụ q = Q₀/√2 thì năng lượng từ trường trong cuộn cảm "
-            "chiếm bao nhiêu phần trăm tổng năng lượng điện từ của mạch?"
+            "Một mạch dao động LC lý tưởng có L = 2 mH, C = 8 nF. Tại thời điểm điện tích trên tụ điện "
+            "bằng một nửa giá trị cực đại (q = Q₀/2) thì tỉ số giữa năng lượng từ trường trong cuộn cảm "
+            "và năng lượng điện trường trong tụ điện là bao nhiêu?"
         )
         opts = [
-            "A. 25%",
-            "B. 50%",
-            "C. 75%",
-            "D. 100%"
+            "A. 1",
+            "B. 3",
+            "C. 2",
+            "D. 4"
         ]
         correct = "B"
         sol1 = (
-            "Năng lượng điện trường: W_C = q² / (2C) = (Q₀² / 2C) * (1/2) = W / 2.\n"
-            "Do năng lượng điện từ bảo toàn: W_L = W - W_C = W - W/2 = W/2 = 50% W.\n"
-            "Chọn đáp án B."
+            "• Năng lượng điện trường: W_C = q² / (2C) = (Q₀/2)² / (2C) = W / 4.\n"
+            "• Năng lượng từ trường: W_L = W - W_C = W - W/4 = 3W / 4.\n"
+            "• Tỉ số: W_L / W_C = (3W / 4) / (W / 4) = 3.\n"
+            "• Đáp án chính xác là B."
         )
-        sol2 = "Dùng vòng tròn lượng giác hoặc trục phân bố thời gian: Tại vị trí q = Q₀/√2 (tương đương góc 45°), thế năng bằng động năng (W_C = W_L = 50% W) chỉ mất 5 giây suy luận."
-        trap = "⚠️ Nhầm lẫn giữa biên độ điện áp và cường độ dòng điện tức thời, hoặc nhầm công thức năng lượng từ trường W_L = 1/2 L i²."
+        sol2 = "Dùng trục thời gian lượng giác: Vị trí q = Q₀/2 tương ứng góc 60° trên đường tròn, tại đó thế năng bằng 1/4 cơ năng, suy ra từ năng chiếm 3/4 ➔ Tỉ số = 3."
+        trap = "⚠️ Nhầm lẫn tỉ số giữa W_L / W_C với tỉ số W_L / W (dẫn đến chọn nhầm 3/4 hoặc 75%)."
 
     return RewrittenQuestionItem(
         index=idx,
-        title=f"Bài toán {idx} [Bổ sung nâng cao - Vận dụng thực chiến]",
-        original_content="[Bài toán sáng tạo mới]",
+        title=f"Câu {idx} [Vận dụng cao - Phân hóa điểm 10]",
+        level="Vận dụng cao",
+        original_content="[Bài toán bổ sung phân hóa]",
         original_solution="",
         new_content=content,
         new_options=opts,
@@ -201,150 +247,188 @@ def rewrite_with_gemini(
     subject: str = "toan",
     add_count: int = 2
 ) -> RewrittenBook:
-    """Sử dụng Google GenAI SDK để biên soạn lại sách một cách tự nhiên và sáng tạo"""
     from google import genai
     from google.genai import types
 
     client = genai.Client(api_key=api_key)
-
     total_orig = len(questions)
     new_total = total_orig + add_count
 
-    # Rút gọn danh sách câu hỏi mẫu gửi cho AI
-    sample_questions_text = ""
-    for q in questions[:15]:  # Xử lý theo đợt
-        opts_txt = "\n".join(q.options) if q.options else ""
-        sample_questions_text += f"\n--- Câu {q.index} ---\nĐề: {q.content}\n{opts_txt}\nĐáp án: {q.correct_answer}\nGiải: {q.solution}\n"
+    # Trích xuất lý thuyết nền tảng
+    all_texts = [q.content for q in questions]
+    topic_data = detect_subject_and_topic(all_texts, subject=subject)
+    theory_text = build_pedagogical_theory_section(topic_data)
+
+    sample_text = ""
+    for q in questions[:20]:
+        opts = "\n".join(q.options) if q.options else ""
+        sample_text += f"\n--- Câu {q.index} ---\nĐề: {q.content}\n{opts}\nĐáp án: {q.correct_answer}\nGiải: {q.solution}\n"
 
     prompt = f"""
-Bạn là chuyên gia biên soạn sách giáo khoa và sách tham khảo luyện thi { 'Toán học' if subject == 'toan' else 'Vật lý' } hàng đầu Việt Nam.
-Tôi có một tài liệu gốc gồm {total_orig} bài toán. 
-Nhiệm vụ của bạn là BIÊN SOẠN LẠI HOÀN TOÀN để xuất bản một cuốn sách mới đẳng cấp hơn:
-1. Đặt tựa đề sách mới ấn tượng, cuốn hút (Ví dụ: Từ '{total_orig} bài toán hay' thành '{new_total} Tuyệt Kỹ Chinh Phục...').
-2. Tạo Lời tựa (Author note) ngắn gọn, truyền cảm hứng.
-3. Bảng công thức vàng & Sơ đồ tư duy trọng tâm của chủ đề này (Chapter summary).
-4. Viết lại từng bài toán:
-   - Đề bài: Thay đổi ngữ cảnh thực tế (STEM, đời sống), đổi câu từ, đảm bảo số liệu khoa học chính xác.
-   - Giữ hoặc tạo 4 phương án trắc nghiệm A, B, C, D (nếu là trắc nghiệm).
-   - Lời giải Cách 1: Tự luận bài bản, chuẩn mực sư phạm.
-   - Lời giải Cách 2: Kỹ thuật bấm máy tính Casio fx-580VN X hoặc mẹo suy luận nhanh.
-   - Khung Cảnh báo bẫy: Chỉ ra lỗi sai phổ biến học sinh hay mắc phải tại dạng toán này.
-5. Bổ sung thêm {add_count} bài toán vận dụng cao sáng tạo mới vào cuối sách để nâng tổng số lên {new_total} bài.
+Bạn là chuyên gia biên soạn tài liệu giảng dạy { 'Toán học' if subject == 'toan' else 'Vật lý' } theo chuẩn chương trình GDPT 2018 của Bộ Giáo dục và Đào tạo Việt Nam.
+Tôi có tài liệu gồm {total_orig} bài tập. Nhiệm vụ của bạn là:
+1. GIỮ NGUYÊN MẠCH KIẾN THỨC VÀ CẤU TRÚC GỐC, nâng cấp câu từ mạch lạc, khoa học, sư phạm.
+2. Phân cấp độ từng câu: 'Nhận biết', 'Thông hiểu', 'Vận dụng', 'Vận dụng cao'.
+3. Viết lời giải 2 cách: Cách 1 (Tự luận chuẩn mực) + Cách 2 (Mẹo Casio fx-580VN X).
+4. Chỉ ra cảnh báo bẫy sai lầm của học sinh.
+5. Thêm {add_count} câu hỏi vận dụng cao sáng tạo vào cuối sách (tổng {new_total} câu).
 
-Dữ liệu đầu vào:
-{sample_questions_text}
+Dữ liệu gốc:
+{sample_text}
 
-HÃY TRẢ VỀ ĐỊNH DẠNG JSON HỢP LỆ VỚI CẤU TRÚC:
+TRẢ VỀ ĐỊNH DẠNG JSON:
 {{
-  "new_title": "Tên sách mới cuốn hút",
-  "subtitle": "Phụ đề sách",
-  "author_note": "Lời tựa sách",
-  "chapter_summary": "Bảng tổng hợp công thức & phương pháp tư duy trọng tâm",
+  "new_title": "Tên sách/cẩm nang chuẩn",
+  "subtitle": "Phụ đề phân hóa",
+  "author_note": "Lời tựa sư phạm",
   "questions": [
     {{
       "index": 1,
-      "title": "Tên đề mục câu",
-      "new_content": "Nội dung đề bài viết lại",
+      "title": "Câu 1",
+      "level": "Thông hiểu",
+      "new_content": "Đề bài đã nâng cấp",
       "new_options": ["A. ...", "B. ...", "C. ...", "D. ..."],
       "correct_answer": "A",
-      "solution_method1": "Lời giải tự luận chuẩn mực",
+      "solution_method1": "Lời giải tự luận bài bản",
       "solution_method2": "Mẹo Casio / Giải nhanh",
-      "trap_warning": "Cảnh báo bẫy sai lầm"
+      "trap_warning": "Bẫy sai lầm"
     }}
   ]
 }}
-Chỉ trả về chuỗi JSON thuần túy, không bao bọc thêm code block hay văn bản giải thích.
+Chỉ trả về JSON thuần túy.
 """
-
     try:
         response = client.models.generate_content(
             model=model_name,
             contents=prompt,
-            config=types.GenerateContentConfig(
-                temperature=0.3,
-                response_mime_type="application/json"
-            )
+            config=types.GenerateContentConfig(response_mime_type="application/json")
         )
         data = json.loads(response.text)
-
         rewritten_items: List[RewrittenQuestionItem] = []
         q_map = {q.index: q for q in questions}
 
         for q_json in data.get("questions", []):
-            orig_q = q_map.get(q_json.get("index"), None)
-            item = RewrittenQuestionItem(
+            orig_q = q_map.get(q_json.get("index"))
+            rewritten_items.append(RewrittenQuestionItem(
                 index=q_json.get("index", len(rewritten_items) + 1),
-                title=q_json.get("title", f"Bài toán {len(rewritten_items) + 1}"),
+                title=f"Câu {len(rewritten_items) + 1} [{q_json.get('level', 'Vận dụng')}]",
+                level=q_json.get("level", "Vận dụng"),
                 original_content=orig_q.content if orig_q else "",
                 original_solution=orig_q.solution if orig_q else "",
                 new_content=latex_to_unicode(q_json.get("new_content", "")),
-                new_options=[latex_to_unicode(opt) for opt in q_json.get("new_options", [])],
+                new_options=[latex_to_unicode(o) for o in q_json.get("new_options", [])],
                 correct_answer=q_json.get("correct_answer", ""),
                 solution_method1=latex_to_unicode(q_json.get("solution_method1", "")),
                 solution_method2=latex_to_unicode(q_json.get("solution_method2", "")),
                 trap_warning=latex_to_unicode(q_json.get("trap_warning", "")),
                 is_added_new=False
-            )
-            rewritten_items.append(item)
+            ))
 
-        # Nếu AI trả về ít câu hơn số câu gốc, bổ sung các câu còn lại bằng engine offline
         if len(rewritten_items) < total_orig:
             for idx in range(len(rewritten_items), total_orig):
-                rewritten_items.append(generate_offline_enhancement(questions[idx], idx + 1, subject))
+                rewritten_items.append(generate_offline_enhancement(questions[idx], idx + 1, new_total, subject))
 
-        # Thêm các câu sáng tạo mới nếu chưa đủ
         while len(rewritten_items) < new_total:
-            next_idx = len(rewritten_items) + 1
-            rewritten_items.append(create_added_question(next_idx, subject))
+            rewritten_items.append(create_added_question(len(rewritten_items) + 1, subject))
 
         return RewrittenBook(
-            original_title=f"{total_orig} Bài toán chọn lọc",
-            new_title=data.get("new_title", f"{new_total} Tuyệt Kỹ Bứt Phá Điểm 9+ { 'Toán Học' if subject == 'toan' else 'Vật Lý' }"),
-            subtitle=data.get("subtitle", "Hệ thống bài tập phân hóa - Tích hợp mẹo Casio & Tránh bẫy đề thi"),
-            author_note=data.get("author_note", "Cuốn sách được biên soạn lại với phương pháp tư duy đột phá, giúp bạn làm chủ mọi dạng đề thi."),
-            chapter_summary=data.get("chapter_summary", "Tổng hợp toàn bộ công thức trọng tâm và phương pháp giải nhanh theo từng chuyên đề."),
+            original_title=f"Tài liệu {total_orig} bài toán",
+            new_title=data.get("new_title", f"{new_total} Tuyệt Kỹ Chinh Phục Điểm 9+ { 'Toán Học' if subject == 'toan' else 'Vật Lý' }"),
+            subtitle=data.get("subtitle", "Hệ Thống Kiến Thức Trọng Tâm, Phân Dạng & Lời Giải Đa Chiều"),
+            author_note=data.get("author_note", "Tài liệu được biên soạn đồng bộ theo định hướng phát triển năng lực học sinh, chuẩn chương trình GDPT 2018."),
+            chapter_summary=topic_data.get("title", ""),
+            theory_section=theory_text,
             questions=rewritten_items
         )
     except Exception as e:
-        print(f"Gemini API gặp lỗi: {e}. Tự động chuyển sang chế độ Offline Rule-based Engine.")
+        print(f"Gemini API gặp lỗi: {e}. Tự động chạy chế độ Offline Engine.")
         return rewrite_offline(questions, subject=subject, add_count=add_count)
 
 
 # ==========================================
-# CƠ CHẾ TỔNG HỢP & ĐIỀU PHỐI (MAIN PIPELINE)
+# CƠ CHẾ OFFLINE ENGINE & GỘP NHIỀU FILE THÀNH MASTER BOOK
 # ==========================================
 
 def rewrite_offline(questions: List[QuestionItem], subject: str = "toan", add_count: int = 2) -> RewrittenBook:
-    """Biên soạn lại hoàn toàn bằng Rule-based Math Engine (Không cần API Key)"""
+    """Biên soạn giữ nguyên cấu trúc gốc và bổ sung Lý thuyết chuẩn GDPT 2018"""
     total_orig = len(questions)
     new_total = total_orig + add_count
 
+    all_texts = [q.content for q in questions]
+    topic_data = detect_subject_and_topic(all_texts, subject=subject)
+    theory_text = build_pedagogical_theory_section(topic_data)
+
     rewritten_items: List[RewrittenQuestionItem] = []
     for idx, q in enumerate(questions, 1):
-        enh = generate_offline_enhancement(q, idx, subject=subject)
+        enh = generate_offline_enhancement(q, idx, new_total, subject=subject)
         rewritten_items.append(enh)
 
     for i in range(1, add_count + 1):
-        added = create_added_question(total_orig + i, subject=subject)
-        rewritten_items.append(added)
+        rewritten_items.append(create_added_question(total_orig + i, subject=subject))
 
     sub_name = "Toán Học" if subject == "toan" else "Vật Lý"
     return RewrittenBook(
-        original_title=f"{total_orig} Bài tập {sub_name} cơ bản",
-        new_title=f"{new_total} Tuyệt Kỹ Bứt Phá Điểm 9+ {sub_name}",
-        subtitle="Hệ thống bài tập phân hóa - Tích hợp mẹo bấm máy Casio fx-580VN X & Cảnh báo bẫy đề thi",
+        original_title=f"{total_orig} Bài tập {sub_name}",
+        new_title=f"{new_total} Tuyệt Kỹ Chinh Phục Điểm 9+ {sub_name}",
+        subtitle="Hệ Thống Kiến Thức Trọng Tâm, Phân Dạng Bài Tập & Lời Giải Đa Chiều Chuẩn BGD",
         author_note=(
-            "Tài liệu này được tái cấu trúc toàn diện nhằm cung cấp cho học sinh và giáo viên "
-            "một góc nhìn đa chiều: Không chỉ dừng lại ở lời giải tự luận truyền thống mà còn "
-            "trang bị kỹ năng giải nhanh máy tính cầm tay và nhận diện bẫy đề thi sắc bén."
+            "Tài liệu này được tái cấu trúc toàn diện theo chuẩn chương trình GDPT 2018: "
+            "Trình bày mạch lạc từ Kiến thức trọng tâm, Phương pháp tư duy đến Hệ thống bài tập 4 cấp độ nhận thức. "
+            "Bổ sung lời giải tự luận bài bản, kỹ thuật giải nhanh máy tính cầm tay và phân tích bẫy đề thi."
         ),
-        chapter_summary=(
-            f"BẢNG CÔNG THỨC VÀNG & PHƯƠNG PHÁP CỐT LÕI - CHỦ ĐỀ {sub_name.upper()}:\n"
-            f"1. Luôn kiểm tra điều kiện tồn tại và đơn vị chuẩn SI trước khi bắt đầu tính toán.\n"
-            f"2. Ưu tiên biểu diễn các đại lượng phức tạp về dạng hàm số đơn giản hoặc sơ đồ tư duy.\n"
-            f"3. Tận dụng tối đa kỹ thuật thử đáp án ngược và quét bảng TABLE trên máy tính cầm tay."
-        ),
+        chapter_summary=topic_data.get("title", ""),
+        theory_section=theory_text,
         questions=rewritten_items
+    )
+
+def create_master_book_from_chapters(
+    chapter_data_list: List[Dict[str, Any]],
+    subject: str = "toan",
+    master_title: Optional[str] = None
+) -> RewrittenBook:
+    """Gom toàn bộ các tài liệu trong một thư mục thành 1 cuốn ĐẠI CẨM NANG duy nhất"""
+    chapters: List[RewrittenChapter] = []
+
+    for c_idx, data in enumerate(chapter_data_list, 1):
+        source_name = data.get("source_name", f"Tài liệu {c_idx}")
+        questions = data.get("questions", [])
+
+        # Phát hiện chuyên đề lý thuyết riêng cho từng chương
+        all_texts = [q.content for q in questions]
+        topic_data = detect_subject_and_topic(all_texts, subject=subject)
+        theory_text = build_pedagogical_theory_section(topic_data)
+
+        # Xử lý các câu hỏi trong chương
+        rewritten_items: List[RewrittenQuestionItem] = []
+        for q_idx, q in enumerate(questions, 1):
+            enh = generate_offline_enhancement(q, q_idx, len(questions), subject=subject)
+            rewritten_items.append(enh)
+
+        clean_chapter_name = Path(source_name).stem.replace("_", " ").replace("-", " ")
+        chapters.append(RewrittenChapter(
+            index=c_idx,
+            title=f"CHƯƠNG {c_idx}: {clean_chapter_name.upper()}",
+            source_name=source_name,
+            theory_section=theory_text,
+            questions=rewritten_items
+        ))
+
+    sub_name = "Toán Học" if subject == "toan" else "Vật Lý"
+    final_title = master_title or f"ĐẠI CẨM NANG TOÀN DIỆN MÔN {sub_name.upper()}"
+
+    return RewrittenBook(
+        original_title="Bộ tài liệu tổng hợp",
+        new_title=final_title,
+        subtitle="Tuyển Tập Chuyên Đề Bồi Dưỡng - Kiến Thức Trọng Tâm & Lời Giải Chi Tiết Chuẩn BGD",
+        author_note=(
+            f"Cuốn đại cẩm nang được tổng hợp và biên soạn đồng bộ từ toàn bộ thư mục tài liệu gốc. "
+            f"Bố cục sách gồm {len(chapters)} chương bài bản, tích hợp đầy đủ lý thuyết nền tảng, "
+            f"hệ thống bài tập phân loại theo cấp độ nhận thức và hướng dẫn giải chi tiết."
+        ),
+        chapter_summary=f"Tuyển tập {len(chapters)} chương chuyên đề trọng tâm môn {sub_name}",
+        theory_section="",
+        chapters=chapters,
+        questions=[]
     )
 
 def process_rewrite_pipeline(

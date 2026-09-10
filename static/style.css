@@ -1,7 +1,7 @@
 :root {
     --bg-main: #0B0F19;
-    --bg-card: rgba(17, 24, 39, 0.85);
-    --bg-card-hover: rgba(26, 36, 56, 0.9);
+    --bg-card: rgba(17, 24, 39, 0.88);
+    --bg-card-hover: rgba(26, 36, 56, 0.92);
     --bg-input: #1F2937;
     --border-color: rgba(255, 255, 255, 0.08);
     --border-active: #3B82F6;
@@ -130,7 +130,7 @@ body {
 }
 
 .hero-body h2 {
-    font-size: 26px;
+    font-size: 25px;
     font-weight: 800;
     margin-bottom: 8px;
     background: linear-gradient(90deg, #FFFFFF, #93C5FD);
@@ -141,32 +141,32 @@ body {
 .hero-body p {
     color: var(--text-muted);
     font-size: 14.5px;
-    max-width: 680px;
+    max-width: 720px;
 }
 
 .hero-stats {
     display: flex;
-    gap: 20px;
+    gap: 16px;
 }
 
 .stat-item {
     background: rgba(0, 0, 0, 0.3);
     border: 1px solid var(--border-color);
-    padding: 12px 20px;
+    padding: 12px 18px;
     border-radius: var(--radius-md);
     text-align: center;
-    min-width: 110px;
+    min-width: 120px;
 }
 
 .stat-num {
     display: block;
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 800;
     color: #60A5FA;
 }
 
 .stat-label {
-    font-size: 11px;
+    font-size: 10.5px;
     color: var(--text-dim);
     text-transform: uppercase;
     font-weight: 600;
@@ -177,11 +177,11 @@ body {
    ========================================== */
 .grid-layout {
     display: grid;
-    grid-template-columns: 480px 1fr;
+    grid-template-columns: 500px 1fr;
     gap: 24px;
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 1100px) {
     .grid-layout {
         grid-template-columns: 1fr;
     }
@@ -231,6 +231,39 @@ body {
 }
 
 /* ==========================================
+   TABS SELECTOR
+   ========================================== */
+.tab-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.tab-btn {
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    font-family: inherit;
+}
+
+.tab-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.tab-btn.active {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: var(--primary);
+    color: #FFF;
+}
+
+/* ==========================================
    SUBJECT SELECTOR
    ========================================== */
 .subject-selector {
@@ -272,12 +305,12 @@ body {
 }
 
 /* ==========================================
-   DROP ZONE
+   DROP ZONE & FOLDER RESULTS
    ========================================== */
 .drop-zone {
     border: 2px dashed rgba(255, 255, 255, 0.15);
     border-radius: var(--radius-md);
-    padding: 36px 20px;
+    padding: 32px 20px;
     text-align: center;
     cursor: pointer;
     transition: var(--transition);
@@ -290,12 +323,12 @@ body {
 }
 
 .upload-icon {
-    font-size: 38px;
-    margin-bottom: 12px;
+    font-size: 36px;
+    margin-bottom: 10px;
 }
 
 .drop-title {
-    font-size: 15px;
+    font-size: 14.5px;
     font-weight: 600;
     color: #FFF;
     margin-bottom: 4px;
@@ -307,7 +340,7 @@ body {
 }
 
 .drop-hint {
-    font-size: 12.5px;
+    font-size: 12px;
     color: var(--text-dim);
 }
 
@@ -343,6 +376,79 @@ body {
     display: block;
     font-size: 12px;
     color: #93C5FD;
+}
+
+/* Folder Results */
+.folder-results-box {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 14px;
+    margin-top: 14px;
+}
+
+.folder-summary-bar {
+    margin-bottom: 10px;
+}
+
+.folder-file-list {
+    max-height: 180px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+    padding-right: 4px;
+}
+
+.folder-file-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 12.5px;
+}
+
+.merge-mode-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-top: 1px solid var(--border-color);
+    padding-top: 12px;
+}
+
+.merge-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: var(--transition);
+}
+
+.merge-option input {
+    margin-top: 3px;
+    accent-color: var(--primary);
+}
+
+.merge-option:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.merge-option strong {
+    display: block;
+    font-size: 13px;
+    color: #FFF;
+}
+
+.merge-option p {
+    font-size: 11.5px;
+    color: var(--text-muted);
 }
 
 /* ==========================================
@@ -485,10 +591,6 @@ body {
     box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
 }
 
-.btn-success:hover {
-    background: linear-gradient(135deg, #10B981, #34D399);
-}
-
 .btn-outline {
     background: transparent;
     border: 1px solid var(--border-color);
@@ -497,16 +599,11 @@ body {
 
 .btn-outline:hover {
     background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.2);
 }
 
 .btn-secondary {
     background: rgba(255, 255, 255, 0.1);
     color: var(--text-main);
-}
-
-.btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.18);
 }
 
 .btn-icon {
@@ -523,7 +620,7 @@ body {
 }
 
 /* ==========================================
-   PROGRESS BAR
+   PROGRESS & RESULT
    ========================================== */
 .progress-container {
     background: rgba(0, 0, 0, 0.4);
@@ -566,9 +663,6 @@ body {
     to { transform: rotate(360deg); }
 }
 
-/* ==========================================
-   RESULT CARD
-   ========================================== */
 .result-card {
     background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(17, 24, 39, 0.9));
     border: 1px solid var(--success-border);
@@ -601,6 +695,25 @@ body {
 .download-action-box {
     display: flex;
     gap: 12px;
+}
+
+.result-batch-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 240px;
+    overflow-y: auto;
+    margin-top: 14px;
+}
+
+.result-batch-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
 }
 
 /* ==========================================
@@ -673,6 +786,16 @@ body {
     color: #60A5FA;
 }
 
+.badge-level {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 8px;
+    background: rgba(59, 130, 246, 0.2);
+    color: #93C5FD;
+    border: 1px solid rgba(59, 130, 246, 0.4);
+}
+
 .badge-added {
     background: var(--success-bg);
     color: #34D399;
@@ -688,6 +811,8 @@ body {
     color: var(--text-main);
     margin-bottom: 12px;
     white-space: pre-wrap;
+    font-family: "Times New Roman", serif;
+    font-size: 14px;
 }
 
 .preview-options-grid {
@@ -698,15 +823,23 @@ body {
     padding: 10px;
     border-radius: var(--radius-sm);
     margin-bottom: 12px;
-    font-size: 12.5px;
+    font-size: 13px;
+    font-family: "Times New Roman", serif;
 }
 
 .preview-callout {
     border-radius: var(--radius-sm);
     padding: 10px 12px;
-    font-size: 12.5px;
+    font-size: 13px;
     margin-bottom: 8px;
     border-left: 3px solid transparent;
+    font-family: "Times New Roman", serif;
+}
+
+.callout-theory {
+    background: rgba(30, 58, 138, 0.2);
+    border-left-color: #3B82F6;
+    margin-bottom: 14px;
 }
 
 .callout-sol {
@@ -728,6 +861,8 @@ body {
     font-weight: 700;
     margin-bottom: 4px;
     display: block;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 12px;
 }
 
 /* ==========================================

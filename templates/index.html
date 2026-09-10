@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Biên Soạn Sách Toán - Vật Lý Pro | AI Book Publisher</title>
+    <title>Biên Soạn Sách Toán - Vật Lý Pro | Chuẩn Bộ GD&ĐT</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -17,14 +17,14 @@
                 <div class="brand-icon">📚</div>
                 <div class="brand-text">
                     <h1>Biên Soạn Sách Pro</h1>
-                    <span class="badge-tag">Toán & Vật Lý AI</span>
+                    <span class="badge-tag">Chuẩn Bộ GD&ĐT & Nghị Định 30</span>
                 </div>
             </div>
             <div class="header-actions">
                 <button id="btn-open-folder" class="btn btn-outline" title="Mở thư mục output trên máy tính">
                     <span class="icon">📂</span> Thư Mục Kết Quả
                 </button>
-                <button id="btn-settings" class="btn btn-outline" title="Cấu hình Google Gemini API Key">
+                <button id="btn-settings" class="btn btn-outline" title="Cấu hình Google Gemini AI">
                     <span class="icon">⚙️</span> Cài Đặt AI
                 </button>
             </div>
@@ -35,21 +35,21 @@
             <!-- Hero Banner -->
             <section class="hero-card">
                 <div class="hero-body">
-                    <h2>Tự Động Hóa Tái Cấu Trúc & Xuất Bản Sách</h2>
-                    <p>Nhập file Word (.docx) hoặc Excel (.xlsx) gốc ➔ AI và Thuật toán Toán học sẽ tự động viết lại đề, đổi số liệu nghiệm đẹp, thêm mẹo Casio, chỉ ra bẫy sai lầm và đóng khung chuẩn sách in ấn.</p>
+                    <h2>Tự Động Hóa Biên Soạn & Tái Cấu Trúc Sách Chuẩn Sư Phạm</h2>
+                    <p>Hỗ trợ đa định dạng đầu vào: <strong>Word, Excel, PDF, Ảnh bài tập và Thư mục máy tính</strong>. Hệ thống tự động bảo toàn cấu trúc kiến thức gốc, bổ sung phần Lý thuyết chuẩn CT GDPT 2018, mẹo Casio, bẫy sai lầm và trình bày văn bản chuẩn Nghị định 30/2020/NĐ-CP.</p>
                 </div>
                 <div class="hero-stats">
                     <div class="stat-item">
-                        <span class="stat-num">100%</span>
-                        <span class="stat-label">Nội Dung Đổi Mới</span>
+                        <span class="stat-num">GDPT 2018</span>
+                        <span class="stat-label">Lý Thuyết & Phân Dạng</span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-num">2 Cách</span>
-                        <span class="stat-label">Tự Luận & Casio</span>
+                        <span class="stat-num">NĐ 30</span>
+                        <span class="stat-label">Lề Trái 30mm In Ấn</span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-num">Native</span>
-                        <span class="stat-label">Word DOCX Chuẩn In</span>
+                        <span class="stat-num">Đa Phương Thức</span>
+                        <span class="stat-label">Word/Excel/PDF/Ảnh</span>
                     </div>
                 </div>
             </section>
@@ -57,11 +57,17 @@
             <div class="grid-layout">
                 <!-- Left Column: Input & Configuration -->
                 <div class="control-column">
-                    <!-- Step 1: Upload Card -->
+                    <!-- Step 1: Input Mode Selection -->
                     <div class="card card-step">
                         <div class="step-header">
                             <span class="step-badge">1</span>
-                            <h3>Tải Lên File Gốc</h3>
+                            <h3>Phương Thức Nạp Tài Liệu Đầu Vào</h3>
+                        </div>
+
+                        <!-- Tabs -->
+                        <div class="tab-buttons">
+                            <button id="tab-btn-file" class="tab-btn active">📄 Tải Lên Tệp (Word, PDF, Excel, Ảnh)</button>
+                            <button id="tab-btn-folder" class="tab-btn">📁 Quét Trực Tiếp Thư Mục Máy Tính</button>
                         </div>
 
                         <div class="subject-selector">
@@ -77,24 +83,64 @@
                             </label>
                         </div>
 
-                        <div id="drop-zone" class="drop-zone">
-                            <div class="drop-content">
-                                <div class="upload-icon">📄</div>
-                                <p class="drop-title">Kéo thả file vào đây hoặc <span>Duyệt chọn</span></p>
-                                <p class="drop-hint">Hỗ trợ Microsoft Word (.docx) hoặc Excel (.xlsx)</p>
+                        <!-- TAB 1: FILE UPLOAD -->
+                        <div id="panel-file-upload">
+                            <div id="drop-zone" class="drop-zone">
+                                <div class="drop-content">
+                                    <div class="upload-icon">📑</div>
+                                    <p class="drop-title">Kéo thả tài liệu vào đây hoặc <span>Duyệt chọn</span></p>
+                                    <p class="drop-hint">Hỗ trợ: Word (.docx), Excel (.xlsx), PDF (.pdf), Ảnh (.png, .jpg)</p>
+                                </div>
+                                <input type="file" id="file-input" accept=".docx,.xlsx,.pdf,.png,.jpg,.jpeg,.doc,.xls" hidden>
                             </div>
-                            <input type="file" id="file-input" accept=".docx,.xlsx,.doc,.xls" hidden>
+
+                            <div id="file-status" class="file-status-box hidden">
+                                <div class="file-info">
+                                    <span class="file-icon">📑</span>
+                                    <div class="file-meta">
+                                        <span id="file-name" class="file-name">filename.docx</span>
+                                        <span id="file-count" class="file-count">Phát hiện: 0 câu</span>
+                                    </div>
+                                </div>
+                                <button id="btn-remove-file" class="btn-icon" title="Hủy chọn file">✕</button>
+                            </div>
                         </div>
 
-                        <div id="file-status" class="file-status-box hidden">
-                            <div class="file-info">
-                                <span class="file-icon">📑</span>
-                                <div class="file-meta">
-                                    <span id="file-name" class="file-name">filename.docx</span>
-                                    <span id="file-count" class="file-count">Phát hiện: 0 câu</span>
+                        <!-- TAB 2: FOLDER SCAN -->
+                        <div id="panel-folder-scan" class="hidden">
+                            <div class="form-group">
+                                <label for="folder-path-input">Đường dẫn thư mục trên máy tính:</label>
+                                <div class="input-with-button">
+                                    <input type="text" id="folder-path-input" class="form-control" placeholder="Ví dụ: D:\Tài liệu số\Toán\Toán 12">
+                                    <button id="btn-scan-folder" class="btn btn-primary" type="button">Quét Thư Mục</button>
+                                </div>
+                                <p class="field-hint">Nhập đường dẫn bất kỳ trên ổ D:, C:... để hệ thống tự động lọc toàn bộ tài liệu con.</p>
+                            </div>
+
+                            <div id="folder-results" class="folder-results-box hidden">
+                                <div class="folder-summary-bar">
+                                    <span id="folder-found-count" class="badge-tag">Đã tìm thấy: 0 tệp</span>
+                                </div>
+                                <div id="folder-file-list" class="folder-file-list"></div>
+
+                                <!-- Merge vs Split Mode -->
+                                <div class="merge-mode-selector">
+                                    <label class="merge-option">
+                                        <input type="radio" name="folder-mode" value="merge" checked>
+                                        <div>
+                                            <strong>📚 Gộp toàn bộ thư mục thành 1 cuốn ĐẠI CẨM NANG duy nhất</strong>
+                                            <p>Có mục lục tổng thể, phân chia từng chương rành mạch, có lý thuyết chuyên sâu.</p>
+                                        </div>
+                                    </label>
+                                    <label class="merge-option">
+                                        <input type="radio" name="folder-mode" value="split">
+                                        <div>
+                                            <strong>📑 Xuất riêng từng tài liệu thành từng cuốn sách riêng biệt</strong>
+                                            <p>Xử lý hàng loạt (Batch): Mỗi tệp tài liệu trong thư mục sẽ cho ra 1 file Word .docx riêng.</p>
+                                        </div>
+                                    </label>
                                 </div>
                             </div>
-                            <button id="btn-remove-file" class="btn-icon" title="Hủy chọn file">✕</button>
                         </div>
                     </div>
 
@@ -102,17 +148,17 @@
                     <div class="card card-step">
                         <div class="step-header">
                             <span class="step-badge">2</span>
-                            <h3>Tùy Chọn Biên Soạn & Nâng Cấp</h3>
+                            <h3>Tùy Chọn Biên Soạn & Quy Chuẩn Sư Phạm</h3>
                         </div>
 
                         <div class="form-group">
-                            <label for="custom-title">Tựa đề sách mới (Để trống để tự động gợi ý):</label>
-                            <input type="text" id="custom-title" class="form-control" placeholder="Ví dụ: 102 Tuyệt Kỹ Giải Toán Thực Chiến - Bứt Phá Điểm 9+">
+                            <label for="custom-title">Tựa đề sách / Đại cẩm nang (Tự động đề xuất nếu để trống):</label>
+                            <input type="text" id="custom-title" class="form-control" placeholder="Ví dụ: Cẩm Nang Bứt Phá Điểm 9+ Toán Học THPT">
                         </div>
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="add-count">Số bài mới bổ sung thêm:</label>
+                                <label for="add-count">Số bài mới bổ sung thêm (Mỗi chuyên đề):</label>
                                 <select id="add-count" class="form-control">
                                     <option value="2" selected>+ 2 bài vận dụng cao</option>
                                     <option value="5">+ 5 bài vận dụng cao</option>
@@ -122,31 +168,34 @@
                             </div>
 
                             <div class="form-group">
-                                <label for="paper-format">Khổ trang in ấn:</label>
-                                <select id="paper-format" class="form-control">
-                                    <option value="a4" selected>Khổ A4 (210 x 297 mm)</option>
-                                    <option value="b5">Khổ B5 Sách bỏ túi (182 x 257 mm)</option>
+                                <label for="paper-format">Quy chuẩn thể thức in ấn:</label>
+                                <select id="paper-format" class="form-control" disabled>
+                                    <option value="a4_nd30" selected>Chuẩn Nghị định 30 (A4, Lề 30-15-20-20mm)</option>
                                 </select>
                             </div>
                         </div>
 
                         <div class="feature-checklist">
                             <label class="checkbox-row">
+                                <input type="checkbox" id="check-theory" checked>
+                                <span>📖 Tự động bổ sung <strong>Phần I: Lý thuyết nền tảng & Bảng công thức vàng</strong> (Chuẩn CT GDPT 2018)</span>
+                            </label>
+                            <label class="checkbox-row">
                                 <input type="checkbox" id="check-casio" checked>
-                                <span>💡 Thêm hộp <strong>Mẹo Casio fx-580VN X</strong> & Kỹ thuật giải nhanh</span>
+                                <span>💡 Thêm hộp <strong>Kỹ thuật Casio fx-580VN X & Giải nhanh</strong> song song tự luận</span>
                             </label>
                             <label class="checkbox-row">
                                 <input type="checkbox" id="check-traps" checked>
-                                <span>⚠️ Thêm hộp <strong>Cảnh báo bẫy đề thi</strong> & Sai lầm thường gặp</span>
+                                <span>⚠️ Thêm hộp <strong>Cảnh báo bẫy đề thi & Lỗi sai học sinh hay mắc</strong></span>
                             </label>
                             <label class="checkbox-row">
-                                <input type="checkbox" id="check-summary" checked>
-                                <span>📌 Thêm bảng <strong>Công thức vàng & Phương pháp trọng tâm</strong></span>
+                                <input type="checkbox" id="check-font" checked disabled>
+                                <span>⚖️ Định dạng chuẩn: <strong>Font Times New Roman, Cỡ 13pt, Dãn dòng 1.25</strong></span>
                             </label>
                         </div>
 
                         <button id="btn-process" class="btn btn-primary btn-large btn-glow" disabled>
-                            <span class="btn-icon">🚀</span> BẮT ĐẦU BIÊN SOẠN RA FILE WORD
+                            <span class="btn-icon">🚀</span> BẮT ĐẦU BIÊN SOẠN & XUẤT BẢN FILE WORD
                         </button>
                     </div>
                 </div>
@@ -157,7 +206,7 @@
                     <div id="progress-card" class="card hidden">
                         <div class="step-header">
                             <div class="spinner"></div>
-                            <h3>Tiến Trình Xử Lý Sách</h3>
+                            <h3>Tiến Trình Biên Soạn & Xuất Bản</h3>
                         </div>
                         <div class="progress-container">
                             <div id="progress-bar" class="progress-bar"></div>
@@ -168,12 +217,12 @@
                     <!-- Result Ready Card -->
                     <div id="result-card" class="card result-card hidden">
                         <div class="result-header">
-                            <div class="result-badge">🎉 ĐÃ BIÊN SOẠN THÀNH CÔNG</div>
+                            <div class="result-badge">🎉 ĐÃ BIÊN SOẠN THÀNH CÔNG THEO CHUẨN BGD</div>
                             <h3 id="result-book-title">Tên sách</h3>
                             <p id="result-book-subtitle" class="subtitle-text">Phụ đề</p>
                         </div>
 
-                        <div class="download-action-box">
+                        <div id="result-single-actions" class="download-action-box">
                             <a id="btn-download" href="#" class="btn btn-success btn-large">
                                 <span class="icon">📥</span> TẢI FILE WORD DOCX
                             </a>
@@ -181,18 +230,23 @@
                                 <span class="icon">📂</span> Mở thư mục chứa file
                             </button>
                         </div>
+
+                        <!-- Result list if batch mode -->
+                        <div id="result-batch-list" class="result-batch-list hidden">
+                            <!-- Injected dynamically -->
+                        </div>
                     </div>
 
                     <!-- Preview Card -->
                     <div class="card preview-card">
                         <div class="card-header-bar">
-                            <h3>Bảng So Sánh Đối Chiếu Nội Dung</h3>
+                            <h3>Cấu Trúc Tài Liệu Biên Soạn Chuẩn Sư Phạm</h3>
                             <span id="preview-badge" class="preview-badge">Chưa có dữ liệu</span>
                         </div>
 
                         <div id="preview-placeholder" class="preview-placeholder">
                             <div class="empty-icon">📖</div>
-                            <p>Tải lên một file Word (.docx) hoặc Excel (.xlsx) để xem trước đối chiếu bài toán trước và sau khi biên soạn.</p>
+                            <p>Tải lên một file (Word, Excel, PDF, Ảnh) hoặc chọn thư mục để hệ thống bóc tách và phân loại cấu trúc bài học.</p>
                         </div>
 
                         <div id="preview-list" class="preview-list hidden">
