@@ -10,3 +10,5 @@ output/*.docx
 output/*.zip
 input/web_upload_batch/
 input/unzipped_*/
+*.ps1
+
