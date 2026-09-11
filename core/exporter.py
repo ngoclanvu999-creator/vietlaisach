@@ -248,15 +248,40 @@ class DocxBookExporter:
         r_sub.font.size = Pt(13)
         r_sub.font.color.rgb = COLOR_SECONDARY
 
-        # Lời tựa
-        add_callout_box(
-            doc,
-            title="LỜI TỰA BIÊN SOẠN & ĐỊNH HƯỚNG PHÁT TRIỂN NĂNG LỰC",
-            content=book.author_note,
-            bg_hex="F8FAFC",
-            border_hex="2B6CB0",
-            title_color=COLOR_PRIMARY
-        )
+        # Lời tựa truyền cảm hứng
+        if book.author_note:
+            add_callout_box(
+                doc,
+                title="✨ LỜI TỰA TRUYỀN CẢM HỨNG & SỨ MỆNH CUỐN SÁCH",
+                content=book.author_note,
+                bg_hex="F8FAFC",
+                border_hex="2B6CB0",
+                title_color=COLOR_PRIMARY
+            )
+
+        # Bí kíp thủ khoa
+        if hasattr(book, "valedictorian_secrets") and book.valedictorian_secrets:
+            secrets_content = "\n".join(f"• {sec}" for sec in book.valedictorian_secrets)
+            add_callout_box(
+                doc,
+                title="🏆 BÍ KÍP VÀNG PHÒNG THI & CHIẾN THUẬT TỪ THỦ KHOA",
+                content=secrets_content,
+                bg_hex="FFFDF5",
+                border_hex="D69E2E",
+                title_color=COLOR_WARNING
+            )
+
+        # Góc kết nối STEM thực tế đời sống
+        if hasattr(book, "stem_connection") and book.stem_connection:
+            add_callout_box(
+                doc,
+                title="🌐 GÓC KẾT NỐI THỰC TIỄN ĐỜI SỐNG & CÔNG NGHỆ (GDPT 2018)",
+                content=book.stem_connection,
+                bg_hex="F0FFF4",
+                border_hex="38A169",
+                title_color=COLOR_SUCCESS
+            )
+
 
         # ==========================================
         # KIỂU 1: ĐẠI CẨM NANG GỘP TỪ NHIỀU CHƯƠNG (MASTER BOOK)

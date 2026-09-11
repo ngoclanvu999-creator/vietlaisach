@@ -19,6 +19,7 @@ from pydantic import BaseModel
 from config import BASE_DIR, INPUT_DIR, OUTPUT_DIR, TEMPLATES_DIR, STATIC_DIR, load_settings, save_settings
 from core.parser import parse_input_file, scan_directory
 from core.rewriter import process_rewrite_pipeline, create_master_book_from_chapters
+from core.ai_namer import generate_creative_titles_gemini
 from core.exporter import DocxBookExporter
 from core.validator import PreFlightValidator
 
@@ -72,6 +73,30 @@ async def api_scan_folder(req: ScanFolderRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi quét thư mục: {str(e)}")
+
+class SuggestTitlesRequest(BaseModel):
+    filename: str = ""
+    sample_text: str = ""
+    subject: str = "toan"
+
+@app.post("/api/suggest-titles")
+async def api_suggest_titles(req: SuggestTitlesRequest):
+    settings = load_settings()
+    api_key = settings.get("gemini_api_key", "").strip()
+    model_name = settings.get("gemini_model", "gemini-3.6-flash")
+
+    titles = generate_creative_titles_gemini(
+        sample_text=req.sample_text,
+        filename=req.filename,
+        subject=req.subject,
+        api_key=api_key,
+        model_name=model_name
+    )
+    return {
+        "status": "success",
+        "total": len(titles),
+        "titles": titles
+    }
 
 @app.post("/api/upload")
 async def upload_file(
@@ -189,7 +214,7 @@ async def process_single_document(
 
     settings = load_settings()
     api_key = settings.get("gemini_api_key", "").strip()
-    model_name = settings.get("gemini_model", "gemini-2.5-flash")
+    model_name = settings.get("gemini_model", "gemini-3.6-flash")
 
     try:
         # 1. Bóc tách
@@ -252,7 +277,7 @@ async def process_folder(
 
     settings = load_settings()
     api_key = settings.get("gemini_api_key", "").strip()
-    model_name = settings.get("gemini_model", "gemini-2.5-flash")
+    model_name = settings.get("gemini_model", "gemini-3.6-flash")
 
     files = scan_directory(p)
     if not files:

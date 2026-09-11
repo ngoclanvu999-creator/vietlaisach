@@ -42,10 +42,25 @@ document.addEventListener("DOMContentLoaded", () => {
     const radioCards = document.querySelectorAll(".radio-card");
     const btnProcess = document.getElementById("btn-process");
     const customTitleInput = document.getElementById("custom-title");
+    const btnSuggestTitles = document.getElementById("btn-suggest-titles");
+    const aiTitlesDrawer = document.getElementById("ai-titles-drawer");
+    const aiTitlesList = document.getElementById("ai-titles-list");
+    const btnCloseTitles = document.getElementById("btn-close-titles");
     const addCountSelect = document.getElementById("add-count");
     const checkTheory = document.getElementById("check-theory");
     const checkCasio = document.getElementById("check-casio");
     const checkTraps = document.getElementById("check-traps");
+
+    function escapeHtml(str) {
+        if (!str) return "";
+        return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
 
     // Progress Card & Steps
     const progressCard = document.getElementById("progress-card");
@@ -474,6 +489,28 @@ document.addEventListener("DOMContentLoaded", () => {
         `;
         previewList.appendChild(bookHeader);
 
+        // Hiển thị Bí kíp thủ khoa
+        if (book.valedictorian_secrets && book.valedictorian_secrets.length > 0) {
+            const secBox = document.createElement("div");
+            secBox.className = "preview-callout callout-casio";
+            secBox.innerHTML = `
+                <span class="callout-title">🏆 BÍ KÍP VÀNG PHÒNG THI & CHIẾN THUẬT TỪ THỦ KHOA:</span>
+                <div style="font-size: 13.5px; line-height: 1.6; margin-top: 6px;">${book.valedictorian_secrets.map(s => `• ${escapeHtml(s)}`).join('<br>')}</div>
+            `;
+            previewList.appendChild(secBox);
+        }
+
+        // Hiển thị Góc kết nối STEM GDPT 2018
+        if (book.stem_connection) {
+            const stemBox = document.createElement("div");
+            stemBox.className = "preview-callout callout-sol";
+            stemBox.innerHTML = `
+                <span class="callout-title">🌐 GÓC KẾT NỐI THỰC TIỄN ĐỜI SỐNG & CÔNG NGHỆ (GDPT 2018):</span>
+                <div style="font-size: 13.5px; line-height: 1.6; margin-top: 6px;">${escapeHtml(book.stem_connection).replace(/\n/g, '<br>')}</div>
+            `;
+            previewList.appendChild(stemBox);
+        }
+
         // Hiển thị Phần I nếu là Single Book
         if (book.theory_section && !book.is_master_book) {
             const theoryBox = document.createElement("div");
@@ -627,6 +664,66 @@ document.addEventListener("DOMContentLoaded", () => {
                 </div>
             </div>
         `).join("");
+    }
+
+    // ==========================================
+    // AI GEMINI CREATIVE TITLES DRAWER
+    // ==========================================
+    if (btnSuggestTitles) {
+        btnSuggestTitles.addEventListener("click", async () => {
+            aiTitlesDrawer.classList.remove("hidden");
+            aiTitlesList.innerHTML = `<div class="ai-title-loading">⚡ Đang kích hoạt Gemini AI phân tích chuyên đề và sáng tạo 5 tựa sách độc bản...</div>`;
+
+            let fname = currentUploadedFilename || (currentScannedFiles.length > 0 ? currentScannedFiles[0].name : "");
+
+            try {
+                const resp = await fetch("/api/suggest-titles", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        filename: fname,
+                        sample_text: "",
+                        subject: selectedSubject
+                    })
+                });
+                const data = await resp.json();
+                if (data.status === "success" && data.titles && data.titles.length > 0) {
+                    aiTitlesList.innerHTML = "";
+                    data.titles.forEach((t, idx) => {
+                        const card = document.createElement("div");
+                        card.className = "ai-title-card";
+                        card.innerHTML = `
+                            <div class="ai-card-style-badge">✨ Trường Phái ${idx + 1}: ${escapeHtml(t.style)}</div>
+                            <div class="ai-card-main-title">${escapeHtml(t.title)}</div>
+                            <div class="ai-card-subtitle">${escapeHtml(t.subtitle)}</div>
+                            <div class="ai-card-hook">💡 ${escapeHtml(t.hook)}</div>
+                            <button type="button" class="btn-apply-title" data-title="${escapeHtml(t.title)}">👉 Áp Dụng Tựa Này</button>
+                        `;
+                        card.querySelector(".btn-apply-title").addEventListener("click", () => {
+                            customTitleInput.value = t.title;
+                            customTitleInput.style.borderColor = "#10B981";
+                            customTitleInput.style.boxShadow = "0 0 10px rgba(16, 185, 129, 0.4)";
+                            setTimeout(() => {
+                                customTitleInput.style.borderColor = "";
+                                customTitleInput.style.boxShadow = "";
+                            }, 2000);
+                            aiTitlesDrawer.classList.add("hidden");
+                        });
+                        aiTitlesList.appendChild(card);
+                    });
+                } else {
+                    aiTitlesList.innerHTML = `<div class="ai-title-loading" style="color:#F87171">Không thể tạo tựa sách. Vui lòng kiểm tra lại kết nối hoặc API Key.</div>`;
+                }
+            } catch (err) {
+                aiTitlesList.innerHTML = `<div class="ai-title-loading" style="color:#F87171">Lỗi kết nối: ${escapeHtml(err.message)}</div>`;
+            }
+        });
+    }
+
+    if (btnCloseTitles) {
+        btnCloseTitles.addEventListener("click", () => {
+            aiTitlesDrawer.classList.add("hidden");
+        });
     }
 
     // ==========================================
@@ -802,8 +899,29 @@ document.addEventListener("DOMContentLoaded", () => {
                 <strong>Lời Tựa Sư Phạm:</strong><br>
                 ${book.author_note}
             </div>
-        `;
         readerContent.appendChild(cover);
+
+        // Hiển thị Bí kíp thủ khoa trong Reader
+        if (book.valedictorian_secrets && book.valedictorian_secrets.length > 0) {
+            const secBox = document.createElement("div");
+            secBox.className = "reader-callout reader-callout-casio";
+            secBox.innerHTML = `
+                <strong>🏆 BÍ KÍP VÀNG PHÒNG THI & CHIẾN THUẬT TỪ THỦ KHOA:</strong>
+                <div style="margin-top: 6px;">${book.valedictorian_secrets.map(s => `• ${escapeHtml(s)}`).join('<br>')}</div>
+            `;
+            readerContent.appendChild(secBox);
+        }
+
+        // Hiển thị Góc kết nối STEM GDPT 2018 trong Reader
+        if (book.stem_connection) {
+            const stemBox = document.createElement("div");
+            stemBox.className = "reader-callout reader-callout-sol";
+            stemBox.innerHTML = `
+                <strong>🌐 GÓC KẾT NỐI THỰC TIỄN ĐỜI SỐNG & CÔNG NGHỆ (GDPT 2018):</strong>
+                <div style="margin-top: 6px; white-space: pre-line;">${escapeHtml(book.stem_connection)}</div>
+            `;
+            readerContent.appendChild(stemBox);
+        }
 
         // Render Single Book vs Master Book
         if (book.is_master_book && book.chapters) {
@@ -940,7 +1058,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const res = await fetch("/api/settings");
             const settings = await res.json();
             geminiApiKeyInput.value = settings.gemini_api_key || "";
-            geminiModelSelect.value = settings.gemini_model || "gemini-2.5-flash";
+            geminiModelSelect.value = settings.gemini_model || "gemini-3.6-flash";
         } catch (e) {
             console.error(e);
         }

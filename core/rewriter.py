@@ -55,6 +55,9 @@ class RewrittenBook:
     author_note: str
     chapter_summary: str
     theory_section: str = ""    # PHẦN I: KIẾN THỨC TRỌNG TÂM & LÝ THUYẾT NỀN TẢNG
+    valedictorian_secrets: List[str] = field(default_factory=list) # Lời khuyên vàng từ Thủ khoa
+    stem_connection: str = ""   # Góc kết nối thực tiễn STEM GDPT 2018
+    creative_options: List[Dict[str, Any]] = field(default_factory=list) # Danh sách 5 tựa sách thôi miên từ Gemini
     chapters: List[RewrittenChapter] = field(default_factory=list)
     questions: List[RewrittenQuestionItem] = field(default_factory=list)
 
@@ -66,12 +69,16 @@ class RewrittenBook:
             "author_note": self.author_note,
             "chapter_summary": self.chapter_summary,
             "theory_section": self.theory_section,
+            "valedictorian_secrets": self.valedictorian_secrets,
+            "stem_connection": self.stem_connection,
+            "creative_options": self.creative_options,
             "is_master_book": len(self.chapters) > 0,
             "total_chapters": len(self.chapters),
             "total_questions": sum(len(c.questions) for c in self.chapters) if self.chapters else len(self.questions),
             "chapters": [c.to_dict() for c in self.chapters],
             "questions": [q.to_dict() for q in self.questions]
         }
+
 
 
 CASIO_TIPS = [
@@ -218,7 +225,7 @@ def create_added_question(idx: int, subject: str = "toan") -> RewrittenQuestionI
 def rewrite_with_gemini(
     questions: List[QuestionItem],
     api_key: str,
-    model_name: str = "gemini-2.5-flash",
+    model_name: str = "gemini-3.6-flash",
     subject: str = "toan",
     add_count: int = 2
 ) -> RewrittenBook:
@@ -324,7 +331,7 @@ def rewrite_offline(
     subject: str = "toan",
     add_count: int = 2,
     api_key: Optional[str] = None,
-    model_name: str = "gemini-2.5-flash"
+    model_name: str = "gemini-3.6-flash"
 ) -> RewrittenBook:
     source_filename = questions[0].source_file if questions else ""
 
@@ -389,6 +396,9 @@ def rewrite_offline(
             author_note=author_note,
             chapter_summary=f"Tuyển tập {len(chapters)} chương chuyên đề trọng tâm",
             theory_section="",
+            valedictorian_secrets=meta.get("valedictorian_secrets", []),
+            stem_connection=meta.get("stem_connection", ""),
+            creative_options=meta.get("creative_options", []),
             chapters=chapters,
             questions=[]
         )
@@ -423,6 +433,9 @@ def rewrite_offline(
         author_note=author_note,
         chapter_summary=topic_data.get("title", ""),
         theory_section=theory_text,
+        valedictorian_secrets=meta.get("valedictorian_secrets", []),
+        stem_connection=meta.get("stem_connection", ""),
+        creative_options=meta.get("creative_options", []),
         chapters=[],
         questions=rewritten_items
     )
@@ -491,7 +504,7 @@ def process_rewrite_pipeline(
     subject: str = "toan",
     add_count: int = 2,
     api_key: Optional[str] = None,
-    model_name: str = "gemini-2.5-flash"
+    model_name: str = "gemini-3.6-flash"
 ) -> RewrittenBook:
     if api_key and api_key.strip():
         try:

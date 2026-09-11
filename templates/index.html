@@ -204,17 +204,30 @@
                         <div class="form-group">
                             <div class="label-with-action">
                                 <label for="custom-title">Tựa đề sách / Đại cẩm nang:</label>
-                                <span class="ai-badge-hint">✨ AI tự động đặt tên độc bản nếu để trống</span>
+                                <button type="button" id="btn-suggest-titles" class="btn-ai-magic" title="Bấm để AI Gemini phân tích và sáng tạo 5 tựa sách cuốn hút người đọc nhất">
+                                    ✨ AI Gợi Ý 5 Tựa Sách Thôi Miên
+                                </button>
                             </div>
-                            <input type="text" id="custom-title" class="form-control" placeholder="Để trống để hệ thống tự đặt tên sách độc bản chuẩn BGD...">
+                            <input type="text" id="custom-title" class="form-control" placeholder="Để trống để AI tự đặt tên, hoặc bấm 'AI Gợi Ý 5 Tựa Sách Thôi Miên' bên trên...">
+
+                            <!-- Drawer hiển thị 5 tựa sách thôi miên -->
+                            <div id="ai-titles-drawer" class="ai-titles-drawer hidden">
+                                <div class="ai-drawer-header">
+                                    <h4>✨ 5 Tựa Sách Thôi Miên Sáng Tạo Bởi AI Gemini:</h4>
+                                    <button type="button" id="btn-close-titles" class="btn-close-drawer">✕ Đóng</button>
+                                </div>
+                                <div id="ai-titles-list" class="ai-titles-list">
+                                    <div class="ai-title-loading">Đang phân tích tài liệu và kích hoạt động cơ sáng tạo Gemini AI...</div>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="add-count">Số bài mới bổ sung (Mỗi chuyên đề):</label>
                                 <select id="add-count" class="form-control">
-                                    <option value="2" selected>+ 2 bài vận dụng cao</option>
-                                    <option value="5">+ 5 bài vận dụng cao</option>
+                                    <option value="2" selected>+ 2 bài vận dụng cao sáng tạo</option>
+                                    <option value="5">+ 5 bài vận dụng cao phân hóa</option>
                                     <option value="10">+ 10 bài phân hóa sâu</option>
                                     <option value="0">Không thêm bài mới</option>
                                 </select>
@@ -232,6 +245,18 @@
                             <label class="checkbox-row">
                                 <input type="checkbox" id="check-theory" checked>
                                 <span>📖 Tự động bổ sung <strong>Phần I: Bảng lý thuyết & Công thức vàng</strong> (Chuẩn CT GDPT 2018)</span>
+                            </label>
+                            <label class="checkbox-row">
+                                <input type="checkbox" id="check-foreword" checked>
+                                <span>✨ AI Gemini sáng tạo: <strong>Lời tựa mở đầu truyền cảm hứng & Sứ mệnh cuốn sách</strong></span>
+                            </label>
+                            <label class="checkbox-row">
+                                <input type="checkbox" id="check-secrets" checked>
+                                <span>🏆 AI Gemini sáng tạo: <strong>Hộp bí kíp vàng & Chiến thuật phòng thi từ Thủ khoa</strong></span>
+                            </label>
+                            <label class="checkbox-row">
+                                <input type="checkbox" id="check-stem" checked>
+                                <span>🌐 AI Gemini sáng tạo: <strong>Góc kết nối thực tiễn đời sống STEM (GDPT 2018)</strong></span>
                             </label>
                             <label class="checkbox-row">
                                 <input type="checkbox" id="check-casio" checked>
@@ -369,8 +394,8 @@
                     <div class="form-group">
                         <label for="gemini-model">Mô hình AI:</label>
                         <select id="gemini-model" class="form-control">
-                            <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash (Siêu nhanh & Tối ưu)</option>
-                            <option value="gemini-2.5-pro">Gemini 2.5 Pro (Chuyên sâu & Sáng tạo cao)</option>
+                            <option value="gemini-3.6-flash" selected>Gemini 3.6 Flash (Siêu nhanh & Sáng tạo đỉnh cao)</option>
+                            <option value="gemini-2.0-flash">Gemini 2.0 Flash (Tối ưu phản hồi)</option>
                         </select>
                     </div>
                 </div>
