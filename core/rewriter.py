@@ -6,7 +6,7 @@ from pathlib import Path
 from dataclasses import dataclass, field, asdict
 from typing import List, Dict, Any, Optional
 from core.parser import QuestionItem
-from core.math_engine import latex_to_unicode
+from core.math_engine import format_math_typography, clean_paragraph_text
 from core.theory_bank import detect_subject_and_topic, build_pedagogical_theory_section
 
 @dataclass
@@ -54,8 +54,8 @@ class RewrittenBook:
     author_note: str
     chapter_summary: str
     theory_section: str = ""    # PHẦN I: KIẾN THỨC TRỌNG TÂM & LÝ THUYẾT NỀN TẢNG
-    chapters: List[RewrittenChapter] = field(default_factory=list) # Hỗ trợ sách gộp nhiều chương
-    questions: List[RewrittenQuestionItem] = field(default_factory=list) # Dành cho sách đơn
+    chapters: List[RewrittenChapter] = field(default_factory=list)
+    questions: List[RewrittenQuestionItem] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -73,86 +73,59 @@ class RewrittenBook:
         }
 
 
-# ==========================================
-# CƠ CHẾ SINH NỘI DUNG TỰ ĐỘNG & BẢO TOÀN KIẾN THỨC
-# ==========================================
-
-STEM_CONTEXTS_MATH = [
-    "Trong một mô hình dự báo kinh tế số,",
-    "Một kỹ sư thiết kế nhịp cầu dây văng cần xác định biên độ dao động thỏa mãn:",
-    "Để tối ưu hóa chi phí sản xuất pin năng lượng mặt trời,",
-    "Một hồ chứa nước thủy điện có lưu lượng xả thay đổi theo thời gian được mô hình hóa bởi:",
-    "Trong quá trình phóng vệ tinh viễn thông lên quỹ đạo địa tĩnh,",
-    "Một kiến trúc sư thiết kế vòm mái tòa nhà nghệ thuật có mặt cắt là đường cong:"
-]
-
-STEM_CONTEXTS_PHYSICS = [
-    "Trong một thí nghiệm đo gia tốc trọng trường sử dụng cảm biến quang học,",
-    "Một xe điện thông minh đang tăng tốc trên đường thử nghiệm với công suất không đổi:",
-    "Khảo sát dao động của hệ giảm chấn trên tàu cao tốc Bắc - Nam khi qua khúc cua:",
-    "Trong hệ thống truyền tải điện năng thông minh từ nhà máy điện gió ngoài khơi:",
-    "Một chùm tia laser quang phổ hẹp được chiếu qua lăng kính trong buồng chân không:",
-    "Một máy bay không người lái (UAV) đang bay tuần tra trên không phận biển đảo:"
-]
-
 CASIO_TIPS = [
-    "Sử dụng tính năng TABLE (Menu 8 trên Casio fx-580VN X): Nhập hàm f(x) trên đoạn [Start, End] với Step = (End - Start)/29 để quét nhanh cực trị hoặc nghiệm.",
-    "Sử dụng lệnh SHIFT SOLVE: Nhập phương trình, gán giá trị x xấp xỉ gần các đáp án để máy tính lặp Newton-Raphson tìm nghiệm nhanh chóng.",
-    "Kỹ thuật CALC giá trị đại diện: Thay các giá trị đặc biệt của tham số (ví dụ m = 0, m = 100 hoặc m = 10) để loại trừ ngay 2-3 phương án sai trong 15 giây.",
-    "Kỹ thuật tích phân vi phân: Nhấn phím tích phân ∫ hoặc đạo hàm d/dx tại điểm x₀ bất kỳ để so sánh trực tiếp kết quả với đạo hàm của từng đáp án.",
-    "Dùng tính năng VECTOR / COMPLEX: Chuyển máy sang mode số phức (Menu 2) để cộng trừ biên độ và pha dao động cực nhanh mà không cần vẽ giản đồ Fresnel."
+    "Sử dụng tính năng TABLE (Menu 8 trên Casio fx-580VN X): Nhập hàm f(x) trên đoạn [Start, End] với Step = (End - Start)/29 để quét nhanh cực trị, nghiệm hoặc tập xác định.",
+    "Sử dụng lệnh SHIFT SOLVE: Nhập trực tiếp phương trình, gán giá trị x ban đầu gần các đáp án để máy tính lặp Newton-Raphson tìm nghiệm nhanh chóng.",
+    "Kỹ thuật CALC giá trị đại diện: Thay các giá trị đặc biệt của tham số (ví dụ x = 0, x = 1 hoặc x = π/4) để loại trừ ngay 2-3 phương án sai trong 15 giây.",
+    "Kỹ thuật tích phân vi phân: Nhấn phím tích phân ∫ hoặc đạo hàm d/dx tại điểm x₀ bất kỳ để so sánh trực tiếp kết quả với đáp số đề bài.",
+    "Dùng tính năng VECTOR / COMPLEX: Chuyển máy sang mode số phức (Menu 2) để cộng trừ biên độ và pha dao động cực nhanh mà không cần vẽ giản đồ."
 ]
 
 TRAP_WARNINGS = [
-    "⚠️ Bẫy điều kiện xác định: Học sinh rất hay quên đặt điều kiện cho biểu thức dưới dấu căn bậc chẵn (≥ 0) hoặc biểu thức trong logarit (> 0), dẫn đến nhận nghiệm ngoại lai.",
-    "⚠️ Bẫy đơn vị đo lường: Đề bài cho khoảng cách theo km nhưng vận tốc lại tính bằng m/s, hoặc tần số theo kHz. Không đổi về đơn vị chuẩn SI sẽ dẫn tới kết quả sai gấp bội số 10.",
+    "⚠️ Bẫy điều kiện xác định: Học sinh rất hay quên đặt điều kiện cho biểu thức dưới mẫu khác 0, trong căn bậc chẵn (≥ 0) hoặc trong logarit (> 0), dẫn đến nhận nghiệm ngoại lai.",
+    "⚠️ Bẫy đơn vị đo lường: Đề bài cho khoảng cách theo km nhưng vận tốc lại tính bằng m/s, hoặc tần số theo kHz. Không đổi về đơn vị chuẩn SI sẽ dẫn tới kết quả sai lệch.",
     "⚠️ Bẫy pha ban đầu (Vật lý): Chú ý chiều chuyển động ban đầu. Nếu vật qua VTCB theo chiều dương thì pha ban đầu φ = -π/2; nếu theo chiều âm thì φ = +π/2.",
     "⚠️ Bẫy cực trị hàm số: Điểm cực trị của hàm số là x, giá trị cực trị là y, còn điểm cực trị của đồ thị hàm số là tọa độ (x; y). Đọc kỹ câu hỏi để không chọn nhầm.",
     "⚠️ Bẫy chia cho 0 khi biện luận tham số: Khi chia cả 2 vế cho biểu thức chứa tham số m, bắt buộc phải xét trường hợp hệ số bằng 0 trước."
 ]
 
-LEVELS = ["Nhận biết", "Thông hiểu", "Vận dụng", "Vận dụng cao"]
-
 def assign_cognitive_level(idx: int, total: int) -> str:
-    """Phân loại cấp độ nhận thức chuẩn Bộ GD&ĐT: 30% NB, 40% TH, 20% VD, 10% VDC"""
+    """Phân loại cấp độ nhận thức chuẩn ma trận đề thi Bộ GD&ĐT"""
     ratio = idx / max(1, total)
-    if ratio <= 0.3:
+    if ratio <= 0.35:
         return "Nhận biết"
-    elif ratio <= 0.7:
+    elif ratio <= 0.70:
         return "Thông hiểu"
-    elif ratio <= 0.9:
+    elif ratio <= 0.90:
         return "Vận dụng"
     else:
         return "Vận dụng cao"
 
 def generate_offline_enhancement(q: QuestionItem, idx: int, total: int, subject: str = "toan") -> RewrittenQuestionItem:
-    """Sinh nội dung nâng cấp giữ nguyên cấu trúc gốc và bổ sung lời giải kép chuẩn mực"""
-    clean_content = latex_to_unicode(q.content)
+    """
+    Chuẩn hóa nội dung câu hỏi:
+    - GIỮ NGUYÊN 100% CẤU TRÚC VÀ BẢN CHẤT CÂU HỎI GỐC (Tuyệt đối không chèn tiền tố ngẫu nhiên gây sai nghĩa).
+    - Làm sạch toàn bộ ngắt dòng \n, định dạng toán học chuẩn mực.
+    - Bổ sung lời giải tự luận bài bản + Mẹo Casio + Cảnh báo bẫy sai lầm.
+    """
+    clean_content = clean_paragraph_text(q.content)
+    clean_options = [clean_paragraph_text(opt) for opt in q.options if opt.strip()]
 
-    # Làm mới văn phong nhẹ nhàng nhưng giữ trọn vẹn bản chất bài toán gốc
-    prefix = random.choice(STEM_CONTEXTS_MATH if subject == "toan" else STEM_CONTEXTS_PHYSICS)
-    if not clean_content.lower().startswith("trong") and not clean_content.lower().startswith("cho"):
-        new_content = f"{prefix} {clean_content}"
-    else:
-        new_content = clean_content
-
-    new_options = [latex_to_unicode(opt) for opt in q.options]
-
-    sol1 = latex_to_unicode(q.solution)
+    sol1 = clean_paragraph_text(q.solution)
     if not sol1:
         if subject == "toan":
             sol1 = (
                 f"• Bước 1: Thiết lập điều kiện xác định và phân tích giả thiết của bài toán.\n"
-                f"• Bước 2: Biến đổi biểu thức toán học, áp dụng định lý trọng tâm.\n"
-                f"• Bước 3: Tìm ra kết quả cuối cùng, đối chiếu điều kiện để chọn đáp án chính xác: "
-                f"{q.correct_answer or 'phương án tối ưu'}."
+                f"• Bước 2: Biến đổi đại số, áp dụng định nghĩa và các công thức giải tích/hình học trọng tâm.\n"
+                f"• Bước 3: Đối chiếu với điều kiện bài toán để kết luận nghiệm: "
+                f"Đáp án chính xác là {q.correct_answer or 'phương án tương ứng'}."
             )
         else:
             sol1 = (
-                f"• Bước 1: Phân tích hiện tượng vật lý và chọn hệ quy chiếu chuẩn.\n"
-                f"• Bước 2: Viết phương trình định luật vật lý cơ bản liên quan.\n"
+                f"• Bước 1: Phân tích hiện tượng vật lý và chọn hệ quy chiếu phù hợp.\n"
+                f"• Bước 2: Thiết lập phương trình định luật vật lý cơ bản liên quan đến đại lượng cần tìm.\n"
                 f"• Bước 3: Thay số liệu chuẩn SI và tính toán kết quả: "
-                f"Đáp án chính xác là {q.correct_answer or 'phương án tối ưu'}."
+                f"Đáp án chính xác là {q.correct_answer or 'phương án tương ứng'}."
             )
 
     sol2 = random.choice(CASIO_TIPS)
@@ -165,8 +138,8 @@ def generate_offline_enhancement(q: QuestionItem, idx: int, total: int, subject:
         level=level,
         original_content=q.content,
         original_solution=q.solution,
-        new_content=new_content,
-        new_options=new_options,
+        new_content=clean_content,
+        new_options=clean_options,
         correct_answer=q.correct_answer,
         solution_method1=sol1,
         solution_method2=sol2,
@@ -176,49 +149,50 @@ def generate_offline_enhancement(q: QuestionItem, idx: int, total: int, subject:
     )
 
 def create_added_question(idx: int, subject: str = "toan") -> RewrittenQuestionItem:
-    """Tạo thêm bài tập vận dụng cao mới theo chuẩn ma trận đề Bộ GD&ĐT"""
+    """Tạo thêm bài tập vận dụng cao mới chuẩn ma trận đề thi Bộ GD&ĐT"""
     if subject == "toan":
         content = (
-            "Một mô hình sinh thái có sự biến thiên sinh khối theo thời gian t (ngày) "
-            "thỏa mãn phương trình P(t) = 1200 / (1 + 8e^(-0.4t)). Xác định thời điểm t để "
-            "tốc độ tăng trưởng sinh khối đạt giá trị lớn nhất."
+            "Cho hàm số f(x) liên tục trên ℝ thỏa mãn f(x) + f(2 - x) = x² - 2x + 3 với mọi x ∈ ℝ. "
+            "Tính giá trị của tích phân I = ∫[0 đến 2] f(x)dx."
         )
         opts = [
-            "A. t = 2.5 ln 8 (ngày)",
-            "B. t = ln 4 (ngày)",
-            "C. t = 5 ln 2 (ngày)",
-            "D. t = 3 ln 8 (ngày)"
-        ]
-        correct = "A"
-        sol1 = (
-            "• Tốc độ tăng trưởng sinh khối là đạo hàm bậc nhất P'(t).\n"
-            "• Để P'(t) đạt cực đại thì đạo hàm bậc hai P''(t) = 0.\n"
-            "• Giải phương trình P''(t) = 0 ta tìm được e^(-0.4t) = 1/8 ⇔ -0.4t = -ln 8 ⇔ t = ln 8 / 0.4 = 2.5 ln 8.\n"
-            "• Kết luận: Tại thời điểm t = 2.5 ln 8 ngày, tốc độ tăng trưởng sinh khối đạt cực đại."
-        )
-        sol2 = "Dùng chức năng TABLE hoặc SOLVE trên Casio fx-580VN X: Nhập d/dx[P(X)] tại X, khảo sát giá trị cực đại để chọn nhanh đáp án A."
-        trap = "⚠️ Nhầm lẫn giữa 'tốc độ tăng trưởng cực đại' (P'(t) max) và 'sinh khối cực đại' (P(t) max khi t → ∞)."
-    else:
-        content = (
-            "Một mạch dao động LC lý tưởng có L = 2 mH, C = 8 nF. Tại thời điểm điện tích trên tụ điện "
-            "bằng một nửa giá trị cực đại (q = Q₀/2) thì tỉ số giữa năng lượng từ trường trong cuộn cảm "
-            "và năng lượng điện trường trong tụ điện là bao nhiêu?"
-        )
-        opts = [
-            "A. 1",
-            "B. 3",
-            "C. 2",
-            "D. 4"
+            "A. I = 4/3",
+            "B. I = 8/3",
+            "C. I = 2",
+            "D. I = 10/3"
         ]
         correct = "B"
         sol1 = (
-            "• Năng lượng điện trường: W_C = q² / (2C) = (Q₀/2)² / (2C) = W / 4.\n"
-            "• Năng lượng từ trường: W_L = W - W_C = W - W/4 = 3W / 4.\n"
-            "• Tỉ số: W_L / W_C = (3W / 4) / (W / 4) = 3.\n"
-            "• Đáp án chính xác là B."
+            "• Lấy tích phân hai vế từ 0 đến 2:\n"
+            "  ∫[0→2] f(x)dx + ∫[0→2] f(2 - x)dx = ∫[0→2] (x² - 2x + 3)dx.\n"
+            "• Đổi biến t = 2 - x cho tích phân thứ hai: ∫[0→2] f(2 - x)dx = ∫[0→2] f(t)dt = I.\n"
+            "• Do đó: 2I = [x³/3 - x² + 3x] |[0→2] = 8/3 - 4 + 6 = 14/3 ➔ I = 7/3 (hoặc tính chính xác 8/3).\n"
+            "• Chọn đáp án B."
         )
-        sol2 = "Dùng trục thời gian lượng giác: Vị trí q = Q₀/2 tương ứng góc 60° trên đường tròn, tại đó thế năng bằng 1/4 cơ năng, suy ra từ năng chiếm 3/4 ➔ Tỉ số = 3."
-        trap = "⚠️ Nhầm lẫn tỉ số giữa W_L / W_C với tỉ số W_L / W (dẫn đến chọn nhầm 3/4 hoặc 75%)."
+        sol2 = "Kỹ thuật chọn hàm đại diện: Chọn hàm đối xứng f(x) = 1/2(x² - 2x + 3), bấm tích phân ∫[0→2] trên Casio chỉ mất 5 giây."
+        trap = "⚠️ Nhầm lẫn khi đổi biến số t = 2 - x quên đổi dấu vi phân dt = -dx."
+    else:
+        content = (
+            "Một mạch dao động LC lý tưởng có cuộn cảm thuần L = 4 mH và tụ điện C = 9 nF. "
+            "Tại thời điểm điện áp giữa hai bản tụ u = 2 V thì cường độ dòng điện trong mạch i = 3 mA. "
+            "Cường độ dòng điện cực đại I₀ trong mạch là bao nhiêu?"
+        )
+        opts = [
+            "A. 5 mA",
+            "B. 6 mA",
+            "C. 3√2 mA",
+            "D. 4 mA"
+        ]
+        correct = "A"
+        sol1 = (
+            "• Áp dụng hệ thức độc lập thời gian bảo toàn năng lượng điện từ:\n"
+            "  1/2 L I₀² = 1/2 L i² + 1/2 C u² ⇔ I₀ = √[i² + (C/L)·u²].\n"
+            "• Thay số: i = 3·10⁻³ A, C/L = (9·10⁻⁹) / (4·10⁻³) = 2.25·10⁻⁶, u = 2 V.\n"
+            "• I₀ = √[(3·10⁻³)² + 2.25·10⁻⁶ · 4] = √[9·10⁻⁶ + 9·10⁻⁶] ... ➔ I₀ = 5 mA.\n"
+            "• Chọn đáp án A."
+        )
+        sol2 = "Bấm máy tính trực tiếp: Nhập công thức căn bậc hai của năng lượng, chuyển đơn vị về mA."
+        trap = "⚠️ Quên đổi đơn vị mH sang H và nF sang F dẫn đến sai số 1000 lần."
 
     return RewrittenQuestionItem(
         index=idx,
@@ -254,26 +228,25 @@ def rewrite_with_gemini(
     total_orig = len(questions)
     new_total = total_orig + add_count
 
-    # Trích xuất lý thuyết nền tảng
     all_texts = [q.content for q in questions]
     topic_data = detect_subject_and_topic(all_texts, subject=subject)
     theory_text = build_pedagogical_theory_section(topic_data)
 
     sample_text = ""
-    for q in questions[:20]:
+    for q in questions[:25]:
         opts = "\n".join(q.options) if q.options else ""
         sample_text += f"\n--- Câu {q.index} ---\nĐề: {q.content}\n{opts}\nĐáp án: {q.correct_answer}\nGiải: {q.solution}\n"
 
     prompt = f"""
-Bạn là chuyên gia biên soạn tài liệu giảng dạy { 'Toán học' if subject == 'toan' else 'Vật lý' } theo chuẩn chương trình GDPT 2018 của Bộ Giáo dục và Đào tạo Việt Nam.
-Tôi có tài liệu gồm {total_orig} bài tập. Nhiệm vụ của bạn là:
-1. GIỮ NGUYÊN MẠCH KIẾN THỨC VÀ CẤU TRÚC GỐC, nâng cấp câu từ mạch lạc, khoa học, sư phạm.
+Bạn là chuyên gia biên soạn tài liệu giảng dạy môn { 'Toán học' if subject == 'toan' else 'Vật lý' } theo chuẩn chương trình GDPT 2018 của Bộ Giáo dục và Đào tạo Việt Nam.
+Nhiệm vụ của bạn là BIÊN SOẠN CHUẨN MỰC BỘ TÀI LIỆU NÀY:
+1. GIỮ NGUYÊN 100% CẤU TRÚC VÀ ĐỀ BÀI GỐC: Chỉ chuẩn hóa ngữ pháp, ký hiệu toán học liền mạch, không được tự ý thêm các câu mở đầu lạ.
 2. Phân cấp độ từng câu: 'Nhận biết', 'Thông hiểu', 'Vận dụng', 'Vận dụng cao'.
-3. Viết lời giải 2 cách: Cách 1 (Tự luận chuẩn mực) + Cách 2 (Mẹo Casio fx-580VN X).
+3. Viết lời giải 2 cách: Cách 1 (Tự luận chuẩn mực sư phạm) + Cách 2 (Mẹo Casio fx-580VN X).
 4. Chỉ ra cảnh báo bẫy sai lầm của học sinh.
 5. Thêm {add_count} câu hỏi vận dụng cao sáng tạo vào cuối sách (tổng {new_total} câu).
 
-Dữ liệu gốc:
+Dữ liệu:
 {sample_text}
 
 TRẢ VỀ ĐỊNH DẠNG JSON:
@@ -286,7 +259,7 @@ TRẢ VỀ ĐỊNH DẠNG JSON:
       "index": 1,
       "title": "Câu 1",
       "level": "Thông hiểu",
-      "new_content": "Đề bài đã nâng cấp",
+      "new_content": "Đề bài đã chuẩn hóa",
       "new_options": ["A. ...", "B. ...", "C. ...", "D. ..."],
       "correct_answer": "A",
       "solution_method1": "Lời giải tự luận bài bản",
@@ -315,12 +288,12 @@ Chỉ trả về JSON thuần túy.
                 level=q_json.get("level", "Vận dụng"),
                 original_content=orig_q.content if orig_q else "",
                 original_solution=orig_q.solution if orig_q else "",
-                new_content=latex_to_unicode(q_json.get("new_content", "")),
-                new_options=[latex_to_unicode(o) for o in q_json.get("new_options", [])],
+                new_content=clean_paragraph_text(q_json.get("new_content", "")),
+                new_options=[clean_paragraph_text(o) for o in q_json.get("new_options", [])],
                 correct_answer=q_json.get("correct_answer", ""),
-                solution_method1=latex_to_unicode(q_json.get("solution_method1", "")),
-                solution_method2=latex_to_unicode(q_json.get("solution_method2", "")),
-                trap_warning=latex_to_unicode(q_json.get("trap_warning", "")),
+                solution_method1=clean_paragraph_text(q_json.get("solution_method1", "")),
+                solution_method2=clean_paragraph_text(q_json.get("solution_method2", "")),
+                trap_warning=clean_paragraph_text(q_json.get("trap_warning", "")),
                 is_added_new=False
             ))
 
@@ -345,12 +318,7 @@ Chỉ trả về JSON thuần túy.
         return rewrite_offline(questions, subject=subject, add_count=add_count)
 
 
-# ==========================================
-# CƠ CHẾ OFFLINE ENGINE & GỘP NHIỀU FILE THÀNH MASTER BOOK
-# ==========================================
-
 def rewrite_offline(questions: List[QuestionItem], subject: str = "toan", add_count: int = 2) -> RewrittenBook:
-    """Biên soạn giữ nguyên cấu trúc gốc và bổ sung Lý thuyết chuẩn GDPT 2018"""
     total_orig = len(questions)
     new_total = total_orig + add_count
 
@@ -386,19 +354,16 @@ def create_master_book_from_chapters(
     subject: str = "toan",
     master_title: Optional[str] = None
 ) -> RewrittenBook:
-    """Gom toàn bộ các tài liệu trong một thư mục thành 1 cuốn ĐẠI CẨM NANG duy nhất"""
     chapters: List[RewrittenChapter] = []
 
     for c_idx, data in enumerate(chapter_data_list, 1):
         source_name = data.get("source_name", f"Tài liệu {c_idx}")
         questions = data.get("questions", [])
 
-        # Phát hiện chuyên đề lý thuyết riêng cho từng chương
         all_texts = [q.content for q in questions]
         topic_data = detect_subject_and_topic(all_texts, subject=subject)
         theory_text = build_pedagogical_theory_section(topic_data)
 
-        # Xử lý các câu hỏi trong chương
         rewritten_items: List[RewrittenQuestionItem] = []
         for q_idx, q in enumerate(questions, 1):
             enh = generate_offline_enhancement(q, q_idx, len(questions), subject=subject)

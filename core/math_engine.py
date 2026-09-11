@@ -1,113 +1,78 @@
 import re
 from pathlib import Path
-from typing import Optional, Tuple
-import sympy as sp
-import latex2mathml.commands
-from lxml import etree
+from typing import Optional, Dict
 
-COMMON_XSL_PATHS = [
-    Path(r"C:\Program Files\Microsoft Office\root\Office16\MML2OMML.XSL"),
-    Path(r"C:\Program Files (x86)\Microsoft Office\root\Office16\MML2OMML.XSL"),
-    Path(r"C:\Program Files\Microsoft Office\Office16\MML2OMML.XSL"),
-    Path(r"C:\Program Files (x86)\Microsoft Office\Office16\MML2OMML.XSL"),
-    Path(r"C:\Program Files\Microsoft Office\Office15\MML2OMML.XSL"),
-    Path(r"C:\Program Files (x86)\Microsoft Office\Office15\MML2OMML.XSL"),
-]
-
-_xslt_transformer = None
-
-def get_xslt_transformer():
-    global _xslt_transformer
-    if _xslt_transformer is not None:
-        return _xslt_transformer
-    for path in COMMON_XSL_PATHS:
-        if path.exists():
-            try:
-                xslt_doc = etree.parse(str(path))
-                _xslt_transformer = etree.XSLT(xslt_doc)
-                return _xslt_transformer
-            except Exception:
-                pass
-    return None
-
-def latex_to_omml(latex_code: str) -> Optional[etree._Element]:
-    """Chuyển đổi chuỗi LaTeX thành thẻ XML OMML (<m:oMath>) để nhúng trực tiếp vào Word .docx"""
-    if not latex_code or not latex_code.strip():
-        return None
-    try:
-        mathml = latex2mathml.commands.process_latex(latex_code.strip())
-        transformer = get_xslt_transformer()
-        if transformer is not None:
-            mml_tree = etree.fromstring(mathml.encode("utf-8"))
-            omml_tree = transformer(mml_tree)
-            return omml_tree.getroot()
-    except Exception:
-        pass
-    return None
-
-LATEX_TO_UNICODE_MAP = {
-    r"\alpha": "α", r"\beta": "β", r"\gamma": "γ", r"\delta": "δ", r"\epsilon": "ε",
-    r"\theta": "θ", r"\lambda": "λ", r"\mu": "μ", r"\pi": "π", r"\sigma": "σ",
-    r"\omega": "ω", r"\Delta": "Δ", r"\Omega": "Ω", r"\Sigma": "Σ",
-    r"\le": "≤", r"\leq": "≤", r"\ge": "≥", r"\geq": "≥", r"\ne": "≠", r"\neq": "≠",
-    r"\approx": "≈", r"\pm": "±", r"\times": "×", r"\div": "÷", r"\cdot": "·",
-    r"\in": "∈", r"\notin": "∉", r"\subset": "⊂", r"\cup": "∪", r"\cap": "∩",
-    r"\infty": "∞", r"\forall": "∀", r"\exists": "∃", r"\rightarrow": "→",
-    r"\Rightarrow": "⇒", r"\Leftrightarrow": "⇔", r"\perp": "⊥", r"\parallel": "∥",
-    r"\degree": "°", r"^\circ": "°"
+SYMBOL_CHAR_MAP: Dict[str, str] = {
+    '\uf0a1': 'ℝ',
+    '\uf0a2': 'ℤ',
+    '\uf070': 'π',
+    '\uf072': '→',
+    '\uf075': '→',
+    '\uf8f1': '{', '\uf8f2': '{', '\uf8f3': '{',
+    '\uf8fc': '}', '\uf8fd': '}', '\uf8fe': '}',
+    '\uf0ce': '∈', '\uf0cf': '∉', '\uf0cc': '⊂',
+    '\uf0c8': '∪', '\uf0c7': '∩', '\uf0b9': '≠',
+    '\uf0a3': '≤', '\uf0b3': '≥', '\uf0b1': '±',
+    '\uf0b4': '×', '\uf0b8': '÷', '\uf0a5': '∞',
+    '\uf020': ' '
 }
 
-SUPERSCRIPT_MAP = {
-    '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
-    '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
-    '+': '⁺', '-': '⁻', '=': '⁼', '(': '⁽', ')': '⁾',
-    'n': 'ⁿ', 'i': 'ⁱ', 'x': 'ˣ', 'y': 'ʸ'
-}
-
-SUBSCRIPT_MAP = {
-    '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
-    '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉',
-    '+': '₊', '-': '₋', '=': '₌', '(': '₍', ')': '₎',
-    'a': 'ₐ', 'e': 'ₑ', 'o': 'ₒ', 'x': 'ₓ', 'h': 'ₕ',
-    'k': 'ₖ', 'l': 'ₗ', 'm': 'ₘ', 'n': 'ₙ', 'p': 'ₚ',
-    's': 'ₛ', 't': 'ₜ'
-}
-
-def latex_to_unicode(text: str) -> str:
-    """Chuyển đổi các ký hiệu LaTeX thông dụng thành ký tự Unicode toán học dễ đọc"""
+def clean_symbol_text(text: str) -> str:
+    """Chuyển đổi các ký tự Symbol/MathType độc quyền từ Word/PDF sang Unicode toán học chuẩn"""
     if not text:
         return ""
-    res = text
-    for cmd, sym in LATEX_TO_UNICODE_MAP.items():
-        res = res.replace(cmd, sym)
-    
-    # Xử lý mũ: x^{2} hoặc x^2 -> x²
-    def replace_sup(match):
-        content = match.group(1) or match.group(2)
-        return "".join(SUPERSCRIPT_MAP.get(c, c) for c in content)
-    res = re.sub(r"\^\{([^{}]+)\}|\^([0-9n+-])", replace_sup, res)
-    
-    # Xử lý chỉ số dưới: x_{1} hoặc x_1 -> x₁
-    def replace_sub(match):
-        content = match.group(1) or match.group(2)
-        return "".join(SUBSCRIPT_MAP.get(c, c) for c in content)
-    res = re.sub(r"_\{([^{}]+)\}|_([0-9a-z])", replace_sub, res)
-    
-    # Xử lý phân số đơn giản: \frac{a}{b} -> (a / b)
-    res = re.sub(r"\\frac\{([^{}]+)\}\{([^{}]+)\}", r"(\1 / \2)", res)
-    # Xử lý căn bậc hai: \sqrt{a} -> √(a)
-    res = re.sub(r"\\sqrt\{([^{}]+)\}", r"√(\1)", res)
-    
-    # Xóa dấu $ của LaTeX
-    res = res.replace("$", "")
-    return res
+    res = []
+    for c in text:
+        res.append(SYMBOL_CHAR_MAP.get(c, c))
+    cleaned = "".join(res)
 
-def verify_math_expression(expr_str: str) -> Optional[str]:
-    """Kiểm tra và tính toán thử biểu thức bằng sympy"""
-    try:
-        clean = expr_str.replace("^", "**").replace("×", "*").replace("÷", "/")
-        expr = sp.sympify(clean)
-        simplified = sp.simplify(expr)
-        return str(simplified)
-    except Exception:
-        return None
+    # Dọn dẹp các ký tự mũi tên vectơ bị nhân đôi do font ligature (→→→→ -> →)
+    cleaned = re.sub(r'→+', '→', cleaned)
+    # Dọn dẹp ngoặc kép MathType { { { -> {
+    cleaned = re.sub(r'\{\s*\{+', '{', cleaned)
+    cleaned = re.sub(r'\}\s*\}+', '}', cleaned)
+
+    return cleaned
+
+SUPERSCRIPT_DIGITS = {
+    '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+    '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+    '+': '⁺', '-': '⁻', 'n': 'ⁿ', 'x': 'ˣ'
+}
+
+def format_math_typography(text: str) -> str:
+    """Chuẩn hóa typography cho văn bản toán học (số mũ, khoảng cách, dấu)"""
+    if not text:
+        return ""
+
+    s = clean_symbol_text(text)
+
+    # Chuẩn hóa x 5 -> x⁵, x 2 -> x²
+    def replace_pow(m):
+        var = m.group(1)
+        num = m.group(2)
+        sup = "".join(SUPERSCRIPT_DIGITS.get(c, c) for c in num)
+        return f"{var}{sup}"
+
+    s = re.sub(r'\b([a-zA-Z\)])\s*([0-9]{1,2})\b(?!\s*(?:h|phút|giây|cm|m|kg|điểm))', replace_pow, s)
+
+    # Chuẩn hóa vectơ: v → -> v⃗, AB → -> AB⃗
+    s = re.sub(r'\b([A-Z]{1,2}|[a-z])\s*→', r'\1⃗', s)
+
+    # Xóa khoảng trắng trước các dấu câu , . : ;
+    s = re.sub(r'\s+([,.:;?])', r'\1', s)
+    # Đảm bảo có khoảng trắng sau dấu câu
+    s = re.sub(r'([,.:;?])(?=[^\s\d])', r'\1 ', s)
+
+    # Chuẩn hóa nhiều khoảng trắng liên tiếp
+    s = " ".join(s.split())
+    return s
+
+def clean_paragraph_text(text: str) -> str:
+    """Xóa bỏ các ngắt dòng \n bất thường trong một câu văn bản"""
+    if not text:
+        return ""
+    # Chuyển \r\n thành khoảng trắng nếu không phải xuống dòng kép
+    lines = [l.strip() for l in text.split("\n") if l.strip()]
+    merged = " ".join(lines)
+    return format_math_typography(merged)

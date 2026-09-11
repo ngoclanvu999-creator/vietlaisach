@@ -8,6 +8,8 @@ import openpyxl
 import pymupdf
 from PIL import Image
 
+from core.math_engine import clean_symbol_text, format_math_typography, clean_paragraph_text
+
 @dataclass
 class QuestionItem:
     index: int
@@ -23,14 +25,31 @@ class QuestionItem:
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
-def extract_questions_from_text_lines(lines: List[str], subject: str = "toan", source_file: str = "") -> List[QuestionItem]:
-    """Hàm lõi bóc tách danh sách câu hỏi từ các dòng văn bản (áp dụng cho Word, PDF, OCR)"""
+PAGE_STAMP_PATTERNS = [
+    re.compile(r"trang\s*\d+\s*/\s*\d+", re.IGNORECASE),
+    re.compile(r"mã\s*đề\s*thi\s*\d+", re.IGNORECASE),
+    re.compile(r"họ\s*và\s*tên\s*thí\s*sinh.*sbd", re.IGNORECASE),
+    re.compile(r"thời\s*gian\s*làm\s*bài.*phút", re.IGNORECASE),
+    re.compile(r"sở\s*gd&đt.*cụm", re.IGNORECASE),
+    re.compile(r"đề\s*thi\s*(?:chính\s*thức|chọn\s*hsg)", re.IGNORECASE),
+    re.compile(r"phần\s*trắc\s*nghiệm.*điểm", re.IGNORECASE)
+]
+
+def is_header_or_footer(line: str) -> bool:
+    """Kiểm tra xem dòng có phải là tiêu đề trang, chân trang, mã đề hay thông tin hành chính không"""
+    l_clean = line.strip()
+    if len(l_clean) < 3:
+        return True
+    return any(pat.search(l_clean) for pat in PAGE_STAMP_PATTERNS)
+
+def extract_questions_from_text_lines(raw_lines: List[str], subject: str = "toan", source_file: str = "") -> List[QuestionItem]:
+    """Bóc tách danh sách câu hỏi từ văn bản, tự động tách câu dính liền và định dạng hoàn hảo"""
     q_re = re.compile(
         r"^(?:câu|cau|bài|bai|ví dụ|vi du|vd|bt|question|q)\s*(\d+)[\s.:\-–—]*(.*)",
         re.IGNORECASE
     )
     opt_inline_re = re.compile(
-        r"(?:^|\s+)([A-D]\.[^\n]+?)(?=(?:\s+[A-D]\.)|$)",
+        r"(?:^|\s+)([A-D]\.\s*[\s\S]+?)(?=(?:\s+[A-D]\.)|$)",
         re.IGNORECASE
     )
     sol_re = re.compile(
@@ -38,25 +57,57 @@ def extract_questions_from_text_lines(lines: List[str], subject: str = "toan", s
         re.IGNORECASE
     )
 
+    # 1. Tiền xử lý: Tách các câu bị dính liền trên cùng 1 dòng
+    preprocessed_lines: List[str] = []
+    for l in raw_lines:
+        if is_header_or_footer(l):
+            continue
+        # Tách nếu có "Câu X:" nằm giữa dòng
+        sub_parts = re.split(r'(?<=\S)\s+(?=(?:câu|cau|bài|bai)\s*\d+[\s.:\-–—])', l, flags=re.IGNORECASE)
+        for sp in sub_parts:
+            clean_sp = format_math_typography(sp.strip())
+            if clean_sp and not is_header_or_footer(clean_sp):
+                preprocessed_lines.append(clean_sp)
+
     items: List[QuestionItem] = []
     current_item: Optional[QuestionItem] = None
     state = "content"
     q_counter = 1
 
-    for line in lines:
-        line_clean = line.strip()
-        if not line_clean:
-            continue
-
-        q_match = q_re.match(line_clean)
-        sol_match = sol_re.match(line_clean)
+    for line in preprocessed_lines:
+        q_match = q_re.match(line)
+        sol_match = sol_re.match(line)
 
         if q_match:
             if current_item and (current_item.content or current_item.options):
+                current_item.content = clean_paragraph_text(current_item.content)
+                current_item.solution = clean_paragraph_text(current_item.solution)
                 items.append(current_item)
+
             q_num = int(q_match.group(1)) if q_match.group(1).isdigit() else q_counter
             q_counter = q_num + 1
             content_head = q_match.group(2).strip()
+
+            # Kiểm tra nếu các phương án A. B. C. D. nằm chung trên dòng câu hỏi
+            inline_opts = opt_inline_re.findall(content_head)
+            if len(inline_opts) >= 2:
+                first_opt_match = re.search(r'\b[A-D]\.', content_head)
+                if first_opt_match:
+                    actual_content = content_head[:first_opt_match.start()].strip()
+                else:
+                    actual_content = content_head
+
+                current_item = QuestionItem(
+                    index=q_num,
+                    title=f"Câu {q_num}",
+                    content=actual_content,
+                    options=[format_math_typography(o.strip()) for o in inline_opts],
+                    subject=subject,
+                    source_file=source_file
+                )
+                state = "options"
+                continue
+
             current_item = QuestionItem(
                 index=q_num,
                 title=f"Câu {q_num}",
@@ -75,39 +126,125 @@ def extract_questions_from_text_lines(lines: List[str], subject: str = "toan", s
             continue
 
         if current_item is not None:
-            opts = opt_inline_re.findall(line_clean)
+            # Nhận diện các phương án A, B, C, D
+            opts = opt_inline_re.findall(line)
             if len(opts) >= 2:
-                current_item.options.extend([opt.strip() for opt in opts])
+                current_item.options.extend([format_math_typography(opt.strip()) for opt in opts])
                 state = "options"
                 continue
 
-            if re.match(r"^[A-D]\.[\s\S]*", line_clean, re.IGNORECASE):
-                current_item.options.append(line_clean)
+            if re.match(r"^[A-D]\.\s*.*", line, re.IGNORECASE):
+                current_item.options.append(format_math_typography(line))
                 state = "options"
                 continue
 
+            # Nối tiếp nội dung: Luôn dùng khoảng trắng để không làm vỡ câu
             if state == "solution":
-                current_item.solution += ("\n" + line_clean if current_item.solution else line_clean)
+                current_item.solution += (" " + line if current_item.solution else line)
+            elif state == "options":
+                if current_item.options:
+                    current_item.options[-1] += " " + line
+                else:
+                    current_item.content += " " + line
             else:
-                current_item.content += ("\n" + line_clean if current_item.content else line_clean)
+                current_item.content += (" " + line if current_item.content else line)
 
     if current_item and (current_item.content or current_item.options):
+        current_item.content = clean_paragraph_text(current_item.content)
+        current_item.solution = clean_paragraph_text(current_item.solution)
         items.append(current_item)
 
-    # Nếu văn bản không chia rõ "Câu 1, Câu 2", chia thành các đoạn bài tập
-    if not items and lines:
-        chunk_size = max(1, len(lines) // 5)
-        for idx, i in enumerate(range(0, len(lines), chunk_size), 1):
-            chunk = "\n".join(lines[i:i+chunk_size])
+    # Đảm bảo làm sạch toàn bộ các phương án
+    for item in items:
+        # Nếu phương án bị dồn vào nội dung đề bài
+        if not item.options:
+            opts_in_content = opt_inline_re.findall(item.content)
+            if len(opts_in_content) >= 2:
+                first_opt_match = re.search(r'\b[A-D]\.', item.content)
+                if first_opt_match:
+                    item.options = [format_math_typography(o.strip()) for o in opts_in_content]
+                    item.content = item.content[:first_opt_match.start()].strip()
+
+        # Làm sạch từng phương án
+        cleaned_opts = []
+        for opt in item.options:
+            c_opt = clean_paragraph_text(opt)
+            if c_opt:
+                cleaned_opts.append(c_opt)
+        item.options = cleaned_opts
+
+    # Fallback cho văn bản không dùng "Câu X"
+    if not items and preprocessed_lines:
+        chunk_size = max(1, len(preprocessed_lines) // 5)
+        for idx, i in enumerate(range(0, len(preprocessed_lines), chunk_size), 1):
+            chunk = " ".join(preprocessed_lines[i:i+chunk_size])
             items.append(QuestionItem(
                 index=idx,
                 title=f"Bài {idx}",
-                content=chunk,
+                content=clean_paragraph_text(chunk),
                 subject=subject,
                 source_file=source_file
             ))
 
     return items
+
+
+class PdfParser:
+    @classmethod
+    def parse(cls, file_path: Path, subject: str = "toan") -> List[QuestionItem]:
+        """Trích xuất PDF bằng mô hình gom cụm không gian (Spatial Block Grouping)"""
+        doc = pymupdf.open(str(file_path))
+        all_reconstructed_lines: List[str] = []
+
+        for page in doc:
+            data = page.get_text("dict")
+            for b in data.get("blocks", []):
+                if "lines" not in b:
+                    continue
+
+                spans = []
+                for l in b["lines"]:
+                    for s in l["spans"]:
+                        t = clean_symbol_text(s["text"]).strip()
+                        if t:
+                            spans.append({
+                                "text": t,
+                                "x0": s["bbox"][0],
+                                "y0": s["bbox"][1],
+                                "x1": s["bbox"][2],
+                                "y1": s["bbox"][3],
+                                "ymid": (s["bbox"][1] + s["bbox"][3]) / 2
+                            })
+
+                if not spans:
+                    continue
+
+                spans.sort(key=lambda s: (s["ymid"], s["x0"]))
+
+                block_lines = []
+                curr_line = [spans[0]]
+                curr_y = spans[0]["ymid"]
+
+                for s in spans[1:]:
+                    if abs(s["ymid"] - curr_y) <= 12:
+                        curr_line.append(s)
+                        curr_y = sum(x["ymid"] for x in curr_line) / len(curr_line)
+                    else:
+                        curr_line.sort(key=lambda x: x["x0"])
+                        block_lines.append(" ".join(x["text"] for x in curr_line))
+                        curr_line = [s]
+                        curr_y = s["ymid"]
+
+                if curr_line:
+                    curr_line.sort(key=lambda x: x["x0"])
+                    block_lines.append(" ".join(x["text"] for x in curr_line))
+
+                block_text = " ".join(block_lines)
+                block_text = " ".join(block_text.split())
+                if block_text and not is_header_or_footer(block_text):
+                    all_reconstructed_lines.append(block_text)
+
+        return extract_questions_from_text_lines(all_reconstructed_lines, subject=subject, source_file=file_path.name)
 
 
 class DocxParser:
@@ -117,30 +254,16 @@ class DocxParser:
         lines: List[str] = []
 
         for p in doc.paragraphs:
-            text = p.text.strip()
-            if text:
+            text = clean_paragraph_text(p.text)
+            if text and not is_header_or_footer(text):
                 lines.append(text)
 
         for table in doc.tables:
             for row in table.rows:
-                row_texts = [c.text.strip() for c in row.cells if c.text.strip()]
+                row_texts = [clean_paragraph_text(c.text) for c in row.cells if c.text.strip()]
                 if row_texts:
                     lines.append(" | ".join(row_texts))
 
-        return extract_questions_from_text_lines(lines, subject=subject, source_file=file_path.name)
-
-
-class PdfParser:
-    @classmethod
-    def parse(cls, file_path: Path, subject: str = "toan") -> List[QuestionItem]:
-        doc = pymupdf.open(str(file_path))
-        lines: List[str] = []
-        for page in doc:
-            text = page.get_text()
-            for l in text.split("\n"):
-                clean = l.strip()
-                if clean:
-                    lines.append(clean)
         return extract_questions_from_text_lines(lines, subject=subject, source_file=file_path.name)
 
 
@@ -192,9 +315,9 @@ class ExcelParser:
 
             content_val = ""
             if "content" in col_map and col_map["content"] < len(r) and r[col_map["content"]]:
-                content_val = str(r[col_map["content"]]).strip()
+                content_val = clean_paragraph_text(str(r[col_map["content"]]))
             else:
-                candidates = [str(c).strip() for c in r if c is not None and len(str(c).strip()) > 10]
+                candidates = [clean_paragraph_text(str(c)) for c in r if c is not None and len(str(c).strip()) > 10]
                 if candidates:
                     content_val = candidates[0]
 
@@ -205,7 +328,7 @@ class ExcelParser:
             for opt_key in ["opt_a", "opt_b", "opt_c", "opt_d"]:
                 if opt_key in col_map and col_map[opt_key] < len(r) and r[col_map[opt_key]] is not None:
                     prefix = opt_key.split("_")[1].upper()
-                    options.append(f"{prefix}. {str(r[col_map[opt_key]]).strip()}")
+                    options.append(f"{prefix}. {clean_paragraph_text(str(r[col_map[opt_key]]))}")
 
             correct = ""
             if "correct" in col_map and col_map["correct"] < len(r) and r[col_map["correct"]] is not None:
@@ -213,7 +336,7 @@ class ExcelParser:
 
             solution = ""
             if "solution" in col_map and col_map["solution"] < len(r) and r[col_map["solution"]] is not None:
-                solution = str(r[col_map["solution"]]).strip()
+                solution = clean_paragraph_text(str(r[col_map["solution"]]))
 
             items.append(QuestionItem(
                 index=q_counter,
@@ -233,28 +356,28 @@ class ExcelParser:
 class ImageParser:
     @classmethod
     def parse(cls, file_path: Path, subject: str = "toan", api_key: Optional[str] = None) -> List[QuestionItem]:
-        """Trích xuất đề bài từ ảnh (PNG, JPG) sử dụng Gemini Vision nếu có API Key hoặc phân tích ảnh cơ bản"""
         if api_key and api_key.strip():
             try:
                 from google import genai
                 from google.genai import types
+                import json
 
                 client = genai.Client(api_key=api_key.strip())
                 image_bytes = file_path.read_bytes()
 
                 prompt = """
-Hãy đọc hình ảnh tài liệu này (chứa các câu hỏi Toán hoặc Vật lý) và bóc tách chính xác toàn bộ nội dung:
-1. Đề bài từng câu.
+Hãy đọc kỹ hình ảnh tài liệu này (chứa các câu hỏi Toán hoặc Vật lý) và bóc tách toàn bộ:
+1. Đề bài từng câu (giữ trọn vẹn văn bản và công thức toán học).
 2. Các phương án A, B, C, D (nếu có).
 3. Đáp án đúng và Lời giải (nếu có trong ảnh).
 
-Định dạng trả về JSON thuần túy:
+Định dạng trả về JSON thuần:
 {
   "questions": [
     {
       "index": 1,
       "title": "Câu 1",
-      "content": "Nội dung câu hỏi",
+      "content": "Nội dung câu hỏi đầy đủ",
       "options": ["A. ...", "B. ...", "C. ...", "D. ..."],
       "correct_answer": "A",
       "solution": "Lời giải nếu có"
@@ -270,34 +393,32 @@ Hãy đọc hình ảnh tài liệu này (chứa các câu hỏi Toán hoặc V�
                     ],
                     config=types.GenerateContentConfig(response_mime_type="application/json")
                 )
-                import json
                 data = json.loads(response.text)
                 items = []
                 for q in data.get("questions", []):
                     items.append(QuestionItem(
                         index=q.get("index", len(items) + 1),
                         title=q.get("title", f"Câu {len(items) + 1}"),
-                        content=q.get("content", ""),
-                        options=q.get("options", []),
+                        content=clean_paragraph_text(q.get("content", "")),
+                        options=[clean_paragraph_text(o) for o in q.get("options", [])],
                         correct_answer=q.get("correct_answer", ""),
-                        solution=q.get("solution", ""),
+                        solution=clean_paragraph_text(q.get("solution", "")),
                         subject=subject,
                         source_file=file_path.name
                     ))
                 if items:
                     return items
             except Exception as e:
-                print(f"Lỗi Gemini Vision khi đọc ảnh: {e}")
+                print(f"Lỗi Gemini Vision: {e}")
 
-        # Fallback khi không có API Key
         return [
             QuestionItem(
                 index=1,
                 title="Bài toán trích từ ảnh",
-                content=f"Tài liệu dạng ảnh [{file_path.name}]: Đề bài chọn lọc phục vụ ôn tập và rèn luyện kỹ năng tư duy.",
-                options=["A. Phương án 1", "B. Phương án 2", "C. Phương án 3", "D. Phương án 4"],
+                content=f"Tài liệu dạng ảnh [{file_path.name}]: Tuyển chọn bài tập trọng tâm phục vụ rèn luyện kỹ năng giải toán.",
+                options=["A. Phương án A", "B. Phương án B", "C. Phương án C", "D. Phương án D"],
                 correct_answer="A",
-                solution="Áp dụng phương pháp phân tích giả thiết bài toán và công thức trọng tâm để tìm lời giải.",
+                solution="Phân tích giả thiết bài toán và áp dụng các định lý cốt lõi để tìm kết quả.",
                 subject=subject,
                 source_file=file_path.name
             )
@@ -305,7 +426,6 @@ Hãy đọc hình ảnh tài liệu này (chứa các câu hỏi Toán hoặc V�
 
 
 def parse_input_file(file_path: Path, subject: str = "toan", api_key: Optional[str] = None) -> List[QuestionItem]:
-    """Hàm bóc tách thống nhất cho mọi định dạng tệp: Word, Excel, PDF, Ảnh"""
     ext = file_path.suffix.lower()
     if ext in [".docx", ".doc"]:
         return DocxParser.parse(file_path, subject=subject)
@@ -319,14 +439,9 @@ def parse_input_file(file_path: Path, subject: str = "toan", api_key: Optional[s
         raise ValueError(f"Định dạng tệp không được hỗ trợ: {ext}. Vui lòng dùng .docx, .xlsx, .pdf, .png hoặc .jpg.")
 
 
-# ==========================================================
-# QUÉT THƯ MỤC TRÊN MÁY TÍNH (FOLDER SCANNER)
-# ==========================================================
-
 SUPPORTED_EXTENSIONS = {".docx", ".xlsx", ".pdf", ".png", ".jpg", ".jpeg"}
 
 def scan_directory(folder_path: Path) -> List[Dict[str, Any]]:
-    """Quét toàn bộ thư mục để tìm các tệp tài liệu hợp lệ"""
     if not folder_path.exists() or not folder_path.is_dir():
         raise ValueError(f"Thư mục không tồn tại: {folder_path}")
 
@@ -348,7 +463,6 @@ def scan_directory(folder_path: Path) -> List[Dict[str, Any]]:
                     "rel_dir": str(Path(root).relative_to(folder_path))
                 })
 
-    # Sắp xếp tự nhiên theo tên
     def natural_sort_key(item):
         return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', item["name"])]
 
