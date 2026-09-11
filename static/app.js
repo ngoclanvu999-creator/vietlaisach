@@ -1,10 +1,16 @@
 document.addEventListener("DOMContentLoaded", () => {
-    // DOM Elements
+    // ==========================================
+    // DOM ELEMENTS
+    // ==========================================
+    // Tabs
     const tabBtnFile = document.getElementById("tab-btn-file");
     const tabBtnFolder = document.getElementById("tab-btn-folder");
+    const tabBtnZip = document.getElementById("tab-btn-zip");
     const panelFileUpload = document.getElementById("panel-file-upload");
-    const panelFolderScan = document.getElementById("panel-folder-scan");
+    const panelFolderUpload = document.getElementById("panel-folder-upload");
+    const panelZipUpload = document.getElementById("panel-zip-upload");
 
+    // Tab 1: Single File Upload
     const dropZone = document.getElementById("drop-zone");
     const fileInput = document.getElementById("file-input");
     const fileStatus = document.getElementById("file-status");
@@ -12,39 +18,64 @@ document.addEventListener("DOMContentLoaded", () => {
     const fileCountEl = document.getElementById("file-count");
     const btnRemoveFile = document.getElementById("btn-remove-file");
 
+    // Tab 2: Web Folder Upload & Server Scan
+    const dropZoneFolder = document.getElementById("drop-zone-folder");
+    const folderInput = document.getElementById("folder-input");
+    const toggleServerScan = document.getElementById("toggle-server-scan");
+    const serverPathBox = document.getElementById("server-path-box");
     const folderPathInput = document.getElementById("folder-path-input");
     const btnScanFolder = document.getElementById("btn-scan-folder");
     const folderResultsBox = document.getElementById("folder-results");
     const folderFoundCount = document.getElementById("folder-found-count");
     const folderFileList = document.getElementById("folder-file-list");
+    const btnClearFolder = document.getElementById("btn-clear-folder");
 
+    // Tab 3: ZIP Upload
+    const dropZoneZip = document.getElementById("drop-zone-zip");
+    const zipInput = document.getElementById("zip-input");
+    const zipStatus = document.getElementById("zip-status");
+    const zipNameEl = document.getElementById("zip-name");
+    const zipCountEl = document.getElementById("zip-count");
+    const btnRemoveZip = document.getElementById("btn-remove-zip");
+
+    // Subject & Options
     const radioCards = document.querySelectorAll(".radio-card");
     const btnProcess = document.getElementById("btn-process");
-
     const customTitleInput = document.getElementById("custom-title");
     const addCountSelect = document.getElementById("add-count");
     const checkTheory = document.getElementById("check-theory");
     const checkCasio = document.getElementById("check-casio");
     const checkTraps = document.getElementById("check-traps");
 
+    // Progress Card & Steps
     const progressCard = document.getElementById("progress-card");
     const progressBar = document.getElementById("progress-bar");
     const progressStatus = document.getElementById("progress-status");
+    const pstep1 = document.getElementById("pstep-1");
+    const pstep2 = document.getElementById("pstep-2");
+    const pstep3 = document.getElementById("pstep-3");
+    const pstep4 = document.getElementById("pstep-4");
 
+    // Result Card
     const resultCard = document.getElementById("result-card");
     const resultTitle = document.getElementById("result-book-title");
     const resultSubtitle = document.getElementById("result-book-subtitle");
     const resultSingleActions = document.getElementById("result-single-actions");
     const resultBatchList = document.getElementById("result-batch-list");
     const btnDownload = document.getElementById("btn-download");
+    const btnReadOnline = document.getElementById("btn-read-online");
     const btnOpenResultFolder = document.getElementById("btn-open-result-folder");
     const btnOpenFolder = document.getElementById("btn-open-folder");
 
+    // Preview
     const previewPlaceholder = document.getElementById("preview-placeholder");
     const previewList = document.getElementById("preview-list");
     const previewBadge = document.getElementById("preview-badge");
+    const previewToolbar = document.getElementById("preview-toolbar");
+    const filterChips = document.querySelectorAll(".filter-chip");
+    const btnToggleSolutions = document.getElementById("btn-toggle-solutions");
 
-    // Modal Settings Elements
+    // Modals
     const btnSettings = document.getElementById("btn-settings");
     const modalSettings = document.getElementById("modal-settings");
     const btnCloseModal = document.getElementById("btn-close-modal");
@@ -53,31 +84,60 @@ document.addEventListener("DOMContentLoaded", () => {
     const geminiModelSelect = document.getElementById("gemini-model");
     const btnSaveSettings = document.getElementById("btn-save-settings");
 
-    let activeTab = "file"; // "file" or "folder"
+    const modalReader = document.getElementById("modal-reader");
+    const btnCloseReader = document.getElementById("btn-close-reader");
+    const btnPrintReader = document.getElementById("btn-print-reader");
+    const readerBookTitle = document.getElementById("reader-book-title");
+    const readerBookSubtitle = document.getElementById("reader-book-subtitle");
+    const readerContent = document.getElementById("reader-content");
+
+    const btnDeployInfo = document.getElementById("btn-deploy-info");
+    const modalDeploy = document.getElementById("modal-deploy");
+    const btnCloseDeploy = document.getElementById("btn-close-deploy");
+    const btnDismissDeploy = document.getElementById("btn-dismiss-deploy");
+
+    // App State
+    let activeTab = "file"; // "file", "folder", "zip"
     let currentUploadedFilename = null;
     let currentScannedFiles = [];
+    let currentBatchFolder = null;
     let selectedSubject = "toan";
+    let currentCompiledBook = null;
+    let areSolutionsVisible = true;
+    let activeFilterLevel = "all";
 
     // ==========================================
     // TABS SWITCHING
     // ==========================================
-    tabBtnFile.addEventListener("click", () => {
-        activeTab = "file";
-        tabBtnFile.classList.add("active");
-        tabBtnFolder.classList.remove("active");
-        panelFileUpload.classList.remove("hidden");
-        panelFolderScan.classList.add("hidden");
-        btnProcess.disabled = !currentUploadedFilename;
-    });
+    function switchTab(tab) {
+        activeTab = tab;
+        tabBtnFile.classList.toggle("active", tab === "file");
+        tabBtnFolder.classList.toggle("active", tab === "folder");
+        tabBtnZip.classList.toggle("active", tab === "zip");
 
-    tabBtnFolder.addEventListener("click", () => {
-        activeTab = "folder";
-        tabBtnFolder.classList.add("active");
-        tabBtnFile.classList.remove("active");
-        panelFolderScan.classList.remove("hidden");
-        panelFileUpload.classList.add("hidden");
-        btnProcess.disabled = currentScannedFiles.length === 0;
-    });
+        panelFileUpload.classList.toggle("hidden", tab !== "file");
+        panelFolderUpload.classList.toggle("hidden", tab !== "folder");
+        panelZipUpload.classList.toggle("hidden", tab !== "zip");
+
+        if (tab === "file") {
+            btnProcess.disabled = !currentUploadedFilename;
+        } else if (tab === "folder") {
+            btnProcess.disabled = currentScannedFiles.length === 0;
+        } else if (tab === "zip") {
+            btnProcess.disabled = currentScannedFiles.length === 0;
+        }
+    }
+
+    tabBtnFile.addEventListener("click", () => switchTab("file"));
+    tabBtnFolder.addEventListener("click", () => switchTab("folder"));
+    tabBtnZip.addEventListener("click", () => switchTab("zip"));
+
+    // Server path toggle
+    if (toggleServerScan) {
+        toggleServerScan.addEventListener("click", () => {
+            serverPathBox.classList.toggle("hidden");
+        });
+    }
 
     // ==========================================
     // SUBJECT SELECTOR
@@ -91,146 +151,268 @@ document.addEventListener("DOMContentLoaded", () => {
             if (radio) radio.checked = true;
 
             if (selectedSubject === "toan") {
-                customTitleInput.placeholder = "Ví dụ: Cẩm Nang Bứt Phá Điểm 9+ Toán Học THPT - Chuẩn BGD";
+                customTitleInput.placeholder = "Ví dụ: Sổ Tay Công Thức & Dạng Toán Trọng Tâm Toán 10";
             } else {
-                customTitleInput.placeholder = "Ví dụ: Đại Cẩm Nang Chinh Phục Điểm 9+ Vật Lý - Chuẩn BGD";
+                customTitleInput.placeholder = "Ví dụ: Cẩm Nang Bứt Phá Điểm 9+ Vật Lý THPT - Chuẩn BGD";
             }
         });
     });
 
     // ==========================================
-    // TAB 1: FILE UPLOAD (WORD, EXCEL, PDF, ANH)
+    // TAB 1: SINGLE FILE UPLOAD
     // ==========================================
     dropZone.addEventListener("click", () => fileInput.click());
 
-    ["dragenter", "dragover"].forEach(eventName => {
-        dropZone.addEventListener(eventName, (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            dropZone.classList.add("dragover");
-        });
+    setupDragDrop(dropZone, (files) => {
+        if (files.length > 0) handleSingleFile(files[0]);
     });
 
-    ["dragleave", "drop"].forEach(eventName => {
-        dropZone.addEventListener(eventName, (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            dropZone.classList.remove("dragover");
-        });
+    fileInput.addEventListener("change", (e) => {
+        if (e.target.files.length > 0) handleSingleFile(e.target.files[0]);
     });
 
-    dropZone.addEventListener("drop", (e) => {
-        const files = e.dataTransfer.files;
-        if (files.length > 0) handleFileSelect(files[0]);
+    btnRemoveFile.addEventListener("click", (e) => {
+        e.stopPropagation();
+        resetSingleFile();
     });
 
-    fileInput.addEventListener("change", () => {
-        if (fileInput.files.length > 0) handleFileSelect(fileInput.files[0]);
-    });
-
-    btnRemoveFile.addEventListener("click", resetFileSelection);
-
-    function resetFileSelection() {
+    function resetSingleFile() {
         currentUploadedFilename = null;
         fileInput.value = "";
         fileStatus.classList.add("hidden");
         dropZone.classList.remove("hidden");
         btnProcess.disabled = true;
-        previewList.classList.add("hidden");
         previewPlaceholder.classList.remove("hidden");
+        previewList.classList.add("hidden");
+        previewToolbar.classList.add("hidden");
         previewBadge.textContent = "Chưa có dữ liệu";
     }
 
-    async function handleFileSelect(file) {
+    async function handleSingleFile(file) {
         fileNameEl.textContent = file.name;
-        fileCountEl.textContent = "Đang bóc tách và nhận diện cấu trúc bài học...";
-        fileStatus.classList.remove("hidden");
+        fileCountEl.textContent = "Đang đọc & bóc tách bài toán...";
         dropZone.classList.add("hidden");
+        fileStatus.classList.remove("hidden");
 
         const formData = new FormData();
         formData.append("file", file);
         formData.append("subject", selectedSubject);
 
         try {
-            const res = await fetch("/api/upload", {
-                method: "POST",
-                body: formData
-            });
+            const res = await fetch("/api/upload", { method: "POST", body: formData });
             const data = await res.json();
             if (data.status === "success") {
                 currentUploadedFilename = data.filename;
-                fileCountEl.textContent = `Đã tìm thấy: ${data.total_items} bài toán`;
+                fileCountEl.textContent = `Đã bóc tách thành công: ${data.total_items} bài toán`;
                 btnProcess.disabled = false;
                 renderInitialPreview(data.preview, data.total_items);
             } else {
-                alert("Lỗi khi tải file: " + (data.detail || "Không rõ"));
-                resetFileSelection();
+                alert("Lỗi khi đọc tài liệu: " + (data.detail || "Không rõ"));
+                resetSingleFile();
             }
         } catch (err) {
             alert("Lỗi kết nối máy chủ: " + err.message);
-            resetFileSelection();
+            resetSingleFile();
         }
     }
 
     // ==========================================
-    // TAB 2: FOLDER SCANNING
+    // TAB 2: WEB FOLDER UPLOAD & SCAN
     // ==========================================
-    btnScanFolder.addEventListener("click", async () => {
-        const p = folderPathInput.value.trim();
-        if (!p) {
-            alert("Vui lòng nhập đường dẫn thư mục cần quét (Ví dụ: D:\\Tài liệu số\\Toán\\Toán 12)!");
-            return;
-        }
+    dropZoneFolder.addEventListener("click", () => folderInput.click());
 
-        btnScanFolder.disabled = true;
-        btnScanFolder.textContent = "Đang quét...";
+    setupDragDrop(dropZoneFolder, (files) => {
+        if (files.length > 0) handleBatchUpload(files);
+    });
+
+    folderInput.addEventListener("change", (e) => {
+        if (e.target.files.length > 0) handleBatchUpload(e.target.files);
+    });
+
+    if (btnClearFolder) {
+        btnClearFolder.addEventListener("click", () => {
+            currentScannedFiles = [];
+            currentBatchFolder = null;
+            folderResultsBox.classList.add("hidden");
+            dropZoneFolder.classList.remove("hidden");
+            btnProcess.disabled = true;
+            previewPlaceholder.classList.remove("hidden");
+            previewList.classList.add("hidden");
+            previewToolbar.classList.add("hidden");
+        });
+    }
+
+    async function handleBatchUpload(fileList) {
+        folderFoundCount.textContent = `Đang tải lên ${fileList.length} tệp...`;
+        folderResultsBox.classList.remove("hidden");
+        dropZoneFolder.classList.add("hidden");
+
+        const formData = new FormData();
+        for (let i = 0; i < fileList.length; i++) {
+            formData.append("files", fileList[i]);
+        }
+        formData.append("subject", selectedSubject);
 
         try {
-            const res = await fetch("/api/scan-folder", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ folder_path: p })
-            });
+            const res = await fetch("/api/upload-batch", { method: "POST", body: formData });
             const data = await res.json();
-            btnScanFolder.disabled = false;
-            btnScanFolder.textContent = "Quét Thư Mục";
-
             if (data.status === "success") {
                 currentScannedFiles = data.files;
-                folderFoundCount.textContent = `Đã tìm thấy: ${data.total_files} tài liệu (Word, Excel, PDF, Ảnh)`;
-                folderFileList.innerHTML = "";
-
-                data.files.forEach(f => {
-                    const item = document.createElement("div");
-                    item.className = "folder-file-item";
-                    item.innerHTML = `
-                        <span>📄 ${f.name}</span>
-                        <span style="color: var(--text-dim); font-size: 11.5px;">${f.size_kb} KB</span>
-                    `;
-                    folderFileList.appendChild(item);
-                });
-
-                folderResultsBox.classList.remove("hidden");
-                btnProcess.disabled = data.total_files === 0;
-
-                previewPlaceholder.classList.add("hidden");
-                previewList.classList.remove("hidden");
-                previewBadge.textContent = `Thư mục: ${data.total_files} tệp`;
-                previewList.innerHTML = `
-                    <div class="preview-callout callout-theory">
-                        <span class="callout-title">📂 DANH MỤC TÀI LIỆU TRONG THƯ MỤC SẼ ĐƯỢC BIÊN SOẠN:</span>
-                        <div>${data.files.map((f, i) => `${i+1}. ${f.name} (${f.ext})`).join('<br>')}</div>
-                    </div>
-                `;
+                currentBatchFolder = data.folder_path;
+                displayFolderFiles(data.files, data.total_files);
             } else {
-                alert("Lỗi: " + (data.detail || "Không thể quét thư mục này"));
+                alert("Lỗi tải thư mục: " + (data.detail || "Không rõ"));
+                dropZoneFolder.classList.remove("hidden");
+                folderResultsBox.classList.add("hidden");
             }
         } catch (err) {
-            btnScanFolder.disabled = false;
-            btnScanFolder.textContent = "Quét Thư Mục";
-            alert("Lỗi: " + err.message);
+            alert("Lỗi tải lên: " + err.message);
+            dropZoneFolder.classList.remove("hidden");
+            folderResultsBox.classList.add("hidden");
         }
+    }
+
+    // Localhost scan folder
+    if (btnScanFolder) {
+        btnScanFolder.addEventListener("click", async () => {
+            const p = folderPathInput.value.trim();
+            if (!p) {
+                alert("Vui lòng nhập đường dẫn thư mục trên máy tính!");
+                return;
+            }
+            btnScanFolder.disabled = true;
+            btnScanFolder.textContent = "Đang quét...";
+
+            try {
+                const res = await fetch("/api/scan-folder", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ folder_path: p })
+                });
+                const data = await res.json();
+                btnScanFolder.disabled = false;
+                btnScanFolder.textContent = "Quét";
+
+                if (data.status === "success") {
+                    currentScannedFiles = data.files;
+                    currentBatchFolder = data.folder_path;
+                    displayFolderFiles(data.files, data.total_files);
+                } else {
+                    alert("Lỗi: " + (data.detail || "Không thể quét thư mục này"));
+                }
+            } catch (err) {
+                btnScanFolder.disabled = false;
+                btnScanFolder.textContent = "Quét";
+                alert("Lỗi kết nối: " + err.message);
+            }
+        });
+    }
+
+    function displayFolderFiles(files, total) {
+        folderFoundCount.textContent = `Đã tìm thấy: ${total} tài liệu hợp lệ`;
+        folderFileList.innerHTML = "";
+        files.forEach(f => {
+            const item = document.createElement("div");
+            item.className = "folder-file-item";
+            item.innerHTML = `
+                <span>📄 ${f.name}</span>
+                <span style="color: var(--text-dim); font-size: 11.5px;">${f.size_kb} KB</span>
+            `;
+            folderFileList.appendChild(item);
+        });
+
+        folderResultsBox.classList.remove("hidden");
+        dropZoneFolder.classList.add("hidden");
+        btnProcess.disabled = files.length === 0;
+
+        previewPlaceholder.classList.add("hidden");
+        previewList.classList.remove("hidden");
+        previewToolbar.classList.add("hidden");
+        previewBadge.textContent = `Thư mục: ${total} tệp`;
+        previewList.innerHTML = `
+            <div class="preview-callout callout-theory">
+                <span class="callout-title">📂 DANH SÁCH TÀI LIỆU TRONG THƯ MỤC SẼ ĐƯỢC BIÊN SOẠN:</span>
+                <div>${files.map((f, i) => `${i+1}. <strong>${f.name}</strong> (${f.size_kb} KB)`).join('<br>')}</div>
+            </div>
+        `;
+    }
+
+    // ==========================================
+    // TAB 3: ZIP ARCHIVE UPLOAD
+    // ==========================================
+    dropZoneZip.addEventListener("click", () => zipInput.click());
+
+    setupDragDrop(dropZoneZip, (files) => {
+        if (files.length > 0) handleZipUpload(files[0]);
     });
+
+    zipInput.addEventListener("change", (e) => {
+        if (e.target.files.length > 0) handleZipUpload(e.target.files[0]);
+    });
+
+    btnRemoveZip.addEventListener("click", (e) => {
+        e.stopPropagation();
+        zipInput.value = "";
+        currentScannedFiles = [];
+        currentBatchFolder = null;
+        zipStatus.classList.add("hidden");
+        dropZoneZip.classList.remove("hidden");
+        btnProcess.disabled = true;
+    });
+
+    async function handleZipUpload(file) {
+        zipNameEl.textContent = file.name;
+        zipCountEl.textContent = "Đang tải lên & giải nén tài liệu...";
+        dropZoneZip.classList.add("hidden");
+        zipStatus.classList.remove("hidden");
+
+        const formData = new FormData();
+        formData.append("zip_file", file);
+        formData.append("subject", selectedSubject);
+
+        try {
+            const res = await fetch("/api/upload-zip", { method: "POST", body: formData });
+            const data = await res.json();
+            if (data.status === "success") {
+                currentScannedFiles = data.files;
+                currentBatchFolder = data.folder_path;
+                zipCountEl.textContent = `Đã giải nén & bóc tách: ${data.total_files} tài liệu`;
+                btnProcess.disabled = false;
+                displayFolderFiles(data.files, data.total_files);
+            } else {
+                alert("Lỗi giải nén ZIP: " + (data.detail || "Không rõ"));
+                dropZoneZip.classList.remove("hidden");
+                zipStatus.classList.add("hidden");
+            }
+        } catch (err) {
+            alert("Lỗi: " + err.message);
+            dropZoneZip.classList.remove("hidden");
+            zipStatus.classList.add("hidden");
+        }
+    }
+
+    // Generic Drag & Drop Helper
+    function setupDragDrop(el, onDrop) {
+        ["dragenter", "dragover"].forEach(name => {
+            el.addEventListener(name, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                el.classList.add("dragover");
+            });
+        });
+        ["dragleave", "drop"].forEach(name => {
+            el.addEventListener(name, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                el.classList.remove("dragover");
+            });
+        });
+        el.addEventListener("drop", (e) => {
+            if (e.dataTransfer && e.dataTransfer.files) {
+                onDrop(e.dataTransfer.files);
+            }
+        });
+    }
 
     // ==========================================
     // RENDER PREVIEWS
@@ -238,7 +420,8 @@ document.addEventListener("DOMContentLoaded", () => {
     function renderInitialPreview(items, total) {
         previewPlaceholder.classList.add("hidden");
         previewList.classList.remove("hidden");
-        previewBadge.textContent = `Xem trước ${items.length} / ${total} bài gốc`;
+        previewToolbar.classList.add("hidden");
+        previewBadge.textContent = `Bóc tách thành công ${items.length} / ${total} câu gốc`;
         previewList.innerHTML = "";
 
         items.forEach(q => {
@@ -262,8 +445,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
             card.innerHTML = `
                 <div class="preview-item-header">
-                    <span class="preview-qtitle">${q.title}</span>
-                    ${q.correct_answer ? `<span class="badge-tag">Đáp án: ${q.correct_answer}</span>` : ''}
+                    <span class="preview-qtitle">▶ ${q.title || `Câu ${q.index}`}</span>
+                    <span class="badge-level">Gốc từ tệp</span>
                 </div>
                 <div class="preview-qcontent">${q.content}</div>
                 ${optionsHtml}
@@ -274,29 +457,66 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function renderBookPreview(book) {
+        currentCompiledBook = book;
         previewPlaceholder.classList.add("hidden");
         previewList.classList.remove("hidden");
-        previewBadge.textContent = `Tổng cộng: ${book.total_questions} bài toán chuẩn BGD`;
+        previewToolbar.classList.remove("hidden");
+        previewBadge.textContent = `Tổng: ${book.total_questions} bài toán chuẩn BGD`;
         previewList.innerHTML = "";
 
-        // Hiển thị PHẦN I: LÝ THUYẾT NỀN TẢNG NẾU CÓ
-        if (checkTheory.checked && book.theory_section) {
-            const theoryCard = document.createElement("div");
-            theoryCard.className = "preview-callout callout-theory";
-            theoryCard.innerHTML = `
-                <span class="callout-title" style="font-size: 13px; color: #93C5FD;">📖 PHẦN I: KIẾN THỨC TRỌNG TÂM & LÝ THUYẾT NỀN TẢNG (CHUẨN CT GDPT 2018)</span>
-                <div style="margin-top: 8px; font-size: 13.5px; white-space: pre-wrap;">${book.theory_section}</div>
+        // Banner Tiêu đề sách
+        const bookHeader = document.createElement("div");
+        bookHeader.className = "preview-book-banner";
+        bookHeader.innerHTML = `
+            <h4>${book.new_title}</h4>
+            <p class="book-sub">${book.subtitle}</p>
+            <p class="book-note"><em>"${book.author_note}"</em></p>
+        `;
+        previewList.appendChild(bookHeader);
+
+        // Hiển thị Phần I nếu là Single Book
+        if (book.theory_section && !book.is_master_book) {
+            const theoryBox = document.createElement("div");
+            theoryBox.className = "preview-callout callout-theory";
+            theoryBox.innerHTML = `
+                <span class="callout-title">📘 PHẦN I: KIẾN THỨC TRỌNG TÂM & LÝ THUYẾT CỐT LÕI GDPT 2018</span>
+                <div style="font-size: 13.5px; line-height: 1.6; margin-top: 6px;">${book.theory_section.replace(/\n/g, '<br>')}</div>
             `;
-            previewList.appendChild(theoryCard);
+            previewList.appendChild(theoryBox);
         }
 
-        const questionsToRender = book.is_master_book 
-            ? (book.chapters.length > 0 ? book.chapters[0].questions : []) 
-            : book.questions;
+        // Lặp qua câu hỏi hoặc chương
+        if (book.is_master_book && book.chapters) {
+            book.chapters.forEach(ch => {
+                const chBox = document.createElement("div");
+                chBox.className = "preview-chapter-header";
+                chBox.innerHTML = `<h5>${ch.title} (${ch.total_questions} câu)</h5>`;
+                previewList.appendChild(chBox);
 
-        questionsToRender.forEach(q => {
+                if (ch.theory_section) {
+                    const th = document.createElement("div");
+                    th.className = "preview-callout callout-theory";
+                    th.innerHTML = `
+                        <span class="callout-title">📘 LÝ THUYẾT NỀN TẢNG — ${ch.title}</span>
+                        <div>${ch.theory_section.replace(/\n/g, '<br>')}</div>
+                    `;
+                    previewList.appendChild(th);
+                }
+
+                renderQuestionCards(ch.questions, previewList);
+            });
+        } else {
+            renderQuestionCards(book.questions, previewList);
+        }
+
+        applyLevelFilter(activeFilterLevel);
+    }
+
+    function renderQuestionCards(questions, container) {
+        questions.forEach(q => {
             const card = document.createElement("div");
             card.className = "preview-item";
+            card.dataset.level = q.level || "Vận dụng";
 
             let optionsHtml = "";
             if (q.new_options && q.new_options.length > 0) {
@@ -317,7 +537,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (checkCasio.checked && q.solution_method2) {
                 casioHtml = `
                     <div class="preview-callout callout-casio">
-                        <span class="callout-title">💡 Kỹ thuật Casio fx-580VN X & Mẹo nhanh:</span>
+                        <span class="callout-title">💡 Kỹ thuật Casio fx-580VN X & Thủ thuật 15s:</span>
                         <div>${q.solution_method2.replace(/\n/g, '<br>')}</div>
                     </div>
                 `;
@@ -345,8 +565,68 @@ document.addEventListener("DOMContentLoaded", () => {
                 ${casioHtml}
                 ${trapHtml}
             `;
-            previewList.appendChild(card);
+            container.appendChild(card);
         });
+    }
+
+    // Level Filter logic
+    filterChips.forEach(chip => {
+        chip.addEventListener("click", () => {
+            filterChips.forEach(c => c.classList.remove("active"));
+            chip.classList.add("active");
+            activeFilterLevel = chip.dataset.level;
+            applyLevelFilter(activeFilterLevel);
+        });
+    });
+
+    function applyLevelFilter(level) {
+        const items = previewList.querySelectorAll(".preview-item");
+        items.forEach(item => {
+            if (level === "all" || item.dataset.level === level) {
+                item.style.display = "";
+            } else {
+                item.style.display = "none";
+            }
+        });
+    }
+
+    // Toggle Solutions visibility
+    if (btnToggleSolutions) {
+        btnToggleSolutions.addEventListener("click", () => {
+            areSolutionsVisible = !areSolutionsVisible;
+            const callouts = previewList.querySelectorAll(".callout-sol, .callout-casio, .callout-trap");
+            callouts.forEach(c => c.style.display = areSolutionsVisible ? "" : "none");
+            btnToggleSolutions.textContent = areSolutionsVisible ? "👁️ Ẩn Lời Giải" : "👁️ Hiện Lời Giải";
+        });
+    }
+
+    // ==========================================
+    // RENDER QA SCORECARD
+    // ==========================================
+    function renderQAScorecard(report) {
+        const qaCard = document.getElementById("qa-scorecard");
+        const qaScore = document.getElementById("qa-total-score");
+        const qaList = document.getElementById("qa-checks-list");
+
+        if (!report || !report.checks) {
+            if (qaCard) qaCard.classList.add("hidden");
+            return;
+        }
+
+        qaCard.classList.remove("hidden");
+        qaScore.textContent = `${report.total_score} / ${report.max_score || 100} ĐIỂM (${report.status_text})`;
+        qaList.innerHTML = report.checks.map(c => `
+            <div class="qa-check-item">
+                <span class="qa-check-icon">${c.passed ? "✔" : "⚠️"}</span>
+                <div class="qa-check-content">
+                    <div class="qa-check-name">
+                        <span>${c.name} [${c.category}]</span>
+                        <span class="qa-check-score">${c.score}/${c.max_score}đ</span>
+                    </div>
+                    <div class="qa-check-detail">${c.detail}</div>
+                </div>
+            </div>
+        `).join("");
     }
 
     // ==========================================
@@ -358,27 +638,36 @@ document.addEventListener("DOMContentLoaded", () => {
         resultCard.classList.add("hidden");
 
         const progressMessages = [
-            "Đang quét và bóc tách tài liệu gốc...",
-            "Đang xây dựng Phần I: Lý thuyết nền tảng & Bảng công thức CT GDPT 2018...",
-            "Đang nâng cấp câu từ, phân loại 4 cấp độ nhận thức...",
-            "Đang thiết lập lời giải kép tự luận và kỹ thuật bấm máy Casio...",
+            "Đang quét và bóc tách độc lập các bài toán...",
+            "Đang xây dựng Phần I: Lý thuyết nền tảng & Bảng công thức vàng CT GDPT 2018...",
+            "Đang thiết lập lời giải kép tự luận và kỹ thuật Casio fx-580VN X...",
             "Đang bổ sung cảnh báo bẫy đề thi và lỗi sai học sinh...",
-            "Đang căn chỉnh trang chuẩn Nghị định 30 (Times New Roman, lề 30-15-20-20mm)..."
+            "Đang căn lề in ấn Nghị định 30 (Trái 30mm, Phải 15mm, Trên 20mm, Dưới 20mm)..."
         ];
 
         let msgIdx = 0;
+        let pct = 15;
         progressStatus.textContent = progressMessages[0];
+        progressBar.style.width = "15%";
+
         const timer = setInterval(() => {
             msgIdx = (msgIdx + 1) % progressMessages.length;
             progressStatus.textContent = progressMessages[msgIdx];
-        }, 2200);
+            pct = Math.min(92, pct + 18);
+            progressBar.style.width = `${pct}%`;
+
+            if (pct >= 30) pstep1.classList.add("completed");
+            if (pct >= 55) pstep2.classList.add("completed");
+            if (pct >= 75) pstep3.classList.add("completed");
+            if (pct >= 90) pstep4.classList.add("completed");
+        }, 1800);
 
         try {
-            // XỬ LÝ THEO CHẾ ĐỘ THƯ MỤC
-            if (activeTab === "folder") {
+            // XỬ LÝ THEO CHẾ ĐỘ THƯ MỤC / ZIP
+            if (activeTab === "folder" || activeTab === "zip") {
                 const folderMode = document.querySelector("input[name='folder-mode']:checked").value;
                 const formData = new FormData();
-                formData.append("folder_path", folderPathInput.value.trim());
+                formData.append("folder_path", currentBatchFolder || folderPathInput.value.trim());
                 formData.append("mode", folderMode);
                 formData.append("subject", selectedSubject);
                 formData.append("add_count", addCountSelect.value);
@@ -386,12 +675,10 @@ document.addEventListener("DOMContentLoaded", () => {
                     formData.append("master_title", customTitleInput.value.trim());
                 }
 
-                const res = await fetch("/api/process-folder", {
-                    method: "POST",
-                    body: formData
-                });
+                const res = await fetch("/api/process-folder", { method: "POST", body: formData });
                 const data = await res.json();
                 clearInterval(timer);
+                progressBar.style.width = "100%";
                 progressCard.classList.add("hidden");
                 btnProcess.disabled = false;
 
@@ -403,21 +690,36 @@ document.addEventListener("DOMContentLoaded", () => {
                         btnDownload.href = data.download_url;
                         resultSingleActions.classList.remove("hidden");
                         resultBatchList.classList.add("hidden");
+                        renderQAScorecard(data.validation_report);
                         renderBookPreview(data.book);
                     } else {
                         resultTitle.textContent = `Đã biên soạn thành công ${data.total_books} cuốn sách riêng lẻ`;
-                        resultSubtitle.textContent = "Toàn bộ file Word .docx đã được lưu vào thư mục output chuẩn thể thức Nghị định 30.";
+                        resultSubtitle.textContent = "Tất cả các tệp Word .docx đã được định dạng chuẩn Nghị định 30 và nén sẵn vào 1 file ZIP.";
                         resultSingleActions.classList.add("hidden");
                         resultBatchList.classList.remove("hidden");
-                        resultBatchList.innerHTML = data.books.map(b => `
+                        const qaCard = document.getElementById("qa-scorecard");
+                        if (qaCard) qaCard.classList.add("hidden");
+
+                        let batchHtml = "";
+                        if (data.zip_download_url) {
+                            batchHtml += `
+                                <div style="margin-bottom: 16px; text-align: center;">
+                                    <a href="${data.zip_download_url}" class="btn btn-success btn-large" style="display: inline-flex; width: auto; padding: 12px 28px;">
+                                        <span class="icon">📦</span> TẢI TRỌN BỘ SÁCH (.ZIP) — 1 CLICK
+                                    </a>
+                                </div>
+                            `;
+                        }
+                        batchHtml += data.books.map(b => `
                             <div class="result-batch-item">
                                 <div>
                                     <strong>${b.title}</strong>
-                                    <p style="font-size: 11.5px; color: var(--text-muted);">Nguồn: ${b.source} (${b.total_questions} câu)</p>
+                                    <p style="font-size: 11.5px; color: var(--text-muted);">Nguồn: ${b.source} (${b.total_questions} câu) — Đạt chuẩn: ${b.validation_report ? b.validation_report.total_score : 100}/100đ</p>
                                 </div>
-                                <a href="${b.download_url}" class="btn btn-outline" style="padding: 6px 12px; font-size: 12px;">📥 Tải về</a>
+                                <a href="${b.download_url}" class="btn btn-outline" style="padding: 6px 14px; font-size: 12px;">📥 Tải DOCX</a>
                             </div>
                         `).join("");
+                        resultBatchList.innerHTML = batchHtml;
                     }
                 } else {
                     alert("Lỗi: " + (data.detail || "Không rõ nguyên nhân"));
@@ -433,12 +735,10 @@ document.addEventListener("DOMContentLoaded", () => {
                     formData.append("custom_title", customTitleInput.value.trim());
                 }
 
-                const res = await fetch("/api/process", {
-                    method: "POST",
-                    body: formData
-                });
+                const res = await fetch("/api/process", { method: "POST", body: formData });
                 const data = await res.json();
                 clearInterval(timer);
+                progressBar.style.width = "100%";
                 progressCard.classList.add("hidden");
                 btnProcess.disabled = false;
 
@@ -449,6 +749,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     btnDownload.href = data.download_url;
                     resultSingleActions.classList.remove("hidden");
                     resultBatchList.classList.add("hidden");
+                    renderQAScorecard(data.validation_report);
                     renderBookPreview(data.book);
                 } else {
                     alert("Lỗi: " + (data.detail || "Không rõ"));
@@ -458,16 +759,172 @@ document.addEventListener("DOMContentLoaded", () => {
             clearInterval(timer);
             progressCard.classList.add("hidden");
             btnProcess.disabled = false;
-            alert("Lỗi: " + err.message);
+            alert("Lỗi biên soạn: " + err.message);
         }
     });
+
+    // ==========================================
+    // INTERACTIVE WEB BOOK READER MODAL
+    // ==========================================
+    if (btnReadOnline) {
+        btnReadOnline.addEventListener("click", () => {
+            if (!currentCompiledBook) {
+                alert("Vui lòng biên soạn sách trước khi đọc trực tuyến!");
+                return;
+            }
+            openWebReader(currentCompiledBook);
+        });
+    }
+
+    if (btnCloseReader) {
+        btnCloseReader.addEventListener("click", () => modalReader.classList.add("hidden"));
+    }
+
+    if (btnPrintReader) {
+        btnPrintReader.addEventListener("click", () => {
+            window.print();
+        });
+    }
+
+    function openWebReader(book) {
+        readerBookTitle.textContent = book.new_title;
+        readerBookSubtitle.textContent = book.subtitle;
+        readerContent.innerHTML = "";
+
+        // Cover / Title Page
+        const cover = document.createElement("div");
+        cover.className = "reader-cover";
+        cover.innerHTML = `
+            <div style="font-size: 13px; font-weight: bold; letter-spacing: 2px; color: #4A5568; margin-bottom: 8px;">TÀI LIỆU LƯU HÀNH NỘI BỘ — CHƯƠNG TRÌNH GDPT 2018</div>
+            <h1>${book.new_title}</h1>
+            <div class="reader-sub">${book.subtitle}</div>
+            <div class="reader-intro">
+                <strong>Lời Tựa Sư Phạm:</strong><br>
+                ${book.author_note}
+            </div>
+        `;
+        readerContent.appendChild(cover);
+
+        // Render Single Book vs Master Book
+        if (book.is_master_book && book.chapters) {
+            book.chapters.forEach(ch => {
+                const chHeader = document.createElement("div");
+                chHeader.className = "reader-section-title";
+                chHeader.textContent = ch.title;
+                readerContent.appendChild(chHeader);
+
+                if (ch.theory_section) {
+                    const th = document.createElement("div");
+                    th.className = "reader-callout reader-callout-sol";
+                    th.innerHTML = `
+                        <strong>📘 PHẦN I: KIẾN THỨC TRỌNG TÂM & LÝ THUYẾT NỀN TẢNG CHUẨN BGD</strong>
+                        <div style="margin-top: 6px; white-space: pre-line;">${ch.theory_section}</div>
+                    `;
+                    readerContent.appendChild(th);
+                }
+
+                renderReaderQuestions(ch.questions, readerContent);
+            });
+        } else {
+            if (book.theory_section) {
+                const th = document.createElement("div");
+                th.className = "reader-callout reader-callout-sol";
+                th.innerHTML = `
+                    <strong>📘 PHẦN I: KIẾN THỨC TRỌNG TÂM & LÝ THUYẾT NỀN TẢNG CHUẨN BGD</strong>
+                    <div style="margin-top: 6px; white-space: pre-line;">${book.theory_section}</div>
+                `;
+                readerContent.appendChild(th);
+            }
+
+            const secTitle = document.createElement("div");
+            secTitle.className = "reader-section-title";
+            secTitle.textContent = "PHẦN II: HỆ THỐNG BÀI TOÁN RÈN LUYỆN THEO CẤP ĐỘ NHẬN THỨC";
+            readerContent.appendChild(secTitle);
+
+            renderReaderQuestions(book.questions, readerContent);
+        }
+
+        modalReader.classList.remove("hidden");
+    }
+
+    function renderReaderQuestions(questions, container) {
+        questions.forEach(q => {
+            const card = document.createElement("div");
+            card.className = "reader-q-card";
+
+            let optsHtml = "";
+            if (q.new_options && q.new_options.length > 0) {
+                optsHtml = `<div class="reader-options-box">${q.new_options.map(opt => {
+                    const isCorrect = q.correct_answer && opt.trim().startsWith(q.correct_answer);
+                    return `<div class="reader-opt-item ${isCorrect ? 'correct' : ''}">${opt}</div>`;
+                }).join('')}</div>`;
+            }
+
+            let sol1Html = "";
+            if (q.solution_method1) {
+                sol1Html = `
+                    <div class="reader-callout reader-callout-sol">
+                        <strong>✎ Hướng dẫn giải chi tiết (Tự luận chuẩn mực):</strong>
+                        <div style="margin-top: 4px; white-space: pre-line;">${q.solution_method1}</div>
+                    </div>
+                `;
+            }
+
+            let casioHtml = "";
+            if (q.solution_method2) {
+                casioHtml = `
+                    <div class="reader-callout reader-callout-casio">
+                        <strong>💡 Kỹ thuật Casio fx-580VN X & Tư duy giải nhanh:</strong>
+                        <div style="margin-top: 4px; white-space: pre-line;">${q.solution_method2}</div>
+                    </div>
+                `;
+            }
+
+            let trapHtml = "";
+            if (q.trap_warning) {
+                trapHtml = `
+                    <div class="reader-callout reader-callout-trap">
+                        <strong>⚠️ Bẫy đề thi & Lỗi sai học sinh hay mắc phải:</strong>
+                        <div style="margin-top: 4px; white-space: pre-line;">${q.trap_warning}</div>
+                    </div>
+                `;
+            }
+
+            card.innerHTML = `
+                <div class="reader-q-head">▶ ${q.title} [${q.level || 'Vận dụng'}]</div>
+                <div class="reader-q-text">${q.new_content}</div>
+                ${optsHtml}
+                ${sol1Html}
+                ${casioHtml}
+                ${trapHtml}
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    // ==========================================
+    // DEPLOY GUIDE MODAL
+    // ==========================================
+    if (btnDeployInfo) {
+        btnDeployInfo.addEventListener("click", () => modalDeploy.classList.remove("hidden"));
+    }
+    if (btnCloseDeploy) {
+        btnCloseDeploy.addEventListener("click", () => modalDeploy.classList.add("hidden"));
+    }
+    if (btnDismissDeploy) {
+        btnDismissDeploy.addEventListener("click", () => modalDeploy.classList.add("hidden"));
+    }
 
     // ==========================================
     // OPEN FOLDERS
     // ==========================================
     async function triggerOpenOutputFolder() {
         try {
-            await fetch("/api/open-output-folder", { method: "POST" });
+            const res = await fetch("/api/open-output-folder", { method: "POST" });
+            const data = await res.json();
+            if (data.status === "info") {
+                alert(data.message);
+            }
         } catch (e) {
             console.error(e);
         }
@@ -481,9 +938,9 @@ document.addEventListener("DOMContentLoaded", () => {
     btnSettings.addEventListener("click", async () => {
         try {
             const res = await fetch("/api/settings");
-            const data = await res.json();
-            if (data.gemini_api_key) geminiApiKeyInput.value = data.gemini_api_key;
-            if (data.gemini_model) geminiModelSelect.value = data.gemini_model;
+            const settings = await res.json();
+            geminiApiKeyInput.value = settings.gemini_api_key || "";
+            geminiModelSelect.value = settings.gemini_model || "gemini-2.5-flash";
         } catch (e) {
             console.error(e);
         }
@@ -506,19 +963,27 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     btnSaveSettings.addEventListener("click", async () => {
-        const payload = {
-            gemini_api_key: geminiApiKeyInput.value.trim(),
-            gemini_model: geminiModelSelect.value
-        };
+        btnSaveSettings.disabled = true;
+        btnSaveSettings.textContent = "Đang lưu...";
         try {
-            await fetch("/api/settings", {
+            const res = await fetch("/api/settings", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({
+                    gemini_api_key: geminiApiKeyInput.value.trim(),
+                    gemini_model: geminiModelSelect.value
+                })
             });
-            modalSettings.classList.add("hidden");
-            alert("Đã lưu cấu hình AI thành công!");
+            const data = await res.json();
+            btnSaveSettings.disabled = false;
+            btnSaveSettings.textContent = "Lưu Cấu Hình";
+            if (data.status === "success") {
+                modalSettings.classList.add("hidden");
+                alert("Đã lưu cấu hình Google Gemini AI thành công!");
+            }
         } catch (err) {
+            btnSaveSettings.disabled = false;
+            btnSaveSettings.textContent = "Lưu Cấu Hình";
             alert("Lỗi khi lưu cấu hình: " + err.message);
         }
     });

@@ -21,6 +21,8 @@ class QuestionItem:
     subject: str = "toan"
     category: str = ""
     source_file: str = ""
+    chapter_title: str = ""
+    theory_box: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -69,14 +71,48 @@ def extract_questions_from_text_lines(raw_lines: List[str], subject: str = "toan
             if clean_sp and not is_header_or_footer(clean_sp):
                 preprocessed_lines.append(clean_sp)
 
+    chap_re = re.compile(
+        r"^(?:chủ đề|chu de|chương|chuong|phần|phan|chuyên đề|chuyen de)\s*(\d+)[\s.:\-–—]*(.*)",
+        re.IGNORECASE
+    )
+    ans_re = re.compile(
+        r"^(?:đáp số|dap so|kết quả|ket qua)[\s.:\-–—]*(.*)",
+        re.IGNORECASE
+    )
+    current_chapter_title = ""
+    current_theory_box = ""
+
     items: List[QuestionItem] = []
     current_item: Optional[QuestionItem] = None
     state = "content"
     q_counter = 1
 
     for line in preprocessed_lines:
+        chap_match = chap_re.match(line)
+        if chap_match:
+            if current_item and (current_item.content or current_item.options):
+                current_item.content = clean_paragraph_text(current_item.content)
+                current_item.solution = clean_paragraph_text(current_item.solution)
+                items.append(current_item)
+                current_item = None
+            current_chapter_title = line.strip()
+            current_theory_box = ""
+            state = "content"
+            continue
+
+        if any(kw in line.upper() for kw in ["GHI NHỚ", "LÝ THUYẾT TRỌNG TÂM", "KIẾN THỨC CẦN NHỚ"]):
+            if current_item and (current_item.content or current_item.options):
+                current_item.content = clean_paragraph_text(current_item.content)
+                current_item.solution = clean_paragraph_text(current_item.solution)
+                items.append(current_item)
+                current_item = None
+            current_theory_box = line.strip()
+            state = "content"
+            continue
+
         q_match = q_re.match(line)
         sol_match = sol_re.match(line)
+        ans_match = ans_re.match(line)
 
         if q_match:
             if current_item and (current_item.content or current_item.options):
@@ -103,7 +139,9 @@ def extract_questions_from_text_lines(raw_lines: List[str], subject: str = "toan
                     content=actual_content,
                     options=[format_math_typography(o.strip()) for o in inline_opts],
                     subject=subject,
-                    source_file=source_file
+                    source_file=source_file,
+                    chapter_title=current_chapter_title,
+                    theory_box=current_theory_box
                 )
                 state = "options"
                 continue
@@ -113,7 +151,9 @@ def extract_questions_from_text_lines(raw_lines: List[str], subject: str = "toan
                 title=f"Câu {q_num}",
                 content=content_head,
                 subject=subject,
-                source_file=source_file
+                source_file=source_file,
+                chapter_title=current_chapter_title,
+                theory_box=current_theory_box
             )
             state = "content"
             continue
@@ -123,6 +163,15 @@ def extract_questions_from_text_lines(raw_lines: List[str], subject: str = "toan
                 state = "solution"
                 sol_head = sol_match.group(1).strip()
                 current_item.solution = sol_head
+            continue
+
+        if ans_match and current_item:
+            ans_head = ans_match.group(1).strip()
+            if state == "solution":
+                current_item.solution += f"\nĐáp số: {ans_head}" if ans_head else "\nĐáp số:"
+            else:
+                current_item.solution = f"Đáp số: {ans_head}" if ans_head else "Đáp số:"
+                state = "solution"
             continue
 
         if current_item is not None:
@@ -253,16 +302,22 @@ class DocxParser:
         doc = docx.Document(str(file_path))
         lines: List[str] = []
 
-        for p in doc.paragraphs:
-            text = clean_paragraph_text(p.text)
-            if text and not is_header_or_footer(text):
-                lines.append(text)
-
-        for table in doc.tables:
-            for row in table.rows:
-                row_texts = [clean_paragraph_text(c.text) for c in row.cells if c.text.strip()]
-                if row_texts:
-                    lines.append(" | ".join(row_texts))
+        for child in doc.element.body:
+            if child.tag.endswith('p'):
+                p = docx.text.paragraph.Paragraph(child, doc)
+                text = clean_paragraph_text(p.text)
+                if text and not is_header_or_footer(text):
+                    lines.append(text)
+            elif child.tag.endswith('tbl'):
+                tbl = docx.table.Table(child, doc)
+                cell_texts = []
+                for row in tbl.rows:
+                    for cell in row.cells:
+                        ct = clean_paragraph_text(cell.text)
+                        if ct and ct not in cell_texts:
+                            cell_texts.append(ct)
+                if cell_texts:
+                    lines.append(" \n ".join(cell_texts))
 
         return extract_questions_from_text_lines(lines, subject=subject, source_file=file_path.name)
 

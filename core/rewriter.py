@@ -8,6 +8,7 @@ from typing import List, Dict, Any, Optional
 from core.parser import QuestionItem
 from core.math_engine import format_math_typography, clean_paragraph_text
 from core.theory_bank import detect_subject_and_topic, build_pedagogical_theory_section
+from core.ai_namer import synthesize_book_metadata
 
 @dataclass
 class RewrittenQuestionItem:
@@ -318,13 +319,94 @@ Chỉ trả về JSON thuần túy.
         return rewrite_offline(questions, subject=subject, add_count=add_count)
 
 
-def rewrite_offline(questions: List[QuestionItem], subject: str = "toan", add_count: int = 2) -> RewrittenBook:
+def rewrite_offline(
+    questions: List[QuestionItem],
+    subject: str = "toan",
+    add_count: int = 2,
+    api_key: Optional[str] = None,
+    model_name: str = "gemini-2.5-flash"
+) -> RewrittenBook:
+    source_filename = questions[0].source_file if questions else ""
+
+    # 1. Phát hiện các chương/chủ đề trong tài liệu
+    distinct_chapters: List[str] = []
+    for q in questions:
+        c_title = q.chapter_title.strip()
+        if c_title and c_title not in distinct_chapters:
+            distinct_chapters.append(c_title)
+
+    # 2. Sinh Metadata Độc Bản (AI hoặc Ngoại Tuyến Tự Động)
+    sample_content = "\n".join(q.content for q in questions[:6])
+    meta = synthesize_book_metadata(
+        filename=source_filename,
+        chapter_titles=distinct_chapters if distinct_chapters else None,
+        sample_content=sample_content,
+        subject=subject,
+        api_key=api_key,
+        model_name=model_name
+    )
+    book_title = meta.get("book_title") or (Path(source_filename).stem.replace("_", " ").upper() if source_filename else "TÀI LIỆU CHUYÊN ĐỀ")
+    subtitle = meta.get("subtitle", "Hệ Thống Kiến Thức Trọng Tâm & Lời Giải Chi Tiết Chuẩn BGD")
+    author_note = meta.get("author_note", "Tài liệu được tái cấu trúc toàn diện theo chuẩn chương trình GDPT 2018 của Bộ GD&ĐT.")
+
+    # 3. NẾU TÀI LIỆU CÓ TỪ 2 CHƯƠNG/CHỦ ĐỀ TRỞ LÊN: Xây dựng cấu trúc Master Chapter Book
+    if len(distinct_chapters) >= 2:
+        chapters: List[RewrittenChapter] = []
+        for ch_idx, ch_title in enumerate(distinct_chapters, 1):
+            ch_questions = [q for q in questions if q.chapter_title.strip() == ch_title]
+            if not ch_questions:
+                continue
+
+            # Ưu tiên lý thuyết có sẵn trong tài liệu gốc (theory_box / Ghi nhớ)
+            ch_theory = ""
+            for q in ch_questions:
+                if q.theory_box and len(q.theory_box.strip()) > 15:
+                    ch_theory = q.theory_box.strip()
+                    break
+
+            if not ch_theory:
+                ch_texts = [q.content for q in ch_questions]
+                ch_topic_data = detect_subject_and_topic(ch_texts, subject=subject)
+                ch_theory = build_pedagogical_theory_section(ch_topic_data)
+
+            rewritten_items: List[RewrittenQuestionItem] = []
+            for q_idx, q in enumerate(ch_questions, 1):
+                enh = generate_offline_enhancement(q, q_idx, len(ch_questions), subject=subject)
+                rewritten_items.append(enh)
+
+            chapters.append(RewrittenChapter(
+                index=ch_idx,
+                title=ch_title.upper(),
+                source_name=source_filename,
+                theory_section=ch_theory,
+                questions=rewritten_items
+            ))
+
+        return RewrittenBook(
+            original_title=source_filename or book_title,
+            new_title=book_title,
+            subtitle=subtitle,
+            author_note=author_note,
+            chapter_summary=f"Tuyển tập {len(chapters)} chương chuyên đề trọng tâm",
+            theory_section="",
+            chapters=chapters,
+            questions=[]
+        )
+
+    # 4. TÀI LIỆU ĐƠN CHỦ ĐỀ HOẶC ĐỀ THI LIÊN TỤC
     total_orig = len(questions)
     new_total = total_orig + add_count
 
     all_texts = [q.content for q in questions]
     topic_data = detect_subject_and_topic(all_texts, subject=subject)
-    theory_text = build_pedagogical_theory_section(topic_data)
+
+    # Nếu có theory_box gốc từ file, dùng nó, ngược lại sinh từ theory_bank
+    orig_theory = ""
+    for q in questions:
+        if q.theory_box and len(q.theory_box.strip()) > 15:
+            orig_theory = q.theory_box.strip()
+            break
+    theory_text = orig_theory if orig_theory else build_pedagogical_theory_section(topic_data)
 
     rewritten_items: List[RewrittenQuestionItem] = []
     for idx, q in enumerate(questions, 1):
@@ -334,20 +416,17 @@ def rewrite_offline(questions: List[QuestionItem], subject: str = "toan", add_co
     for i in range(1, add_count + 1):
         rewritten_items.append(create_added_question(total_orig + i, subject=subject))
 
-    sub_name = "Toán Học" if subject == "toan" else "Vật Lý"
     return RewrittenBook(
-        original_title=f"{total_orig} Bài tập {sub_name}",
-        new_title=f"{new_total} Tuyệt Kỹ Chinh Phục Điểm 9+ {sub_name}",
-        subtitle="Hệ Thống Kiến Thức Trọng Tâm, Phân Dạng Bài Tập & Lời Giải Đa Chiều Chuẩn BGD",
-        author_note=(
-            "Tài liệu này được tái cấu trúc toàn diện theo chuẩn chương trình GDPT 2018: "
-            "Trình bày mạch lạc từ Kiến thức trọng tâm, Phương pháp tư duy đến Hệ thống bài tập 4 cấp độ nhận thức. "
-            "Bổ sung lời giải tự luận bài bản, kỹ thuật giải nhanh máy tính cầm tay và phân tích bẫy đề thi."
-        ),
+        original_title=source_filename or book_title,
+        new_title=book_title,
+        subtitle=subtitle,
+        author_note=author_note,
         chapter_summary=topic_data.get("title", ""),
         theory_section=theory_text,
+        chapters=[],
         questions=rewritten_items
     )
+
 
 def create_master_book_from_chapters(
     chapter_data_list: List[Dict[str, Any]],
@@ -359,10 +438,20 @@ def create_master_book_from_chapters(
     for c_idx, data in enumerate(chapter_data_list, 1):
         source_name = data.get("source_name", f"Tài liệu {c_idx}")
         questions = data.get("questions", [])
+        if not questions:
+            continue
 
-        all_texts = [q.content for q in questions]
-        topic_data = detect_subject_and_topic(all_texts, subject=subject)
-        theory_text = build_pedagogical_theory_section(topic_data)
+        # Lấy lý thuyết gốc hoặc sinh chuẩn
+        ch_theory = ""
+        for q in questions:
+            if hasattr(q, "theory_box") and q.theory_box and len(q.theory_box.strip()) > 15:
+                ch_theory = q.theory_box.strip()
+                break
+
+        if not ch_theory:
+            all_texts = [q.content for q in questions]
+            topic_data = detect_subject_and_topic(all_texts, subject=subject)
+            ch_theory = build_pedagogical_theory_section(topic_data)
 
         rewritten_items: List[RewrittenQuestionItem] = []
         for q_idx, q in enumerate(questions, 1):
@@ -372,29 +461,30 @@ def create_master_book_from_chapters(
         clean_chapter_name = Path(source_name).stem.replace("_", " ").replace("-", " ")
         chapters.append(RewrittenChapter(
             index=c_idx,
-            title=f"CHƯƠNG {c_idx}: {clean_chapter_name.upper()}",
+            title=f"CHUYÊN ĐỀ {c_idx}: {clean_chapter_name.upper()}",
             source_name=source_name,
-            theory_section=theory_text,
+            theory_section=ch_theory,
             questions=rewritten_items
         ))
 
     sub_name = "Toán Học" if subject == "toan" else "Vật Lý"
-    final_title = master_title or f"ĐẠI CẨM NANG TOÀN DIỆN MÔN {sub_name.upper()}"
+    final_title = master_title.strip() if master_title and master_title.strip() else f"ĐẠI CẨM NANG TOÀN DIỆN MÔN {sub_name.upper()}"
 
     return RewrittenBook(
-        original_title="Bộ tài liệu tổng hợp",
+        original_title="Thư mục tài liệu tổng hợp",
         new_title=final_title,
-        subtitle="Tuyển Tập Chuyên Đề Bồi Dưỡng - Kiến Thức Trọng Tâm & Lời Giải Chi Tiết Chuẩn BGD",
+        subtitle="Tuyển Tập Chuyên Đề Bồi Dưỡng — Kiến Thức Trọng Tâm & Lời Giải Chi Tiết Chuẩn BGD",
         author_note=(
             f"Cuốn đại cẩm nang được tổng hợp và biên soạn đồng bộ từ toàn bộ thư mục tài liệu gốc. "
-            f"Bố cục sách gồm {len(chapters)} chương bài bản, tích hợp đầy đủ lý thuyết nền tảng, "
+            f"Bố cục sách gồm {len(chapters)} chương chuyên đề bài bản, tích hợp đầy đủ lý thuyết nền tảng, "
             f"hệ thống bài tập phân loại theo cấp độ nhận thức và hướng dẫn giải chi tiết."
         ),
-        chapter_summary=f"Tuyển tập {len(chapters)} chương chuyên đề trọng tâm môn {sub_name}",
+        chapter_summary=f"Tuyển tập {len(chapters)} chuyên đề trọng tâm môn {sub_name}",
         theory_section="",
         chapters=chapters,
         questions=[]
     )
+
 
 def process_rewrite_pipeline(
     questions: List[QuestionItem],
@@ -404,6 +494,10 @@ def process_rewrite_pipeline(
     model_name: str = "gemini-2.5-flash"
 ) -> RewrittenBook:
     if api_key and api_key.strip():
-        return rewrite_with_gemini(questions, api_key=api_key.strip(), model_name=model_name, subject=subject, add_count=add_count)
+        try:
+            return rewrite_with_gemini(questions, api_key=api_key.strip(), model_name=model_name, subject=subject, add_count=add_count)
+        except Exception as e:
+            print(f"Lỗi Gemini pipeline: {e}. Chuyển sang rewrite_offline.")
+            return rewrite_offline(questions, subject=subject, add_count=add_count, api_key=api_key, model_name=model_name)
     else:
-        return rewrite_offline(questions, subject=subject, add_count=add_count)
+        return rewrite_offline(questions, subject=subject, add_count=add_count, api_key=api_key, model_name=model_name)

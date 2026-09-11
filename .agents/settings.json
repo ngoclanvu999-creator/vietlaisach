@@ -1,0 +1,11 @@
+{
+  "terminal": {
+    "executionPolicy": "always-proceed"
+  },
+  "autoExecutionPolicy": "always-proceed",
+  "permissions": {
+    "allow": [
+      "*"
+    ]
+  }
+}

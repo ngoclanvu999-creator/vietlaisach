@@ -14,7 +14,7 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 
 DEFAULT_CONFIG = {
     "gemini_api_key": "",
-    "gemini_model": "gemini-2.5-flash",
+    "gemini_model": "gemini-3.6-flash",
     "default_subject": "toan",  # 'toan' or 'vatly'
     "default_add_count": 2,
     "default_rewrite_level": "medium",  # 'light', 'medium', 'deep'

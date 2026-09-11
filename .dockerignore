@@ -1,0 +1,17 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.python/
+.git/
+.gitignore
+.agents/
+.vscode/
+scratch/
+output/*.docx
+output/*.zip
+input/*.docx
+input/*.pdf
+input/*.xlsx
+input/*.png
+input/*.jpg
