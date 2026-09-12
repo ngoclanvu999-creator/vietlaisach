@@ -1,8 +1,26 @@
 import os
+import sys
 import json
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
+
+# ---------------------------------------------------------------------------
+# CHẾ ĐỘ CHẠY & BẢO MẬT
+# ---------------------------------------------------------------------------
+# LOCAL_MODE = True: ứng dụng chạy trên máy cá nhân, được phép duyệt thư mục
+#   bất kỳ trên ổ đĩa và mở Explorer.
+# LOCAL_MODE = False (mặc định khi deploy Linux/Cloud): chỉ được phép đọc các
+#   tệp do người dùng tải lên nằm trong thư mục input/, tuyệt đối không cho
+#   phép liệt kê hệ thống tệp của máy chủ.
+LOCAL_MODE = os.environ.get(
+    "LOCAL_MODE",
+    "1" if sys.platform == "win32" else "0"
+).strip() == "1"
+
+# Nếu đặt biến môi trường APP_ACCESS_TOKEN, mọi lệnh gọi /api/... bắt buộc phải
+# kèm token (header "X-Access-Token" hoặc tham số ?token=...). Để trống thì tắt.
+ACCESS_TOKEN = os.environ.get("APP_ACCESS_TOKEN", "").strip()
 INPUT_DIR = BASE_DIR / "input"
 OUTPUT_DIR = BASE_DIR / "output"
 TEMPLATES_DIR = BASE_DIR / "templates"
