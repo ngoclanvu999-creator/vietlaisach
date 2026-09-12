@@ -203,10 +203,17 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
     if (dropZone) {
+        // Bấm vào BẤT KỲ chỗ nào trong khung đều mở hộp thoại chọn tệp.
+        // Điều kiện cũ là `e.target.closest(".drop-content") === e.target`, chỉ
+        // đúng khi bấm trúng đúng thẻ .drop-content — bấm vào biểu tượng hay dòng
+        // chữ bên trong thì e.target là thẻ con nên không bao giờ khớp, khiến cả
+        // vùng giữa khung bấm không ăn. Đó lại chính là chỗ người dùng hay bấm.
         dropZone.addEventListener("click", (e) => {
-            if (e.target === dropZone || e.target.closest(".drop-content") === e.target) {
-                fileInput.click();
+            // Hai nút đã có xử lý riêng, bỏ qua để không mở hộp thoại hai lần
+            if (e.target.closest("#btn-browse-file") || e.target.closest("#btn-browse-folder")) {
+                return;
             }
+            fileInput.click();
         });
     }
 
