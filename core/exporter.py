@@ -5,7 +5,7 @@ from docx.shared import Inches, Pt, RGBColor, Mm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml import parse_xml
-from docx.oxml.ns import nsdecls
+from docx.oxml.ns import nsdecls, qn
 from core.rewriter import RewrittenBook, RewrittenChapter, RewrittenQuestionItem
 
 # Bảng màu sắc chuẩn sư phạm & thanh lịch
@@ -72,18 +72,49 @@ def add_callout_box(doc: docx.Document, title: str, content: str, bg_hex: str, b
     p_spacer.paragraph_format.space_after = Pt(4)
 
 
+# Kích thước khổ giấy được hỗ trợ (rộng x cao, đơn vị milimét)
+PAPER_SIZES_MM = {
+    "a4": (210, 297),
+    "b5": (176, 250),
+}
+
+
 class DocxBookExporter:
     @classmethod
-    def apply_standard_page_setup(cls, section):
-        """Thiết lập thể thức văn bản chuẩn Nghị định 30/2020/NĐ-CP (Khổ A4, Lề 30-15-20-20mm)"""
-        section.page_width = Mm(210)   # A4 rộng 210mm
-        section.page_height = Mm(297)  # A4 dài 297mm
+    def apply_standard_page_setup(cls, section, paper_format: str = "a4"):
+        """
+        Thiết lập thể thức văn bản chuẩn Nghị định 30/2020/NĐ-CP.
+        Mặc định khổ A4 với lề Trái 30mm (chừa gáy sách), Phải 15mm, Trên/Dưới 20mm.
+        Khổ B5 dùng khi in sách bỏ túi.
+        """
+        width_mm, height_mm = PAPER_SIZES_MM.get((paper_format or "a4").lower(), PAPER_SIZES_MM["a4"])
+        section.page_width = Mm(width_mm)
+        section.page_height = Mm(height_mm)
 
         # Lề trang: Trái 30mm (đóng gáy sách), Phải 15mm, Trên 20mm, Dưới 20mm
         section.left_margin = Mm(30)
         section.right_margin = Mm(15)
         section.top_margin = Mm(20)
         section.bottom_margin = Mm(20)
+
+    @classmethod
+    def apply_default_style(cls, doc):
+        """
+        Đặt font mặc định cho toàn tài liệu. Nếu không làm bước này, mọi đoạn văn
+        không được gán font tường minh sẽ rơi về Calibri 11pt của Word, sai thể thức.
+        """
+        try:
+            style = doc.styles["Normal"]
+            style.font.name = FONT_MAIN
+            style.font.size = Pt(13)
+            # Word dùng thuộc tính riêng cho bảng mã Đông Á, phải đặt kèm mới ăn chắc
+            rpr = style.element.get_or_add_rPr()
+            rfonts = rpr.get_or_add_rFonts()
+            rfonts.set(qn("w:eastAsia"), FONT_MAIN)
+            rfonts.set(qn("w:cs"), FONT_MAIN)
+            style.paragraph_format.line_spacing = 1.25
+        except Exception:
+            pass
 
     @classmethod
     def render_question_item(cls, doc: docx.Document, q: RewrittenQuestionItem):
@@ -200,10 +231,11 @@ class DocxBookExporter:
         r_sep.font.size = Pt(8)
 
     @classmethod
-    def export(cls, book: RewrittenBook, output_path: Path) -> Path:
+    def export(cls, book: RewrittenBook, output_path: Path, paper_format: str = "a4") -> Path:
         doc = docx.Document()
+        cls.apply_default_style(doc)
         section = doc.sections[0]
-        cls.apply_standard_page_setup(section)
+        cls.apply_standard_page_setup(section, paper_format=paper_format)
 
         # Header & Footer chuẩn công văn
         header = section.header

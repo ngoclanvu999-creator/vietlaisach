@@ -29,7 +29,7 @@ def test_full_pipeline():
     assert len(book.questions) == 7, f"Mong đợi 7 câu (5 gốc + 2 thêm), nhận được {len(book.questions)}"
 
     out_docx = OUTPUT_DIR / "Test_Output_From_Docx.docx"
-    DocxBookExporter.export(book, out_docx, paper_format="a4")
+    DocxBookExporter.export(book, out_docx)
     assert out_docx.exists(), f"Không tạo được {out_docx}"
     
     # Kiểm tra file docx vừa tạo có hợp lệ không
@@ -47,7 +47,7 @@ def test_full_pipeline():
 
     book_excel = process_rewrite_pipeline(questions_excel, subject="toan", add_count=3)
     out_xlsx_docx = OUTPUT_DIR / "Test_Output_From_Xlsx.docx"
-    DocxBookExporter.export(book_excel, out_xlsx_docx, paper_format="a4")
+    DocxBookExporter.export(book_excel, out_xlsx_docx)
     assert out_xlsx_docx.exists(), f"Không tạo được {out_xlsx_docx}"
     print(f"[OK] File Word từ nguồn Excel đã tạo thành công tại: {out_xlsx_docx}")
 

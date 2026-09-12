@@ -12,3 +12,9 @@ input/web_upload_batch/
 input/unzipped_*/
 *.ps1
 
+
+# File thanh pham va tep tam
+output/
+input/web_upload_batch/
+input/unzipped_*/
+*.zip

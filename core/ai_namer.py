@@ -23,6 +23,23 @@ def extract_grade_and_subject(text: str, default_subject: str = "toan") -> Dict[
         grade = "Lớp 12"
     return {"subject": subject, "grade": grade}
 
+# Bộ nhớ đệm trong tiến trình: cùng một tài liệu không gọi lại Gemini nhiều lần.
+# Chế độ biên soạn cả thư mục trước đây gọi API 2 lần cho MỖI tệp, rất tốn hạn mức.
+_METADATA_CACHE: Dict[str, Any] = {}
+_CACHE_LIMIT = 128
+
+
+def _cache_get(key: str):
+    return _METADATA_CACHE.get(key)
+
+
+def _cache_put(key: str, value):
+    if len(_METADATA_CACHE) >= _CACHE_LIMIT:
+        _METADATA_CACHE.clear()
+    _METADATA_CACHE[key] = value
+    return value
+
+
 def get_effective_api_key(explicit_key: Optional[str] = None) -> str:
     settings = load_settings()
     return (
@@ -47,6 +64,11 @@ def generate_creative_titles_gemini(
     key = get_effective_api_key(api_key)
     info = extract_grade_and_subject(f"{filename} {sample_text}", default_subject=subject)
     subj_name = "Toán Học" if info["subject"] == "toan" else "Vật Lý"
+
+    cache_key = f"titles|{filename}|{subject}|{chapter_titles}|{hash(sample_text[:1200])}"
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return cached
 
     if key:
         try:
@@ -92,7 +114,7 @@ TRẢ VỀ ĐỊNH DẠNG JSON DUY NHẤT:
             data = json.loads(response.text)
             titles = data.get("titles", [])
             if titles and len(titles) >= 3:
-                return titles
+                return _cache_put(cache_key, titles)
         except Exception as e:
             print(f"Lỗi Gemini creative titles: {e}. Sử dụng bộ sáng tạo chuyên gia mặc định.")
 
@@ -149,6 +171,11 @@ def generate_creative_enrichment_gemini(
     key = get_effective_api_key(api_key)
     subj_name = "Toán Học" if subject == "toan" else "Vật Lý"
 
+    cache_key = f"enrich|{book_title}|{subject}"
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return cached
+
     if key:
         try:
             from google import genai
@@ -179,7 +206,7 @@ TRẢ VỀ ĐỊNH DẠNG JSON:
                 contents=prompt,
                 config=types.GenerateContentConfig(response_mime_type="application/json")
             )
-            return json.loads(response.text)
+            return _cache_put(cache_key, json.loads(response.text))
         except Exception as e:
             print(f"Lỗi Gemini enrichment: {e}. Dùng nội dung chuyên gia mặc định.")
 
