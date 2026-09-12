@@ -29,3 +29,8 @@ data/*.tmp
 
 # File rac do bo test bao mat sinh ra
 input/evil_test.docx
+
+# Cache quet thu vien - tep tam, khong commit
+data/thu_vien_cache.json
+data/thu_vien_cache.tmp
+output/bao_cao_thu_vien.json
