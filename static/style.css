@@ -344,6 +344,28 @@ body {
     color: var(--text-dim);
 }
 
+.btn-browse-action {
+    margin-top: 14px;
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.25), rgba(59, 130, 246, 0.35));
+    border: 1px solid #3B82F6;
+    color: #93C5FD;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: inline-block;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
+}
+
+.btn-browse-action:hover {
+    background: linear-gradient(135deg, #2563EB, #1D4ED8);
+    color: #FFF;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.45);
+}
+
 .file-status-box {
     display: flex;
     justify-content: space-between;

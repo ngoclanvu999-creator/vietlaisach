@@ -157,26 +157,51 @@ document.addEventListener("DOMContentLoaded", () => {
     // ==========================================
     // SUBJECT SELECTOR
     // ==========================================
-    radioCards.forEach(card => {
-        card.addEventListener("click", () => {
-            radioCards.forEach(c => c.classList.remove("active"));
-            card.classList.add("active");
-            selectedSubject = card.dataset.subject;
-            const radio = card.querySelector("input[type=radio]");
-            if (radio) radio.checked = true;
+    function setSubject(subj) {
+        selectedSubject = subj;
+        const toanCard = document.getElementById("card-subject-toan");
+        const vatlyCard = document.getElementById("card-subject-vatly");
+        const toanRadio = document.getElementById("subject-toan");
+        const vatlyRadio = document.getElementById("subject-vatly");
 
-            if (selectedSubject === "toan") {
-                customTitleInput.placeholder = "Ví dụ: Sổ Tay Công Thức & Dạng Toán Trọng Tâm Toán 10";
-            } else {
-                customTitleInput.placeholder = "Ví dụ: Cẩm Nang Bứt Phá Điểm 9+ Vật Lý THPT - Chuẩn BGD";
-            }
-        });
-    });
+        if (subj === "toan") {
+            if (toanCard) toanCard.classList.add("active");
+            if (vatlyCard) vatlyCard.classList.remove("active");
+            if (toanRadio) toanRadio.checked = true;
+            if (customTitleInput) customTitleInput.placeholder = "Ví dụ: Sổ Tay Công Thức & Dạng Toán Trọng Tâm Toán 10";
+        } else {
+            if (vatlyCard) vatlyCard.classList.add("active");
+            if (toanCard) toanCard.classList.remove("active");
+            if (vatlyRadio) vatlyRadio.checked = true;
+            if (customTitleInput) customTitleInput.placeholder = "Ví dụ: Cẩm Nang Bứt Phá Điểm 9+ Vật Lý THPT - Chuẩn BGD";
+        }
+    }
+
+    const cardToan = document.getElementById("card-subject-toan");
+    const cardVatly = document.getElementById("card-subject-vatly");
+    if (cardToan) cardToan.addEventListener("click", () => setSubject("toan"));
+    if (cardVatly) cardVatly.addEventListener("click", () => setSubject("vatly"));
+
+    const radioToan = document.getElementById("subject-toan");
+    const radioVatly = document.getElementById("subject-vatly");
+    if (radioToan) radioToan.addEventListener("change", () => setSubject("toan"));
+    if (radioVatly) radioVatly.addEventListener("change", () => setSubject("vatly"));
 
     // ==========================================
     // TAB 1: SINGLE FILE UPLOAD
     // ==========================================
-    dropZone.addEventListener("click", () => fileInput.click());
+    const btnBrowseFile = document.getElementById("btn-browse-file");
+    if (dropZone) {
+        dropZone.addEventListener("click", (e) => {
+            if (e.target !== fileInput && fileInput) fileInput.click();
+        });
+    }
+    if (btnBrowseFile) {
+        btnBrowseFile.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (fileInput) fileInput.click();
+        });
+    }
 
     setupDragDrop(dropZone, (files) => {
         if (files.length > 0) handleSingleFile(files[0]);
@@ -234,7 +259,18 @@ document.addEventListener("DOMContentLoaded", () => {
     // ==========================================
     // TAB 2: WEB FOLDER UPLOAD & SCAN
     // ==========================================
-    dropZoneFolder.addEventListener("click", () => folderInput.click());
+    const btnBrowseFolder = document.getElementById("btn-browse-folder");
+    if (dropZoneFolder) {
+        dropZoneFolder.addEventListener("click", (e) => {
+            if (e.target !== folderInput && folderInput) folderInput.click();
+        });
+    }
+    if (btnBrowseFolder) {
+        btnBrowseFolder.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (folderInput) folderInput.click();
+        });
+    }
 
     setupDragDrop(dropZoneFolder, (files) => {
         if (files.length > 0) handleBatchUpload(files);
@@ -355,7 +391,18 @@ document.addEventListener("DOMContentLoaded", () => {
     // ==========================================
     // TAB 3: ZIP ARCHIVE UPLOAD
     // ==========================================
-    dropZoneZip.addEventListener("click", () => zipInput.click());
+    const btnBrowseZip = document.getElementById("btn-browse-zip");
+    if (dropZoneZip) {
+        dropZoneZip.addEventListener("click", (e) => {
+            if (e.target !== zipInput && zipInput) zipInput.click();
+        });
+    }
+    if (btnBrowseZip) {
+        btnBrowseZip.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (zipInput) zipInput.click();
+        });
+    }
 
     setupDragDrop(dropZoneZip, (files) => {
         if (files.length > 0) handleZipUpload(files[0]);

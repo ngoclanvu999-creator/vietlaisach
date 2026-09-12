@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=2.6">
 </head>
 <body>
     <div class="app-container">
@@ -79,22 +79,22 @@
                         </div>
 
                         <div class="subject-selector">
-                            <label class="radio-card active" data-subject="toan">
-                                <input type="radio" name="subject" value="toan" checked>
+                            <div class="radio-card active" id="card-subject-toan" data-subject="toan">
+                                <input type="radio" name="subject" id="subject-toan" value="toan" checked>
                                 <span class="radio-icon">📐</span>
                                 <div class="radio-text">
                                     <span class="radio-label">Toán Học</span>
                                     <span class="radio-sub">Đại số, Giải tích, Hình học</span>
                                 </div>
-                            </label>
-                            <label class="radio-card" data-subject="vatly">
-                                <input type="radio" name="subject" value="vatly">
+                            </div>
+                            <div class="radio-card" id="card-subject-vatly" data-subject="vatly">
+                                <input type="radio" name="subject" id="subject-vatly" value="vatly">
                                 <span class="radio-icon">⚛️</span>
                                 <div class="radio-text">
                                     <span class="radio-label">Vật Lý</span>
                                     <span class="radio-sub">Cơ học, Sóng, Điện từ</span>
                                 </div>
-                            </label>
+                            </div>
                         </div>
 
                         <!-- TAB 1: FILE UPLOAD -->
@@ -104,9 +104,10 @@
                                     <div class="upload-icon">📑</div>
                                     <p class="drop-title">Kéo thả tài liệu vào đây hoặc <span>Duyệt chọn</span></p>
                                     <p class="drop-hint">Hỗ trợ: Word (.docx), Excel (.xlsx), PDF (.pdf), Ảnh (.png, .jpg)</p>
+                                    <button type="button" class="btn-browse-action" id="btn-browse-file">📂 Bấm Để Duyệt Chọn Tệp</button>
                                 </div>
-                                <input type="file" id="file-input" accept=".docx,.xlsx,.pdf,.png,.jpg,.jpeg,.doc,.xls" hidden>
                             </div>
+                            <input type="file" id="file-input" accept=".docx,.xlsx,.pdf,.png,.jpg,.jpeg,.doc,.xls" style="display:none !important;">
 
                             <div id="file-status" class="file-status-box hidden">
                                 <div class="file-info">
@@ -127,9 +128,10 @@
                                     <div class="upload-icon">📁</div>
                                     <p class="drop-title">Chọn hoặc Kéo thả <span>Thư Mục Tài Liệu</span> từ máy tính</p>
                                     <p class="drop-hint">Hệ thống duyệt toàn bộ tệp con bên trong thư mục lên máy chủ web</p>
+                                    <button type="button" class="btn-browse-action" id="btn-browse-folder">📁 Bấm Chọn Thư Mục Máy Tính</button>
                                 </div>
-                                <input type="file" id="folder-input" webkitdirectory directory multiple hidden>
                             </div>
+                            <input type="file" id="folder-input" webkitdirectory directory multiple style="display:none !important;">
 
                             <!-- Optional Server Path Scan for Local/Self-hosted -->
                             <div class="server-scan-toggle">
@@ -178,9 +180,10 @@
                                     <div class="upload-icon">📦</div>
                                     <p class="drop-title">Kéo thả file nén <span>.ZIP</span> chứa tài liệu vào đây</p>
                                     <p class="drop-hint">Hệ thống tự động giải nén an toàn và bóc tách toàn bộ tài liệu bên trong</p>
+                                    <button type="button" class="btn-browse-action" id="btn-browse-zip">📦 Bấm Chọn File .ZIP</button>
                                 </div>
-                                <input type="file" id="zip-input" accept=".zip" hidden>
                             </div>
+                            <input type="file" id="zip-input" accept=".zip" style="display:none !important;">
                             <div id="zip-status" class="file-status-box hidden">
                                 <div class="file-info">
                                     <span class="file-icon">📦</span>
@@ -461,6 +464,6 @@
 
     </div>
 
-    <script src="/static/app.js"></script>
+    <script src="/static/app.js?v=2.6"></script>
 </body>
 </html>
