@@ -98,3 +98,19 @@ Chạy test nhiều sẽ cháy hạn mức; khi đó hệ thống tự rơi về
 `output/`, `scratch/`, `input/ingest_*`, `app_settings.json` đều trong
 `.gitignore`. Lưu ý `git add -A <đường dẫn>` vẫn thêm lại file **đang được theo
 dõi** dù có trong gitignore — đã từng làm hỏng một lần.
+
+## Ngân hàng câu hỏi do AI sinh
+
+`core/question_forge.py` sinh câu hỏi mới bằng AI nhưng **không câu nào vào
+ngân hàng nếu chưa qua đủ 3 lớp thẩm định**: cấu trúc → bắt AI giải lại độc lập
+(giấu đáp án) → đối chiếu số bằng sympy.
+
+Cảnh báo an toàn: `sympy.parse_expr` dùng `eval` bên trong. Truyền `local_dict`
+là KHÔNG đủ — đã thử nghiệm và xác nhận `__import__('os').system(...)` chạy
+thật. Biểu thức kiểm tra do AI sinh nên phải coi là dữ liệu không đáng tin;
+`_bieu_thuc_an_toan()` chặn trước khi parse. Đừng nới lỏng hàm này.
+
+Nơi lưu: mặc định `data/question_bank.json`, đổi được bằng biến môi trường
+`QUESTION_BANK_DIR` (trỏ sang thư mục OneDrive/Google Drive để tự sao lưu).
+Trên Render đĩa là tạm nên ngân hàng mất mỗi lần deploy — dùng nút xuất/nhập
+trong Lò Soạn Đề, hoặc commit tệp ngân hàng vào repo.

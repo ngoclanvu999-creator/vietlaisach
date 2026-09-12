@@ -26,6 +26,7 @@ Câu trượt không bị vứt đi mà lưu lại kèm lý do, để người d
 """
 
 import json
+import os
 import re
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
@@ -39,7 +40,14 @@ from core.theory_bank import (
     get_casio_tip, get_trap_warning,
 )
 
-DATA_DIR = BASE_DIR / "data"
+# Nơi lưu ngân hàng câu hỏi.
+#
+# Mặc định nằm trong thư mục dự án (data/). Đặt biến môi trường
+# QUESTION_BANK_DIR để trỏ sang chỗ khác — ví dụ một thư mục OneDrive hoặc
+# Google Drive đang đồng bộ, hoặc ổ đĩa khác. Như vậy công soạn đề vừa được
+# sao lưu tự động, vừa dùng chung được giữa máy bàn và máy xách tay.
+_BANK_DIR_ENV = os.environ.get("QUESTION_BANK_DIR", "").strip()
+DATA_DIR = Path(_BANK_DIR_ENV) if _BANK_DIR_ENV else (BASE_DIR / "data")
 BANK_FILE = DATA_DIR / "question_bank.json"
 REJECTED_FILE = DATA_DIR / "question_bank_rejected.json"
 
