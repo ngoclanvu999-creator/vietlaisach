@@ -1,0 +1,72 @@
+name: Deploy len Render
+
+# Mỗi lần đẩy mã lên nhánh main là tự gọi Render build lại và xác nhận bản mới
+# đã thực sự lên sóng. Trước đây phải vào dashboard bấm tay Manual Deploy.
+#
+# CẦN CÀI MỘT LẦN DUY NHẤT:
+#   1. Vào dashboard.render.com -> service vietlaisach-pro -> Settings
+#      -> mục "Deploy Hook" -> bấm Copy để lấy đường dẫn bí mật.
+#   2. Vào github.com/ngoclanvu999-creator/vietlaisach -> Settings
+#      -> Secrets and variables -> Actions -> New repository secret
+#      -> Name: RENDER_DEPLOY_HOOK , Secret: dán đường dẫn vừa copy -> Add secret.
+# Xong. Từ đó về sau không phải đụng tay vào Render nữa.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ghi lại phiên bản đang chạy trước khi deploy
+        id: truoc
+        run: |
+          truoc=$(curl -s -m 90 https://vietlaisach-pro.onrender.com/api/health \
+                  | python3 -c "import sys,json; print(json.load(sys.stdin).get('asset_version',''))" 2>/dev/null || echo "")
+          echo "Phien ban dang chay: ${truoc:-(khong doc duoc)}"
+          echo "version=$truoc" >> "$GITHUB_OUTPUT"
+
+      - name: Gọi Deploy Hook của Render
+        id: goi_hook
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            # Chua cai dat thi bo qua chu khong bao loi do, vi day la trang thai
+            # "chua cau hinh" chu khong phai su co. Log noi ro de khong ai hieu
+            # nham rang web da duoc cap nhat.
+            echo "::warning::CHUA DEPLOY - chua dat secret RENDER_DEPLOY_HOOK, web van dang chay ban cu."
+            echo "Xem huong dan cai dat mot lan o dau tep .github/workflows/deploy.yml"
+            echo "da_goi=khong" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "da_goi=co" >> "$GITHUB_OUTPUT"
+          ma=$(curl -s -o phan_hoi.txt -w "%{http_code}" -X POST "$HOOK")
+          echo "Render tra ve HTTP $ma"
+          cat phan_hoi.txt || true
+          if [ "$ma" != "200" ] && [ "$ma" != "201" ]; then
+            echo "::error::Goi Deploy Hook that bai (HTTP $ma)."
+            exit 1
+          fi
+
+      - name: Chờ tới khi bản mới thực sự lên sóng
+        if: steps.goi_hook.outputs.da_goi == 'co'
+        env:
+          TRUOC: ${{ steps.truoc.outputs.version }}
+        run: |
+          echo "Cho Render build va khoi dong lai (toi da 12 phut)..."
+          for i in $(seq 1 48); do
+            sleep 15
+            sau=$(curl -s -m 60 https://vietlaisach-pro.onrender.com/api/health \
+                  | python3 -c "import sys,json; print(json.load(sys.stdin).get('asset_version',''))" 2>/dev/null || echo "")
+            if [ -n "$sau" ] && [ "$sau" != "$TRUOC" ]; then
+              echo "Ban moi da len song sau khoang $((i*15)) giay. Phien ban: $sau"
+              exit 0
+            fi
+            echo "  lan $i: chua doi (dang la '${sau:-khong doc duoc}')"
+          done
+          echo "::warning::Qua 12 phut van chua thay doi phien ban."
+          echo "Vao tab Logs cua service tren Render de xem build co loi khong."
+          exit 1

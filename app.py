@@ -293,7 +293,12 @@ async def health_check():
         "status": "online",
         "service": "Bien Soan Sach Pro",
         "version": "2.5",
-        "web_deploy_ready": True
+        "web_deploy_ready": True,
+        # Dấu vân của app.js + style.css đang chạy trên máy chủ này. Nhờ nó mà
+        # biết chắc bản deploy đã lên hay máy chủ còn phục vụ mã cũ, thay vì
+        # phải mở trang ra nhìn bằng mắt.
+        "asset_version": _asset_version(),
+        "local_mode": LOCAL_MODE
     }
 
 @app.post("/api/scan-folder")
