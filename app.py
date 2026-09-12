@@ -1,6 +1,7 @@
 import os
 import sys
 import secrets
+import hashlib
 from pathlib import Path
 from typing import Optional, List
 
@@ -33,6 +34,45 @@ app = FastAPI(title="Biên Soạn Sách Toán - Vật Lý Pro")
 # ===========================================================================
 # LỚP BẢO VỆ: LÀM SẠCH TÊN TỆP & GIỚI HẠN PHẠM VI TRUY CẬP Ổ ĐĨA
 # ===========================================================================
+
+_ASSET_VERSION_CACHE: dict = {}
+
+
+def _asset_version() -> str:
+    """
+    Dấu vân theo NỘI DUNG của app.js + style.css, dùng làm số phiên bản chống lưu đệm.
+
+    Băm nội dung chứ không băm thời gian sửa: `git checkout` hay sao chép tệp đều
+    làm đổi mtime dù nội dung y nguyên, băm theo mtime sẽ bắt mọi trình duyệt tải
+    lại tài nguyên một cách vô ích.
+    """
+    key = []
+    for name in ("app.js", "style.css"):
+        f = STATIC_DIR / name
+        try:
+            st = f.stat()
+            key.append((name, st.st_mtime_ns, st.st_size))
+        except OSError:
+            key.append((name, 0, 0))
+    cache_key = tuple(key)
+
+    cached = _ASSET_VERSION_CACHE.get(cache_key)
+    if cached:
+        return cached
+
+    h = hashlib.md5()
+    for name in ("app.js", "style.css"):
+        f = STATIC_DIR / name
+        try:
+            h.update(f.read_bytes())
+        except OSError:
+            h.update(f"{name}:missing".encode())
+
+    version = h.hexdigest()[:10]
+    _ASSET_VERSION_CACHE.clear()          # chỉ giữ đúng bản mới nhất
+    _ASSET_VERSION_CACHE[cache_key] = version
+    return version
+
 
 def safe_filename(raw_name: str) -> str:
     """Chỉ giữ lại phần tên tệp, loại bỏ mọi thành phần đường dẫn (../, C:\\, ...)."""
@@ -144,9 +184,28 @@ def prune_output_dir(max_files: int = MAX_OUTPUT_FILES) -> int:
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_home():
+    """
+    Trả về trang chủ kèm số phiên bản tài nguyên tính theo NỘI DUNG THẬT của
+    app.js và style.css.
+
+    Vì sao cần: trước đây index.html gắn cứng "?v=2.6". Khi mã JS đổi mà con số
+    này không đổi, trình duyệt vẫn dùng bản JS cũ trong bộ nhớ đệm. JS cũ đi tìm
+    những phần tử đã bị xóa khỏi HTML mới, ném TypeError và chết ngay dòng đầu —
+    hậu quả là cả trang không bấm được gì. Tính version theo nội dung thì mỗi lần
+    sửa mã là trình duyệt tự nạp bản mới, không cần nhớ tăng số thủ công.
+    """
     index_file = TEMPLATES_DIR / "index.html"
     with open(index_file, "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
+        html = f.read()
+
+    html = html.replace("__ASSET_VERSION__", _asset_version())
+
+    # Bản thân trang HTML không được lưu đệm, nếu không người dùng vẫn nhận
+    # trang cũ trỏ tới số phiên bản cũ.
+    return HTMLResponse(
+        content=html,
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+    )
 
 def _mask_settings(settings: dict) -> dict:
     """Che giấu API key trước khi gửi ra trình duyệt (tránh lộ khóa Gemini)."""

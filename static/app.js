@@ -247,9 +247,13 @@ document.addEventListener("DOMContentLoaded", () => {
         const files = data.files || [];
         const isSingle = data.kind === "single";
 
+        // Chỉ kèm mô tả nguồn khi nó nói thêm được điều gì (ví dụ có giải nén .zip),
+        // tránh hiển thị lặp kiểu "3 tài liệu (3 tài liệu)".
+        const detail = data.source_summary || "";
+        const plain = `${files.length} tài liệu`;
         ingestSummary.textContent = isSingle
-            ? `1 tài liệu — sẽ biên soạn thành 1 cuốn sách`
-            : `${files.length} tài liệu (${data.source_summary})`;
+            ? "1 tài liệu — sẽ biên soạn thành 1 cuốn sách"
+            : (detail && detail !== plain ? `${plain} — ${detail}` : plain);
 
         ingestFileList.innerHTML = "";
         files.forEach(f => {
