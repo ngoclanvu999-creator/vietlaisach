@@ -51,6 +51,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const checkCasio = document.getElementById("check-casio");
     const checkTraps = document.getElementById("check-traps");
 
+    // Lọc HTML nhưng vẫn giữ ngắt dòng — dùng cho lời giải nhiều dòng.
+    function escapeMultiline(str) {
+        return escapeHtml(str).replace(/\n/g, "<br>");
+    }
+
     function escapeHtml(str) {
         if (!str) return "";
         return String(str)
@@ -366,7 +371,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const item = document.createElement("div");
             item.className = "folder-file-item";
             item.innerHTML = `
-                <span>📄 ${f.name}</span>
+                <span>📄 ${escapeHtml(f.name)}</span>
                 <span style="color: var(--text-dim); font-size: 11.5px;">${f.size_kb} KB</span>
             `;
             folderFileList.appendChild(item);
@@ -383,7 +388,7 @@ document.addEventListener("DOMContentLoaded", () => {
         previewList.innerHTML = `
             <div class="preview-callout callout-theory">
                 <span class="callout-title">📂 DANH SÁCH TÀI LIỆU TRONG THƯ MỤC SẼ ĐƯỢC BIÊN SOẠN:</span>
-                <div>${files.map((f, i) => `${i+1}. <strong>${f.name}</strong> (${f.size_kb} KB)`).join('<br>')}</div>
+                <div>${files.map((f, i) => `${i+1}. <strong>${escapeHtml(f.name)}</strong> (${f.size_kb} KB)`).join('<br>')}</div>
             </div>
         `;
     }
@@ -492,7 +497,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             let optionsHtml = "";
             if (q.options && q.options.length > 0) {
-                optionsHtml = `<div class="preview-options-grid">${q.options.map(opt => `<div>${opt}</div>`).join('')}</div>`;
+                optionsHtml = `<div class="preview-options-grid">${q.options.map(opt => `<div>${escapeHtml(opt)}</div>`).join('')}</div>`;
             }
 
             let solHtml = "";
@@ -500,17 +505,17 @@ document.addEventListener("DOMContentLoaded", () => {
                 solHtml = `
                     <div class="preview-callout callout-sol">
                         <span class="callout-title">✎ Lời giải gốc:</span>
-                        <div>${q.solution.replace(/\n/g, '<br>')}</div>
+                        <div>${escapeMultiline(q.solution)}</div>
                     </div>
                 `;
             }
 
             card.innerHTML = `
                 <div class="preview-item-header">
-                    <span class="preview-qtitle">▶ ${q.title || `Câu ${q.index}`}</span>
+                    <span class="preview-qtitle">▶ ${escapeHtml(q.title || `Câu ${q.index}`)}</span>
                     <span class="badge-level">Gốc từ tệp</span>
                 </div>
-                <div class="preview-qcontent">${q.content}</div>
+                <div class="preview-qcontent">${escapeHtml(q.content)}</div>
                 ${optionsHtml}
                 ${solHtml}
             `;
@@ -530,9 +535,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const bookHeader = document.createElement("div");
         bookHeader.className = "preview-book-banner";
         bookHeader.innerHTML = `
-            <h4>${book.new_title}</h4>
-            <p class="book-sub">${book.subtitle}</p>
-            <p class="book-note"><em>"${book.author_note}"</em></p>
+            <h4>${escapeHtml(book.new_title)}</h4>
+            <p class="book-sub">${escapeHtml(book.subtitle)}</p>
+            <p class="book-note"><em>"${escapeMultiline(book.author_note)}"</em></p>
         `;
         previewList.appendChild(bookHeader);
 
@@ -574,7 +579,7 @@ document.addEventListener("DOMContentLoaded", () => {
             book.chapters.forEach(ch => {
                 const chBox = document.createElement("div");
                 chBox.className = "preview-chapter-header";
-                chBox.innerHTML = `<h5>${ch.title} (${ch.total_questions} câu)</h5>`;
+                chBox.innerHTML = `<h5>${escapeHtml(ch.title)} (${ch.total_questions} câu)</h5>`;
                 previewList.appendChild(chBox);
 
                 if (ch.theory_section) {
@@ -604,7 +609,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             let optionsHtml = "";
             if (q.new_options && q.new_options.length > 0) {
-                optionsHtml = `<div class="preview-options-grid">${q.new_options.map(opt => `<div>${opt}</div>`).join('')}</div>`;
+                optionsHtml = `<div class="preview-options-grid">${q.new_options.map(opt => `<div>${escapeHtml(opt)}</div>`).join('')}</div>`;
             }
 
             let sol1Html = "";
@@ -612,7 +617,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 sol1Html = `
                     <div class="preview-callout callout-sol">
                         <span class="callout-title">✎ Lời giải Tự luận chuẩn mực sư phạm:</span>
-                        <div>${q.solution_method1.replace(/\n/g, '<br>')}</div>
+                        <div>${escapeMultiline(q.solution_method1)}</div>
                     </div>
                 `;
             }
@@ -622,7 +627,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 casioHtml = `
                     <div class="preview-callout callout-casio">
                         <span class="callout-title">💡 Kỹ thuật Casio fx-580VN X & Thủ thuật 15s:</span>
-                        <div>${q.solution_method2.replace(/\n/g, '<br>')}</div>
+                        <div>${escapeMultiline(q.solution_method2)}</div>
                     </div>
                 `;
             }
@@ -632,18 +637,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 trapHtml = `
                     <div class="preview-callout callout-trap">
                         <span class="callout-title">⚠️ Bẫy đề thi & Sai lầm thường gặp:</span>
-                        <div>${q.trap_warning.replace(/\n/g, '<br>')}</div>
+                        <div>${escapeMultiline(q.trap_warning)}</div>
                     </div>
                 `;
             }
 
             card.innerHTML = `
                 <div class="preview-item-header">
-                    <span class="preview-qtitle">▶ ${q.title}</span>
-                    <span class="badge-level">${q.level || 'Vận dụng'}</span>
+                    <span class="preview-qtitle">▶ ${escapeHtml(q.title)}</span>
+                    <span class="badge-level">${escapeHtml(q.level || 'Vận dụng')}</span>
                     ${q.is_added_new ? `<span class="badge-added">MỚI BỔ SUNG</span>` : ''}
                 </div>
-                <div class="preview-qcontent">${q.new_content}</div>
+                <div class="preview-qcontent">${escapeHtml(q.new_content)}</div>
                 ${optionsHtml}
                 ${sol1Html}
                 ${casioHtml}
@@ -940,12 +945,13 @@ document.addEventListener("DOMContentLoaded", () => {
         cover.className = "reader-cover";
         cover.innerHTML = `
             <div style="font-size: 13px; font-weight: bold; letter-spacing: 2px; color: #4A5568; margin-bottom: 8px;">TÀI LIỆU LƯU HÀNH NỘI BỘ — CHƯƠNG TRÌNH GDPT 2018</div>
-            <h1>${book.new_title}</h1>
-            <div class="reader-sub">${book.subtitle}</div>
+            <h1>${escapeHtml(book.new_title)}</h1>
+            <div class="reader-sub">${escapeHtml(book.subtitle)}</div>
             <div class="reader-intro">
                 <strong>Lời Tựa Sư Phạm:</strong><br>
-                ${book.author_note}
+                ${escapeHtml(book.author_note)}
             </div>
+        `;
         readerContent.appendChild(cover);
 
         // Hiển thị Bí kíp thủ khoa trong Reader
@@ -1021,7 +1027,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (q.new_options && q.new_options.length > 0) {
                 optsHtml = `<div class="reader-options-box">${q.new_options.map(opt => {
                     const isCorrect = q.correct_answer && opt.trim().startsWith(q.correct_answer);
-                    return `<div class="reader-opt-item ${isCorrect ? 'correct' : ''}">${opt}</div>`;
+                    return `<div class="reader-opt-item ${isCorrect ? 'correct' : ''}">${escapeHtml(opt)}</div>`;
                 }).join('')}</div>`;
             }
 
@@ -1104,7 +1110,15 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             const res = await fetch("/api/settings");
             const settings = await res.json();
-            geminiApiKeyInput.value = settings.gemini_api_key || "";
+            // Máy chủ KHÔNG trả về API key nữa (tránh lộ khóa cho người mở trang).
+            // Ô nhập để trống: bỏ trống khi lưu nghĩa là giữ nguyên khóa đang dùng.
+            geminiApiKeyInput.value = "";
+            if (settings.gemini_api_key_set) {
+                geminiApiKeyInput.placeholder =
+                    `Đã lưu khóa ${settings.gemini_api_key_hint || ""} — để trống nếu muốn giữ nguyên`;
+            } else {
+                geminiApiKeyInput.placeholder = "Dán Google Gemini API Key vào đây";
+            }
             geminiModelSelect.value = settings.gemini_model || "gemini-3.6-flash";
         } catch (e) {
             console.error(e);
