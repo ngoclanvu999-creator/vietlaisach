@@ -391,7 +391,7 @@ def do_trung_lap(ket_qua_sau: List[Dict[str, Any]], nguong: float = 0.6) -> Dict
     cap_trung.sort(key=lambda x: -x["ti_le"])
     return {
         "so_cap_trung": len(cap_trung),
-        "cap_trung": cap_trung[:200],
+        "cap_trung": cap_trung,        # trả đủ, nơi gọi tự cắt nếu cần hiển thị
         "so_tep_lien_quan": len({c["tep_a"] for c in cap_trung} | {c["tep_b"] for c in cap_trung}),
     }
 
