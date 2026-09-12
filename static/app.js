@@ -2,41 +2,25 @@ document.addEventListener("DOMContentLoaded", () => {
     // ==========================================
     // DOM ELEMENTS
     // ==========================================
-    // Tabs
-    const tabBtnFile = document.getElementById("tab-btn-file");
-    const tabBtnFolder = document.getElementById("tab-btn-folder");
-    const tabBtnZip = document.getElementById("tab-btn-zip");
-    const panelFileUpload = document.getElementById("panel-file-upload");
-    const panelFolderUpload = document.getElementById("panel-folder-upload");
-    const panelZipUpload = document.getElementById("panel-zip-upload");
-
-    // Tab 1: Single File Upload
+    // Khu vực nạp liệu hợp nhất
     const dropZone = document.getElementById("drop-zone");
     const fileInput = document.getElementById("file-input");
-    const fileStatus = document.getElementById("file-status");
-    const fileNameEl = document.getElementById("file-name");
-    const fileCountEl = document.getElementById("file-count");
-    const btnRemoveFile = document.getElementById("btn-remove-file");
-
-    // Tab 2: Web Folder Upload & Server Scan
-    const dropZoneFolder = document.getElementById("drop-zone-folder");
     const folderInput = document.getElementById("folder-input");
+    const btnBrowseFile = document.getElementById("btn-browse-file");
+    const btnBrowseFolder = document.getElementById("btn-browse-folder");
+
+    const ingestResults = document.getElementById("ingest-results");
+    const ingestSummary = document.getElementById("ingest-summary");
+    const ingestFileList = document.getElementById("ingest-file-list");
+    const ingestSkipped = document.getElementById("ingest-skipped");
+    const batchModeSelector = document.getElementById("batch-mode-selector");
+    const btnClearIngest = document.getElementById("btn-clear-ingest");
+
+    // Quét thư mục có sẵn trên máy (chỉ dùng khi chạy Localhost)
     const toggleServerScan = document.getElementById("toggle-server-scan");
     const serverPathBox = document.getElementById("server-path-box");
     const folderPathInput = document.getElementById("folder-path-input");
     const btnScanFolder = document.getElementById("btn-scan-folder");
-    const folderResultsBox = document.getElementById("folder-results");
-    const folderFoundCount = document.getElementById("folder-found-count");
-    const folderFileList = document.getElementById("folder-file-list");
-    const btnClearFolder = document.getElementById("btn-clear-folder");
-
-    // Tab 3: ZIP Upload
-    const dropZoneZip = document.getElementById("drop-zone-zip");
-    const zipInput = document.getElementById("zip-input");
-    const zipStatus = document.getElementById("zip-status");
-    const zipNameEl = document.getElementById("zip-name");
-    const zipCountEl = document.getElementById("zip-count");
-    const btnRemoveZip = document.getElementById("btn-remove-zip");
 
     // Subject & Options
     const radioCards = document.querySelectorAll(".radio-card");
@@ -50,6 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const checkTheory = document.getElementById("check-theory");
     const checkCasio = document.getElementById("check-casio");
     const checkTraps = document.getElementById("check-traps");
+    const paperFormatSelect = document.getElementById("paper-format");
 
     // Lọc HTML nhưng vẫn giữ ngắt dòng — dùng cho lời giải nhiều dòng.
     function escapeMultiline(str) {
@@ -117,47 +102,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const btnDismissDeploy = document.getElementById("btn-dismiss-deploy");
 
     // App State
-    let activeTab = "file"; // "file", "folder", "zip"
-    let currentUploadedFilename = null;
+    // Chỉ còn MỘT luồng đầu vào: nạp xong thì hệ thống tự biết là một tài liệu
+    // (làm thành một cuốn) hay nhiều tài liệu (cho chọn gộp chung / tách riêng).
+    let ingestKind = null;          // "single" | "batch" | null
+    let ingestFolderPath = null;    // thư mục phiên trên máy chủ
+    let singleFilePath = null;      // đường dẫn tương đối khi chỉ có 1 tài liệu
     let currentScannedFiles = [];
-    let currentBatchFolder = null;
     let selectedSubject = "toan";
     let currentCompiledBook = null;
     let areSolutionsVisible = true;
     let activeFilterLevel = "all";
-
-    // ==========================================
-    // TABS SWITCHING
-    // ==========================================
-    function switchTab(tab) {
-        activeTab = tab;
-        tabBtnFile.classList.toggle("active", tab === "file");
-        tabBtnFolder.classList.toggle("active", tab === "folder");
-        tabBtnZip.classList.toggle("active", tab === "zip");
-
-        panelFileUpload.classList.toggle("hidden", tab !== "file");
-        panelFolderUpload.classList.toggle("hidden", tab !== "folder");
-        panelZipUpload.classList.toggle("hidden", tab !== "zip");
-
-        if (tab === "file") {
-            btnProcess.disabled = !currentUploadedFilename;
-        } else if (tab === "folder") {
-            btnProcess.disabled = currentScannedFiles.length === 0;
-        } else if (tab === "zip") {
-            btnProcess.disabled = currentScannedFiles.length === 0;
-        }
-    }
-
-    tabBtnFile.addEventListener("click", () => switchTab("file"));
-    tabBtnFolder.addEventListener("click", () => switchTab("folder"));
-    tabBtnZip.addEventListener("click", () => switchTab("zip"));
-
-    // Server path toggle
-    if (toggleServerScan) {
-        toggleServerScan.addEventListener("click", () => {
-            serverPathBox.classList.toggle("hidden");
-        });
-    }
 
     // ==========================================
     // SUBJECT SELECTOR
@@ -193,38 +147,58 @@ document.addEventListener("DOMContentLoaded", () => {
     if (radioVatly) radioVatly.addEventListener("change", () => setSubject("vatly"));
 
     // ==========================================
-    // TAB 1: SINGLE FILE UPLOAD
+    // CỔNG NẠP LIỆU HỢP NHẤT
+    // Người dùng thả gì cũng được — tệp lẻ, nhiều tệp, cả thư mục, file .ZIP,
+    // hoặc trộn lẫn. Việc phân loại do máy chủ lo, giao diện không hỏi gì thêm.
     // ==========================================
-    const btnBrowseFile = document.getElementById("btn-browse-file");
-    if (dropZone) {
-        dropZone.addEventListener("click", (e) => {
-            if (e.target !== fileInput && fileInput) fileInput.click();
-        });
-    }
     if (btnBrowseFile) {
         btnBrowseFile.addEventListener("click", (e) => {
             e.stopPropagation();
-            if (fileInput) fileInput.click();
+            fileInput.click();
+        });
+    }
+    if (btnBrowseFolder) {
+        btnBrowseFolder.addEventListener("click", (e) => {
+            e.stopPropagation();
+            folderInput.click();
+        });
+    }
+    if (dropZone) {
+        dropZone.addEventListener("click", (e) => {
+            if (e.target === dropZone || e.target.closest(".drop-content") === e.target) {
+                fileInput.click();
+            }
         });
     }
 
-    setupDragDrop(dropZone, (files) => {
-        if (files.length > 0) handleSingleFile(files[0]);
-    });
-
     fileInput.addEventListener("change", (e) => {
-        if (e.target.files.length > 0) handleSingleFile(e.target.files[0]);
+        if (e.target.files.length > 0) handleIngest(Array.from(e.target.files));
+    });
+    folderInput.addEventListener("change", (e) => {
+        if (e.target.files.length > 0) handleIngest(Array.from(e.target.files));
     });
 
-    btnRemoveFile.addEventListener("click", (e) => {
-        e.stopPropagation();
-        resetSingleFile();
+    setupDragDrop(dropZone, (files) => {
+        if (files.length > 0) handleIngest(files);
     });
 
-    function resetSingleFile() {
-        currentUploadedFilename = null;
+    if (btnClearIngest) {
+        btnClearIngest.addEventListener("click", (e) => {
+            e.stopPropagation();
+            resetIngest();
+        });
+    }
+
+    function resetIngest() {
+        ingestKind = null;
+        ingestFolderPath = null;
+        singleFilePath = null;
+        currentScannedFiles = [];
         fileInput.value = "";
-        fileStatus.classList.add("hidden");
+        folderInput.value = "";
+        ingestResults.classList.add("hidden");
+        batchModeSelector.classList.add("hidden");
+        ingestSkipped.classList.add("hidden");
         dropZone.classList.remove("hidden");
         btnProcess.disabled = true;
         previewPlaceholder.classList.remove("hidden");
@@ -233,229 +207,196 @@ document.addEventListener("DOMContentLoaded", () => {
         previewBadge.textContent = "Chưa có dữ liệu";
     }
 
-    async function handleSingleFile(file) {
-        fileNameEl.textContent = file.name;
-        fileCountEl.textContent = "Đang đọc & bóc tách bài toán...";
+    async function handleIngest(fileArray) {
+        if (!fileArray || fileArray.length === 0) return;
+
         dropZone.classList.add("hidden");
-        fileStatus.classList.remove("hidden");
+        ingestResults.classList.remove("hidden");
+        ingestSummary.textContent = `Đang nạp ${fileArray.length} mục...`;
+        ingestFileList.innerHTML = '<div class="ingest-loading">⏳ Đang phân loại, giải nén và bóc tách...</div>';
+        btnProcess.disabled = true;
 
         const formData = new FormData();
-        formData.append("file", file);
+        fileArray.forEach(f => formData.append("files", f, f.name));
         formData.append("subject", selectedSubject);
 
         try {
-            const res = await fetch("/api/upload", { method: "POST", body: formData });
+            const res = await fetch("/api/ingest", { method: "POST", body: formData });
             const data = await res.json();
-            if (data.status === "success") {
-                currentUploadedFilename = data.filename;
-                fileCountEl.textContent = `Đã bóc tách thành công: ${data.total_items} bài toán`;
-                btnProcess.disabled = false;
-                renderInitialPreview(data.preview, data.total_items);
-            } else {
-                alert("Lỗi khi đọc tài liệu: " + (data.detail || "Không rõ"));
-                resetSingleFile();
+
+            if (!res.ok || data.status !== "success") {
+                throw new Error(data.detail || "Không nạp được tài liệu");
             }
+
+            ingestKind = data.kind;
+            ingestFolderPath = data.folder_path;
+            singleFilePath = data.single_file_path || null;
+            currentScannedFiles = data.files || [];
+
+            renderIngestResults(data);
+            btnProcess.disabled = currentScannedFiles.length === 0;
         } catch (err) {
-            alert("Lỗi kết nối máy chủ: " + err.message);
-            resetSingleFile();
-        }
-    }
-
-    // ==========================================
-    // TAB 2: WEB FOLDER UPLOAD & SCAN
-    // ==========================================
-    const btnBrowseFolder = document.getElementById("btn-browse-folder");
-    if (dropZoneFolder) {
-        dropZoneFolder.addEventListener("click", (e) => {
-            if (e.target !== folderInput && folderInput) folderInput.click();
-        });
-    }
-    if (btnBrowseFolder) {
-        btnBrowseFolder.addEventListener("click", (e) => {
-            e.stopPropagation();
-            if (folderInput) folderInput.click();
-        });
-    }
-
-    setupDragDrop(dropZoneFolder, (files) => {
-        if (files.length > 0) handleBatchUpload(files);
-    });
-
-    folderInput.addEventListener("change", (e) => {
-        if (e.target.files.length > 0) handleBatchUpload(e.target.files);
-    });
-
-    if (btnClearFolder) {
-        btnClearFolder.addEventListener("click", () => {
-            currentScannedFiles = [];
-            currentBatchFolder = null;
-            folderResultsBox.classList.add("hidden");
-            dropZoneFolder.classList.remove("hidden");
+            ingestFileList.innerHTML =
+                `<div class="ingest-error">❌ ${escapeHtml(err.message)}</div>`;
+            ingestSummary.textContent = "Nạp thất bại";
             btnProcess.disabled = true;
-            previewPlaceholder.classList.remove("hidden");
-            previewList.classList.add("hidden");
-            previewToolbar.classList.add("hidden");
+        }
+    }
+
+    function renderIngestResults(data) {
+        const files = data.files || [];
+        const isSingle = data.kind === "single";
+
+        ingestSummary.textContent = isSingle
+            ? `1 tài liệu — sẽ biên soạn thành 1 cuốn sách`
+            : `${files.length} tài liệu (${data.source_summary})`;
+
+        ingestFileList.innerHTML = "";
+        files.forEach(f => {
+            const item = document.createElement("div");
+            item.className = "folder-file-item";
+            const icon = extIcon(f.ext);
+            const where = f.rel_dir && f.rel_dir !== "." ? ` · ${escapeHtml(f.rel_dir)}` : "";
+            item.innerHTML = `
+                <span>${icon} ${escapeHtml(f.name)}<span style="color: var(--text-dim);">${where}</span></span>
+                <span style="color: var(--text-dim); font-size: 11.5px;">${f.size_kb} KB</span>
+            `;
+            ingestFileList.appendChild(item);
+        });
+
+        // Bỏ qua tệp không hợp lệ thì nói rõ, không im lặng
+        if (data.skipped && data.skipped.length > 0) {
+            ingestSkipped.classList.remove("hidden");
+            ingestSkipped.innerHTML =
+                `⚠️ Đã bỏ qua ${data.skipped.length} tệp không hỗ trợ: ` +
+                data.skipped.slice(0, 6).map(x => escapeHtml(x)).join(", ") +
+                (data.skipped.length > 6 ? "…" : "");
+        } else {
+            ingestSkipped.classList.add("hidden");
+        }
+
+        // Chỉ hỏi gộp/tách khi thực sự có nhiều tài liệu
+        batchModeSelector.classList.toggle("hidden", isSingle);
+
+        // Xem trước
+        previewPlaceholder.classList.add("hidden");
+        previewList.classList.remove("hidden");
+        previewToolbar.classList.add("hidden");
+
+        if (isSingle && data.preview && data.preview.length > 0) {
+            renderInitialPreview(data.preview, data.total_items);
+        } else if (isSingle) {
+            previewBadge.textContent = "Đã nạp 1 tài liệu";
+            previewList.innerHTML = `
+                <div class="preview-callout callout-theory">
+                    <span class="callout-title">📄 TÀI LIỆU ĐÃ SẴN SÀNG BIÊN SOẠN:</span>
+                    <div>${escapeHtml(files[0] ? files[0].name : "")}</div>
+                </div>
+            `;
+        } else {
+            previewBadge.textContent = `${files.length} tài liệu`;
+            previewList.innerHTML = `
+                <div class="preview-callout callout-theory">
+                    <span class="callout-title">📂 DANH SÁCH TÀI LIỆU SẼ ĐƯỢC BIÊN SOẠN:</span>
+                    <div>${files.map((f, i) => `${i + 1}. <strong>${escapeHtml(f.name)}</strong> (${f.size_kb} KB)`).join("<br>")}</div>
+                </div>
+            `;
+        }
+    }
+
+    function extIcon(ext) {
+        const map = {
+            ".docx": "📘", ".doc": "📘",
+            ".xlsx": "📗", ".xls": "📗",
+            ".pdf": "📕",
+            ".png": "🖼️", ".jpg": "🖼️", ".jpeg": "🖼️"
+        };
+        return map[(ext || "").toLowerCase()] || "📄";
+    }
+
+    // ==========================================
+    // QUÉT THƯ MỤC CÓ SẴN TRÊN MÁY (chế độ Localhost)
+    // ==========================================
+    if (toggleServerScan) {
+        toggleServerScan.addEventListener("click", () => {
+            serverPathBox.classList.toggle("hidden");
         });
     }
 
-    async function handleBatchUpload(fileList) {
-        folderFoundCount.textContent = `Đang tải lên ${fileList.length} tệp...`;
-        folderResultsBox.classList.remove("hidden");
-        dropZoneFolder.classList.add("hidden");
-
-        const formData = new FormData();
-        for (let i = 0; i < fileList.length; i++) {
-            formData.append("files", fileList[i]);
-        }
-        formData.append("subject", selectedSubject);
-
-        try {
-            const res = await fetch("/api/upload-batch", { method: "POST", body: formData });
-            const data = await res.json();
-            if (data.status === "success") {
-                currentScannedFiles = data.files;
-                currentBatchFolder = data.folder_path;
-                displayFolderFiles(data.files, data.total_files);
-            } else {
-                alert("Lỗi tải thư mục: " + (data.detail || "Không rõ"));
-                dropZoneFolder.classList.remove("hidden");
-                folderResultsBox.classList.add("hidden");
-            }
-        } catch (err) {
-            alert("Lỗi tải lên: " + err.message);
-            dropZoneFolder.classList.remove("hidden");
-            folderResultsBox.classList.add("hidden");
-        }
-    }
-
-    // Localhost scan folder
     if (btnScanFolder) {
         btnScanFolder.addEventListener("click", async () => {
-            const p = folderPathInput.value.trim();
-            if (!p) {
-                alert("Vui lòng nhập đường dẫn thư mục trên máy tính!");
+            const path = folderPathInput.value.trim();
+            if (!path) {
+                alert("Vui lòng nhập đường dẫn thư mục");
                 return;
             }
+
             btnScanFolder.disabled = true;
             btnScanFolder.textContent = "Đang quét...";
-
             try {
                 const res = await fetch("/api/scan-folder", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ folder_path: p })
+                    body: JSON.stringify({ folder_path: path })
                 });
                 const data = await res.json();
-                btnScanFolder.disabled = false;
-                btnScanFolder.textContent = "Quét";
-
-                if (data.status === "success") {
-                    currentScannedFiles = data.files;
-                    currentBatchFolder = data.folder_path;
-                    displayFolderFiles(data.files, data.total_files);
-                } else {
-                    alert("Lỗi: " + (data.detail || "Không thể quét thư mục này"));
+                if (!res.ok || data.status !== "success") {
+                    throw new Error(data.detail || "Không quét được thư mục");
                 }
+
+                ingestKind = data.total_files === 1 ? "single" : "batch";
+                ingestFolderPath = data.folder_path;
+                singleFilePath = null;   // tệp nằm ngoài input/ nên luôn đi đường thư mục
+                currentScannedFiles = data.files || [];
+
+                dropZone.classList.add("hidden");
+                ingestResults.classList.remove("hidden");
+                renderIngestResults({
+                    kind: "batch",           // luôn cho chọn gộp/tách với đường dẫn máy chủ
+                    files: data.files,
+                    skipped: [],
+                    source_summary: `từ thư mục ${data.folder_path}`
+                });
+                btnProcess.disabled = currentScannedFiles.length === 0;
             } catch (err) {
+                alert("Lỗi: " + err.message);
+            } finally {
                 btnScanFolder.disabled = false;
                 btnScanFolder.textContent = "Quét";
-                alert("Lỗi kết nối: " + err.message);
             }
         });
     }
 
-    function displayFolderFiles(files, total) {
-        folderFoundCount.textContent = `Đã tìm thấy: ${total} tài liệu hợp lệ`;
-        folderFileList.innerHTML = "";
-        files.forEach(f => {
-            const item = document.createElement("div");
-            item.className = "folder-file-item";
-            item.innerHTML = `
-                <span>📄 ${escapeHtml(f.name)}</span>
-                <span style="color: var(--text-dim); font-size: 11.5px;">${f.size_kb} KB</span>
-            `;
-            folderFileList.appendChild(item);
-        });
+    // Duyệt đệ quy một mục kéo thả (tệp hoặc thư mục) để gom hết tệp bên trong
+    function walkEntry(entry, out, depth = 0) {
+        return new Promise((resolve) => {
+            if (!entry || depth > 12) return resolve();
 
-        folderResultsBox.classList.remove("hidden");
-        dropZoneFolder.classList.add("hidden");
-        btnProcess.disabled = files.length === 0;
-
-        previewPlaceholder.classList.add("hidden");
-        previewList.classList.remove("hidden");
-        previewToolbar.classList.add("hidden");
-        previewBadge.textContent = `Thư mục: ${total} tệp`;
-        previewList.innerHTML = `
-            <div class="preview-callout callout-theory">
-                <span class="callout-title">📂 DANH SÁCH TÀI LIỆU TRONG THƯ MỤC SẼ ĐƯỢC BIÊN SOẠN:</span>
-                <div>${files.map((f, i) => `${i+1}. <strong>${escapeHtml(f.name)}</strong> (${f.size_kb} KB)`).join('<br>')}</div>
-            </div>
-        `;
-    }
-
-    // ==========================================
-    // TAB 3: ZIP ARCHIVE UPLOAD
-    // ==========================================
-    const btnBrowseZip = document.getElementById("btn-browse-zip");
-    if (dropZoneZip) {
-        dropZoneZip.addEventListener("click", (e) => {
-            if (e.target !== zipInput && zipInput) zipInput.click();
-        });
-    }
-    if (btnBrowseZip) {
-        btnBrowseZip.addEventListener("click", (e) => {
-            e.stopPropagation();
-            if (zipInput) zipInput.click();
-        });
-    }
-
-    setupDragDrop(dropZoneZip, (files) => {
-        if (files.length > 0) handleZipUpload(files[0]);
-    });
-
-    zipInput.addEventListener("change", (e) => {
-        if (e.target.files.length > 0) handleZipUpload(e.target.files[0]);
-    });
-
-    btnRemoveZip.addEventListener("click", (e) => {
-        e.stopPropagation();
-        zipInput.value = "";
-        currentScannedFiles = [];
-        currentBatchFolder = null;
-        zipStatus.classList.add("hidden");
-        dropZoneZip.classList.remove("hidden");
-        btnProcess.disabled = true;
-    });
-
-    async function handleZipUpload(file) {
-        zipNameEl.textContent = file.name;
-        zipCountEl.textContent = "Đang tải lên & giải nén tài liệu...";
-        dropZoneZip.classList.add("hidden");
-        zipStatus.classList.remove("hidden");
-
-        const formData = new FormData();
-        formData.append("zip_file", file);
-        formData.append("subject", selectedSubject);
-
-        try {
-            const res = await fetch("/api/upload-zip", { method: "POST", body: formData });
-            const data = await res.json();
-            if (data.status === "success") {
-                currentScannedFiles = data.files;
-                currentBatchFolder = data.folder_path;
-                zipCountEl.textContent = `Đã giải nén & bóc tách: ${data.total_files} tài liệu`;
-                btnProcess.disabled = false;
-                displayFolderFiles(data.files, data.total_files);
-            } else {
-                alert("Lỗi giải nén ZIP: " + (data.detail || "Không rõ"));
-                dropZoneZip.classList.remove("hidden");
-                zipStatus.classList.add("hidden");
+            if (entry.isFile) {
+                entry.file(
+                    (file) => { out.push(file); resolve(); },
+                    () => resolve()
+                );
+                return;
             }
-        } catch (err) {
-            alert("Lỗi: " + err.message);
-            dropZoneZip.classList.remove("hidden");
-            zipStatus.classList.add("hidden");
-        }
+
+            if (entry.isDirectory) {
+                const reader = entry.createReader();
+                const readBatch = () => {
+                    reader.readEntries(async (batch) => {
+                        if (!batch || batch.length === 0) return resolve();
+                        for (const child of batch) {
+                            await walkEntry(child, out, depth + 1);
+                        }
+                        readBatch();   // readEntries chỉ trả tối đa 100 mục mỗi lần
+                    }, () => resolve());
+                };
+                readBatch();
+                return;
+            }
+
+            resolve();
+        });
     }
 
     // Generic Drag & Drop Helper
@@ -474,9 +415,37 @@ document.addEventListener("DOMContentLoaded", () => {
                 el.classList.remove("dragover");
             });
         });
-        el.addEventListener("drop", (e) => {
-            if (e.dataTransfer && e.dataTransfer.files) {
-                onDrop(e.dataTransfer.files);
+        el.addEventListener("drop", async (e) => {
+            if (!e.dataTransfer) return;
+
+            // Kéo thả cả THƯ MỤC: trình duyệt chỉ trả về thư mục qua items[].
+            // Phải duyệt đệ quy mới lấy được tệp bên trong; nếu trình duyệt không
+            // hỗ trợ thì rơi về danh sách tệp phẳng như bình thường.
+            const items = e.dataTransfer.items;
+            if (items && items.length > 0 && typeof items[0].webkitGetAsEntry === "function") {
+                const entries = [];
+                for (let i = 0; i < items.length; i++) {
+                    const entry = items[i].webkitGetAsEntry();
+                    if (entry) entries.push(entry);
+                }
+                if (entries.length > 0) {
+                    try {
+                        const collected = [];
+                        for (const entry of entries) {
+                            await walkEntry(entry, collected);
+                        }
+                        if (collected.length > 0) {
+                            onDrop(collected);
+                            return;
+                        }
+                    } catch (err) {
+                        console.warn("Không duyệt được thư mục kéo thả, dùng danh sách tệp phẳng:", err);
+                    }
+                }
+            }
+
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                onDrop(Array.from(e.dataTransfer.files));
             }
         });
     }
@@ -726,7 +695,7 @@ document.addEventListener("DOMContentLoaded", () => {
             aiTitlesDrawer.classList.remove("hidden");
             aiTitlesList.innerHTML = `<div class="ai-title-loading">⚡ Đang kích hoạt Gemini AI phân tích chuyên đề và sáng tạo 5 tựa sách độc bản...</div>`;
 
-            let fname = currentUploadedFilename || (currentScannedFiles.length > 0 ? currentScannedFiles[0].name : "");
+            let fname = currentScannedFiles.length > 0 ? currentScannedFiles[0].name : "";
 
             try {
                 const resp = await fetch("/api/suggest-titles", {
@@ -811,12 +780,25 @@ document.addEventListener("DOMContentLoaded", () => {
             if (pct >= 90) pstep4.classList.add("completed");
         }, 1800);
 
+        // Khổ giấy được lưu vào cài đặt để bộ xuất bản dùng đúng kích thước trang
+        if (paperFormatSelect) {
+            try {
+                await fetch("/api/settings", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ output_format: paperFormatSelect.value })
+                });
+            } catch (e) {
+                console.warn("Không lưu được khổ giấy, dùng mặc định A4:", e);
+            }
+        }
+
         try {
-            // XỬ LÝ THEO CHẾ ĐỘ THƯ MỤC / ZIP
-            if (activeTab === "folder" || activeTab === "zip") {
+            // Một tài liệu -> một cuốn sách. Nhiều tài liệu -> gộp chung hoặc tách riêng.
+            if (ingestKind !== "single") {
                 const folderMode = document.querySelector("input[name='folder-mode']:checked").value;
                 const formData = new FormData();
-                formData.append("folder_path", currentBatchFolder || folderPathInput.value.trim());
+                formData.append("folder_path", ingestFolderPath || folderPathInput.value.trim());
                 formData.append("mode", folderMode);
                 formData.append("subject", selectedSubject);
                 formData.append("add_count", addCountSelect.value);
@@ -877,7 +859,7 @@ document.addEventListener("DOMContentLoaded", () => {
             // XỬ LÝ THEO CHẾ ĐỘ FILE ĐƠN
             else {
                 const formData = new FormData();
-                formData.append("filename", currentUploadedFilename);
+                formData.append("filename", singleFilePath);
                 formData.append("subject", selectedSubject);
                 formData.append("add_count", addCountSelect.value);
                 if (customTitleInput.value.trim()) {

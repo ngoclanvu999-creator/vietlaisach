@@ -71,13 +71,6 @@
                             <h3>Phương Thức Nạp Tài Liệu Đầu Vào</h3>
                         </div>
 
-                        <!-- Web Tabs -->
-                        <div class="tab-buttons">
-                            <button id="tab-btn-file" class="tab-btn active">📄 Tải Tệp Đơn</button>
-                            <button id="tab-btn-folder" class="tab-btn">📁 Tải Thư Mục Web</button>
-                            <button id="tab-btn-zip" class="tab-btn">📦 Tải File .ZIP</button>
-                        </div>
-
                         <div class="subject-selector">
                             <div class="radio-card active" id="card-subject-toan" data-subject="toan">
                                 <input type="radio" name="subject" id="subject-toan" value="toan" checked>
@@ -97,46 +90,34 @@
                             </div>
                         </div>
 
-                        <!-- TAB 1: FILE UPLOAD -->
-                        <div id="panel-file-upload">
+                        <!-- KHU VỰC NẠP LIỆU HỢP NHẤT -->
+                        <div id="panel-ingest">
                             <div id="drop-zone" class="drop-zone">
                                 <div class="drop-content">
-                                    <div class="upload-icon">📑</div>
-                                    <p class="drop-title">Kéo thả tài liệu vào đây hoặc <span>Duyệt chọn</span></p>
-                                    <p class="drop-hint">Hỗ trợ: Word (.docx), Excel (.xlsx), PDF (.pdf), Ảnh (.png, .jpg)</p>
-                                    <button type="button" class="btn-browse-action" id="btn-browse-file">📂 Bấm Để Duyệt Chọn Tệp</button>
-                                </div>
-                            </div>
-                            <input type="file" id="file-input" accept=".docx,.xlsx,.pdf,.png,.jpg,.jpeg,.doc,.xls" style="display:none !important;">
-
-                            <div id="file-status" class="file-status-box hidden">
-                                <div class="file-info">
-                                    <span class="file-icon">📑</span>
-                                    <div class="file-meta">
-                                        <span id="file-name" class="file-name">filename.docx</span>
-                                        <span id="file-count" class="file-count">Phát hiện: 0 câu</span>
+                                    <div class="upload-icon">📥</div>
+                                    <p class="drop-title">Kéo thả <span>bất cứ thứ gì</span> vào đây</p>
+                                    <p class="drop-hint">
+                                        Tệp lẻ, nhiều tệp, cả thư mục hay file nén .ZIP — thả lẫn lộn cũng được.
+                                        Hệ thống tự phân loại, tự giải nén và tự bỏ qua tệp không hợp lệ.
+                                    </p>
+                                    <div class="browse-actions">
+                                        <button type="button" class="btn-browse-action" id="btn-browse-file">📄 Chọn Tệp</button>
+                                        <button type="button" class="btn-browse-action" id="btn-browse-folder">📁 Chọn Thư Mục</button>
                                     </div>
-                                </div>
-                                <button id="btn-remove-file" class="btn-icon" title="Hủy chọn file">✕</button>
-                            </div>
-                        </div>
-
-                        <!-- TAB 2: WEB FOLDER UPLOAD -->
-                        <div id="panel-folder-upload" class="hidden">
-                            <div id="drop-zone-folder" class="drop-zone">
-                                <div class="drop-content">
-                                    <div class="upload-icon">📁</div>
-                                    <p class="drop-title">Chọn hoặc Kéo thả <span>Thư Mục Tài Liệu</span> từ máy tính</p>
-                                    <p class="drop-hint">Hệ thống duyệt toàn bộ tệp con bên trong thư mục lên máy chủ web</p>
-                                    <button type="button" class="btn-browse-action" id="btn-browse-folder">📁 Bấm Chọn Thư Mục Máy Tính</button>
+                                    <p class="drop-formats">Word (.docx) • Excel (.xlsx) • PDF • Ảnh chụp đề (.png, .jpg) • Nén (.zip)</p>
                                 </div>
                             </div>
-                            <input type="file" id="folder-input" webkitdirectory directory multiple style="display:none !important;">
 
-                            <!-- Optional Server Path Scan for Local/Self-hosted -->
+                            <input type="file" id="file-input" multiple
+                                   accept=".docx,.doc,.xlsx,.xls,.pdf,.png,.jpg,.jpeg,.zip"
+                                   style="display:none !important;">
+                            <input type="file" id="folder-input" webkitdirectory directory multiple
+                                   style="display:none !important;">
+
+                            <!-- Đường dẫn thư mục máy chủ (chỉ dùng khi chạy trên máy cá nhân) -->
                             <div class="server-scan-toggle">
                                 <button type="button" id="toggle-server-scan" class="btn-link">
-                                    🖥️ Hoặc nhập đường dẫn thư mục máy chủ (Dành cho Localhost)
+                                    🖥️ Hoặc nhập đường dẫn thư mục có sẵn trên máy (chế độ Localhost)
                                 </button>
                                 <div id="server-path-box" class="server-path-box hidden">
                                     <div class="input-with-button">
@@ -146,53 +127,32 @@
                                 </div>
                             </div>
 
-                            <div id="folder-results" class="folder-results-box hidden">
+                            <!-- Kết quả nạp liệu -->
+                            <div id="ingest-results" class="folder-results-box hidden">
                                 <div class="folder-summary-bar">
-                                    <span id="folder-found-count" class="badge-tag">Đã tìm thấy: 0 tệp</span>
-                                    <button id="btn-clear-folder" class="btn-small-danger">Xóa danh sách</button>
+                                    <span id="ingest-summary" class="badge-tag">Đã nạp: 0 tài liệu</span>
+                                    <button id="btn-clear-ingest" class="btn-small-danger">Xóa danh sách</button>
                                 </div>
-                                <div id="folder-file-list" class="folder-file-list"></div>
+                                <div id="ingest-file-list" class="folder-file-list"></div>
+                                <div id="ingest-skipped" class="ingest-skipped hidden"></div>
 
-                                <!-- Merge vs Split Mode -->
-                                <div class="merge-mode-selector">
+                                <!-- Chỉ hiện khi có từ 2 tài liệu trở lên -->
+                                <div id="batch-mode-selector" class="merge-mode-selector hidden">
                                     <label class="merge-option">
                                         <input type="radio" name="folder-mode" value="merge" checked>
                                         <div>
-                                            <strong>📚 Gộp toàn bộ thư mục thành 1 cuốn ĐẠI CẨM NANG duy nhất</strong>
+                                            <strong>📚 Gộp tất cả thành 1 cuốn ĐẠI CẨM NANG duy nhất</strong>
                                             <p>Có mục lục tổng thể, phân chia từng chương rành mạch, có lý thuyết chuyên sâu.</p>
                                         </div>
                                     </label>
                                     <label class="merge-option">
                                         <input type="radio" name="folder-mode" value="split">
                                         <div>
-                                            <strong>📑 Xuất riêng từng tài liệu thành từng cuốn sách riêng biệt (Kèm tải 1-click .ZIP)</strong>
+                                            <strong>📑 Tách riêng mỗi tài liệu thành một cuốn sách (kèm tải .ZIP 1-click)</strong>
                                             <p>Mỗi tài liệu xuất 1 file Word .docx riêng, tự động nén sẵn trọn bộ vào 1 file ZIP.</p>
                                         </div>
                                     </label>
                                 </div>
-                            </div>
-                        </div>
-
-                        <!-- TAB 3: ZIP ARCHIVE UPLOAD -->
-                        <div id="panel-zip-upload" class="hidden">
-                            <div id="drop-zone-zip" class="drop-zone">
-                                <div class="drop-content">
-                                    <div class="upload-icon">📦</div>
-                                    <p class="drop-title">Kéo thả file nén <span>.ZIP</span> chứa tài liệu vào đây</p>
-                                    <p class="drop-hint">Hệ thống tự động giải nén an toàn và bóc tách toàn bộ tài liệu bên trong</p>
-                                    <button type="button" class="btn-browse-action" id="btn-browse-zip">📦 Bấm Chọn File .ZIP</button>
-                                </div>
-                            </div>
-                            <input type="file" id="zip-input" accept=".zip" style="display:none !important;">
-                            <div id="zip-status" class="file-status-box hidden">
-                                <div class="file-info">
-                                    <span class="file-icon">📦</span>
-                                    <div class="file-meta">
-                                        <span id="zip-name" class="file-name">tailieu.zip</span>
-                                        <span id="zip-count" class="file-count">Đang chuẩn bị...</span>
-                                    </div>
-                                </div>
-                                <button id="btn-remove-zip" class="btn-icon" title="Hủy file zip">✕</button>
                             </div>
                         </div>
                     </div>
@@ -238,8 +198,9 @@
 
                             <div class="form-group">
                                 <label for="paper-format">Quy chuẩn thể thức văn bản:</label>
-                                <select id="paper-format" class="form-control" disabled>
-                                    <option value="a4_nd30" selected>Chuẩn Nghị định 30 (Khổ A4, Lề 30-15-20-20mm)</option>
+                                <select id="paper-format" class="form-control">
+                                    <option value="a4" selected>Chuẩn Nghị định 30 — Khổ A4 (210×297mm), lề 30-15-20-20mm</option>
+                                    <option value="b5">Sách bỏ túi — Khổ B5 (176×250mm), lề 30-15-20-20mm</option>
                                 </select>
                             </div>
                         </div>

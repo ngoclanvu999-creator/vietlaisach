@@ -53,6 +53,26 @@ def resolve_within(base_dir: Path, raw_name: str) -> Path:
     return candidate
 
 
+def resolve_subpath_within(base_dir: Path, raw_rel: str) -> Path:
+    """
+    Giống resolve_within nhưng CHO PHÉP đường dẫn nhiều cấp bên trong base_dir
+    (ví dụ "ingest_1726/De_thi.docx"), vẫn chặn mọi mưu toan thoát ra ngoài.
+    """
+    rel = str(raw_rel or "").replace("\\", "/").strip().lstrip("/")
+    if not rel or "\x00" in rel:
+        raise HTTPException(status_code=400, detail="Đường dẫn tệp không hợp lệ")
+
+    parts = [seg for seg in rel.split("/") if seg not in ("", ".")]
+    if any(seg == ".." for seg in parts):
+        raise HTTPException(status_code=400, detail="Đường dẫn tệp không hợp lệ")
+
+    candidate = base_dir.joinpath(*parts).resolve()
+    base_resolved = base_dir.resolve()
+    if candidate != base_resolved and base_resolved not in candidate.parents:
+        raise HTTPException(status_code=400, detail="Đường dẫn tệp không hợp lệ")
+    return candidate
+
+
 def resolve_user_folder(raw_path: str) -> Path:
     """
     Kiểm duyệt thư mục do người dùng nhập.
@@ -177,6 +197,182 @@ def api_scan_folder(req: ScanFolderRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi quét thư mục: {str(e)}")
+
+# ===========================================================================
+# CỔNG NẠP LIỆU HỢP NHẤT
+# Người dùng chỉ cần thả vào một chỗ duy nhất: tệp lẻ, nhiều tệp, cả thư mục
+# hay file .zip đều được. Máy chủ tự phân loại, tự giải nén, tự bỏ qua tệp lạ
+# rồi trả về một danh sách tài liệu thống nhất.
+# ===========================================================================
+
+MAX_INGEST_SESSIONS = int(os.environ.get("MAX_INGEST_SESSIONS", "20"))
+
+
+def prune_ingest_dirs(max_sessions: int = MAX_INGEST_SESSIONS) -> int:
+    """Xóa bớt các thư mục nạp liệu cũ, giữ lại max_sessions phiên gần nhất."""
+    try:
+        dirs = [d for d in INPUT_DIR.iterdir() if d.is_dir() and d.name.startswith("ingest_")]
+    except Exception:
+        return 0
+    if len(dirs) <= max_sessions:
+        return 0
+
+    dirs.sort(key=lambda d: d.stat().st_mtime, reverse=True)
+    removed = 0
+    for old in dirs[max_sessions:]:
+        try:
+            shutil.rmtree(old, ignore_errors=True)
+            removed += 1
+        except Exception:
+            pass
+    return removed
+
+
+def _unique_target(folder: Path, filename: str) -> Path:
+    """Tránh ghi đè khi hai tệp trùng tên đến từ hai thư mục con khác nhau."""
+    target = resolve_within(folder, filename)
+    if not target.exists():
+        return target
+    stem, suffix = target.stem, target.suffix
+    for i in range(2, 1000):
+        candidate = resolve_within(folder, f"{stem}_{i}{suffix}")
+        if not candidate.exists():
+            return candidate
+    raise HTTPException(status_code=400, detail="Quá nhiều tệp trùng tên")
+
+
+def _extract_zip_into(zip_path: Path, dest: Path) -> int:
+    """Giải nén an toàn: chặn Zip Slip, chặn Zip Bomb, chỉ lấy tệp hợp lệ."""
+    import zipfile
+    MAX_TOTAL_UNCOMPRESSED = 500 * 1024 * 1024  # 500 MB
+    count = 0
+    with zipfile.ZipFile(str(zip_path), "r") as z:
+        if sum(max(0, i.file_size) for i in z.infolist()) > MAX_TOTAL_UNCOMPRESSED:
+            raise HTTPException(
+                status_code=400,
+                detail="File nén sau khi giải nén vượt quá 500 MB, vui lòng chia nhỏ thư mục."
+            )
+        for info in z.infolist():
+            if info.is_dir():
+                continue
+            member = Path(info.filename.replace("\\", "/")).name
+            if not member or member.startswith("~$"):
+                continue
+            if Path(member).suffix.lower() not in SUPPORTED_UPLOAD_EXTENSIONS:
+                continue
+            target = _unique_target(dest, member)
+            with z.open(info, "r") as src, open(target, "wb") as dst:
+                shutil.copyfileobj(src, dst)
+            count += 1
+    return count
+
+
+@app.post("/api/ingest")
+def ingest_documents(
+    files: List[UploadFile] = File(...),
+    subject: str = Form("toan")
+):
+    """
+    Nhận mọi thứ người dùng thả vào: một tệp, nhiều tệp, cả cây thư mục hoặc
+    file .zip (kể cả trộn lẫn nhau), rồi tự phân loại thành một danh sách
+    tài liệu duy nhất để biên soạn.
+    """
+    if not files:
+        raise HTTPException(status_code=400, detail="Không có tệp nào được chọn")
+
+    import time
+    session_dir = resolve_within(INPUT_DIR, f"ingest_{int(time.time() * 1000)}")
+    session_dir.mkdir(parents=True, exist_ok=True)
+
+    saved_docs = 0
+    zip_count = 0
+    extracted = 0
+    skipped: List[str] = []
+
+    for f in files:
+        try:
+            fname = safe_filename(f.filename)
+        except HTTPException:
+            continue
+
+        ext = Path(fname).suffix.lower()
+        if fname.startswith("~$"):
+            continue
+
+        if ext == ".zip":
+            tmp_zip = _unique_target(session_dir, fname)
+            with open(tmp_zip, "wb") as buf:
+                shutil.copyfileobj(f.file, buf)
+            try:
+                extracted += _extract_zip_into(tmp_zip, session_dir)
+                zip_count += 1
+            except HTTPException:
+                raise
+            except Exception as e:
+                skipped.append(f"{fname} (không giải nén được: {e})")
+            finally:
+                tmp_zip.unlink(missing_ok=True)
+
+        elif ext in SUPPORTED_UPLOAD_EXTENSIONS:
+            target = _unique_target(session_dir, fname)
+            with open(target, "wb") as buf:
+                shutil.copyfileobj(f.file, buf)
+            saved_docs += 1
+
+        else:
+            skipped.append(fname)
+
+    found = scan_directory(session_dir)
+    if not found:
+        shutil.rmtree(session_dir, ignore_errors=True)
+        detail = "Không tìm thấy tài liệu hợp lệ (Word, Excel, PDF hoặc Ảnh) trong những gì bạn đã chọn."
+        if skipped:
+            detail += " Đã bỏ qua: " + ", ".join(skipped[:5])
+        raise HTTPException(status_code=400, detail=detail)
+
+    prune_ingest_dirs()
+
+    # Gợi ý cách xử lý: đúng một tài liệu thì làm thành một cuốn sách,
+    # nhiều tài liệu thì để người dùng chọn gộp chung hay tách riêng.
+    kind = "single" if len(found) == 1 else "batch"
+
+    # Với đúng một tài liệu, bóc tách luôn để người dùng xem trước ngay,
+    # khỏi phải chờ thêm một vòng gọi nữa.
+    preview: List[dict] = []
+    total_items = 0
+    single_rel = ""
+    if kind == "single":
+        only = Path(found[0]["path"])
+        single_rel = f"{session_dir.name}/{only.name}"
+        try:
+            api_key = load_settings().get("gemini_api_key", "").strip()
+            parsed = parse_input_file(only, subject=subject, api_key=api_key)
+            total_items = len(parsed)
+            preview = [item.to_dict() for item in parsed[:15]]
+        except Exception as e:
+            print(f"Không xem trước được {only.name}: {e}")
+
+    # Mô tả nguồn gốc để hiển thị lại cho người dùng biết hệ thống đã hiểu gì
+    sources = []
+    if saved_docs:
+        sources.append(f"{saved_docs} tài liệu")
+    if zip_count:
+        sources.append(f"{zip_count} file nén (.zip) → {extracted} tài liệu")
+
+    return {
+        "status": "success",
+        "kind": kind,
+        "folder_path": str(session_dir),
+        "relative_path": session_dir.name,
+        "single_file_path": single_rel,
+        "total_files": len(found),
+        "files": found,
+        "skipped": skipped,
+        "total_items": total_items,
+        "preview": preview,
+        "source_summary": " + ".join(sources) if sources else f"{len(found)} tài liệu"
+    }
+
 
 class SuggestTitlesRequest(BaseModel):
     filename: str = ""
@@ -338,8 +534,10 @@ def process_single_document(
     add_count: int = Form(2),
     custom_title: Optional[str] = Form(None)
 ):
-    input_path = resolve_within(INPUT_DIR, filename)
-    if not input_path.exists():
+    # Chấp nhận cả tên tệp trực tiếp trong input/ lẫn đường dẫn nhiều cấp bên
+    # trong thư mục phiên nạp liệu (ví dụ "ingest_1726.../De_thi.docx").
+    input_path = resolve_subpath_within(INPUT_DIR, filename)
+    if not input_path.exists() or not input_path.is_file():
         raise HTTPException(status_code=404, detail="Không tìm thấy file nguồn đã tải lên")
 
     settings = load_settings()
@@ -366,7 +564,7 @@ def process_single_document(
             book.new_title = custom_title.strip()
 
         # 3. Xuất Word chuẩn Nghị định 30
-        stem = safe_filename(Path(filename).stem + ".docx").rsplit(".", 1)[0]
+        stem = input_path.stem
         clean_title_slug = "".join(c for c in book.new_title[:30] if c.isalnum() or c in (" ", "-", "_")).strip().replace(" ", "_")
         out_filename = f"Sach_Bien_Soan_{stem}_{clean_title_slug}.docx"
         out_path = resolve_within(OUTPUT_DIR, out_filename)
