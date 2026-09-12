@@ -27,6 +27,10 @@ from core.rewriter import process_rewrite_pipeline, create_master_book_from_chap
 from core.ai_namer import generate_creative_titles_gemini
 from core.exporter import DocxBookExporter
 from core.validator import PreFlightValidator
+from core.question_forge import (
+    sinh_va_tham_dinh, thong_ke_ngan_hang, doc_ngan_hang,
+    xoa_khoi_ngan_hang, LoiHanMuc, CAP_DO, KHOI_LOP, MAX_PER_BATCH
+)
 
 app = FastAPI(title="Biên Soạn Sách Toán - Vật Lý Pro")
 
@@ -910,6 +914,136 @@ def process_folder(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Lỗi xử lý thư mục: {str(e)}")
+
+# ===========================================================================
+# LÒ SINH CÂU HỎI: AI soạn đề mới cho ngân hàng, có thẩm định trước khi nhận
+# ===========================================================================
+
+class GenerateRequest(BaseModel):
+    topic_key: str
+    subject: str = "toan"
+    grade: str = "Lớp 12"
+    level: str = "Vận dụng"
+    so_luong: int = 4
+
+
+@app.get("/api/question-bank")
+def api_question_bank(topic_key: str = "", subject: str = ""):
+    """Thống kê ngân hàng và danh sách câu đã thẩm định."""
+    return {
+        "status": "success",
+        "thong_ke": thong_ke_ngan_hang(),
+        "cau_hoi": doc_ngan_hang(topic_key=topic_key, subject=subject),
+        "cap_do": CAP_DO,
+        "khoi_lop": KHOI_LOP,
+        "toi_da_moi_lo": MAX_PER_BATCH,
+    }
+
+
+@app.post("/api/generate-questions")
+def api_generate_questions(req: GenerateRequest, request: Request):
+    """
+    Sinh câu hỏi mới bằng AI rồi chạy đủ ba lớp thẩm định.
+    Chỉ câu qua được TẤT CẢ mới vào ngân hàng; câu trượt trả về kèm lý do.
+    """
+    api_key, model_name = request_credentials(request)
+    if not api_key:
+        raise HTTPException(
+            status_code=400,
+            detail="Cần có Gemini API Key để sinh câu hỏi mới. Vào ⚙️ Cài Đặt AI để dán khóa của bạn."
+        )
+
+    try:
+        ket_qua = sinh_va_tham_dinh(
+            topic_key=req.topic_key,
+            subject=req.subject,
+            grade=req.grade,
+            level=req.level,
+            so_luong=req.so_luong,
+            api_key=api_key,
+            model_name=model_name,
+        )
+    except LoiHanMuc as e:
+        raise HTTPException(status_code=429, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Lỗi khi sinh câu hỏi: {str(e)}")
+
+    ket_qua["status"] = "success"
+    ket_qua["thong_ke"] = thong_ke_ngan_hang()
+    return ket_qua
+
+
+class DeleteQuestionRequest(BaseModel):
+    content_prefix: str
+
+
+@app.post("/api/question-bank/delete")
+def api_delete_question(req: DeleteQuestionRequest):
+    """Xóa một câu khỏi ngân hàng khi người dùng thấy không ưng."""
+    da_xoa = xoa_khoi_ngan_hang(req.content_prefix)
+    return {"status": "success", "da_xoa": da_xoa, "thong_ke": thong_ke_ngan_hang()}
+
+
+@app.get("/api/question-bank/export")
+def api_export_bank():
+    """
+    Tải toàn bộ ngân hàng về máy.
+
+    Cần thiết vì trên Render đĩa là tạm: mỗi lần deploy lại là ngân hàng soạn
+    trên web bị xóa sạch. Tải về rồi nhập lại (hoặc commit vào repo) thì công
+    soạn đề không mất.
+    """
+    from core.question_forge import BANK_FILE
+    if not BANK_FILE.exists():
+        raise HTTPException(status_code=404, detail="Ngân hàng còn trống, chưa có gì để tải về.")
+    return FileResponse(
+        path=str(BANK_FILE),
+        filename="ngan_hang_cau_hoi.json",
+        media_type="application/json"
+    )
+
+
+@app.post("/api/question-bank/import")
+def api_import_bank(file: UploadFile = File(...)):
+    """Nhập lại ngân hàng từ tệp đã tải về trước đó, gộp vào ngân hàng hiện có."""
+    import json as _json
+    from core.question_forge import ForgedQuestion, luu_vao_ngan_hang
+
+    try:
+        raw = file.file.read()
+        data = _json.loads(raw.decode("utf-8"))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Tệp không phải JSON hợp lệ: {e}")
+
+    if not isinstance(data, list):
+        raise HTTPException(status_code=400, detail="Tệp phải chứa một danh sách câu hỏi.")
+
+    hop_le = []
+    bo_qua = 0
+    cho_phep = {f.name for f in ForgedQuestion.__dataclass_fields__.values()}
+    for item in data:
+        # Chỉ nhận câu ĐÃ thẩm định. Không cho đường vòng đưa câu chưa duyệt
+        # vào ngân hàng bằng cách sửa tay tệp JSON rồi nhập lên.
+        if not isinstance(item, dict) or not item.get("verified"):
+            bo_qua += 1
+            continue
+        try:
+            hop_le.append(ForgedQuestion(**{k: v for k, v in item.items() if k in cho_phep}))
+        except Exception:
+            bo_qua += 1
+
+    them = luu_vao_ngan_hang(hop_le) if hop_le else 0
+    return {
+        "status": "success",
+        "da_them": them,
+        "bo_qua": bo_qua,
+        "thong_ke": thong_ke_ngan_hang(),
+    }
+
 
 @app.get("/api/download/{filename}")
 def download_file(filename: str):

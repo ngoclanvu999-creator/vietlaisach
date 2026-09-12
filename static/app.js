@@ -160,6 +160,20 @@ document.addEventListener("DOMContentLoaded", () => {
     const readerBookSubtitle = document.getElementById("reader-book-subtitle");
     const readerContent = document.getElementById("reader-content");
 
+    const btnForge = document.getElementById("btn-forge");
+    const modalForge = document.getElementById("modal-forge");
+    const btnCloseForge = document.getElementById("btn-close-forge");
+    const forgeStats = document.getElementById("forge-stats");
+    const forgeTopic = document.getElementById("forge-topic");
+    const forgeGrade = document.getElementById("forge-grade");
+    const forgeLevel = document.getElementById("forge-level");
+    const forgeCount = document.getElementById("forge-count");
+    const btnForgeRun = document.getElementById("btn-forge-run");
+    const forgeResult = document.getElementById("forge-result");
+    const btnBankExport = document.getElementById("btn-bank-export");
+    const btnBankImport = document.getElementById("btn-bank-import");
+    const bankImportInput = document.getElementById("bank-import-input");
+
     const btnDeployInfo = document.getElementById("btn-deploy-info");
     const modalDeploy = document.getElementById("modal-deploy");
     const btnCloseDeploy = document.getElementById("btn-close-deploy");
@@ -1244,6 +1258,199 @@ document.addEventListener("DOMContentLoaded", () => {
             alert("Đã xóa khóa API khỏi trình duyệt. Ứng dụng sẽ chạy bằng Bộ máy Offline.");
         }
     });
+
+    // ==========================================
+    // LÒ SOẠN ĐỀ AI
+    // AI soạn đề mới, nhưng chỉ câu qua đủ 3 lớp thẩm định mới vào ngân hàng.
+    // Câu bị loại vẫn hiện kèm lý do — người dùng cần thấy AI sai ở đâu chứ
+    // không phải một con số "đã tạo N câu" vô nghĩa.
+    // ==========================================
+    const TEN_CHUYEN_DE = {
+        ham_so: "Ứng dụng đạo hàm — khảo sát hàm số",
+        mu_logarit: "Hàm số mũ & logarit",
+        nguyen_ham_tich_phan: "Nguyên hàm — tích phân & ứng dụng",
+        hinh_hoc_khong_gian: "Hình học không gian & Oxyz",
+        dai_so_co_ban: "Bất đẳng thức, tổ hợp — xác suất, dãy số",
+        dao_dong_co: "Dao động cơ",
+        song_co: "Sóng cơ & giao thoa",
+        dien_xoay_chieu: "Dòng điện xoay chiều & mạch RLC",
+    };
+    const CHUYEN_DE_TOAN = ["ham_so", "mu_logarit", "nguyen_ham_tich_phan",
+                            "hinh_hoc_khong_gian", "dai_so_co_ban"];
+    const CHUYEN_DE_LY = ["dao_dong_co", "song_co", "dien_xoay_chieu"];
+
+    function napDanhSachChuyenDe() {
+        if (!forgeTopic) return;
+        const ds = selectedSubject === "toan" ? CHUYEN_DE_TOAN : CHUYEN_DE_LY;
+        forgeTopic.innerHTML = ds
+            .map((k) => `<option value="${k}">${escapeHtml(TEN_CHUYEN_DE[k] || k)}</option>`)
+            .join("");
+    }
+
+    function veThongKeNganHang(tk) {
+        if (!forgeStats || !tk) return;
+        const theoChuyenDe = Object.keys(tk.theo_chuyen_de || {})
+            .map((k) => `${escapeHtml(TEN_CHUYEN_DE[k] || k)}: <strong>${tk.theo_chuyen_de[k]}</strong>`)
+            .join(" · ") || "chưa có câu nào";
+        forgeStats.innerHTML = `
+            <div class="forge-stat-row">
+                <span>📚 Đã thẩm định: <strong>${tk.tong_da_tham_dinh}</strong> câu</span>
+                <span>🚫 Đã loại: <strong>${tk.tong_bi_loai}</strong> câu</span>
+            </div>
+            <div class="forge-stat-detail">${theoChuyenDe}</div>
+        `;
+    }
+
+    async function taiNganHang() {
+        try {
+            const res = await apiFetch("/api/question-bank");
+            const data = await res.json();
+            if (data.status === "success") veThongKeNganHang(data.thong_ke);
+        } catch (e) {
+            if (forgeStats) forgeStats.textContent = "Không tải được ngân hàng câu hỏi.";
+        }
+    }
+
+    if (btnForge) {
+        btnForge.addEventListener("click", async () => {
+            napDanhSachChuyenDe();
+            modalForge.classList.remove("hidden");
+            await taiNganHang();
+        });
+    }
+    if (btnCloseForge) {
+        btnCloseForge.addEventListener("click", () => modalForge.classList.add("hidden"));
+    }
+    if (modalForge) {
+        modalForge.addEventListener("click", (e) => {
+            if (e.target === modalForge) modalForge.classList.add("hidden");
+        });
+    }
+
+    function veMotCau(q, dat) {
+        const dauHieu = dat
+            ? (q.checks_passed || []).map((c) => `<li class="forge-pass">✔ ${escapeHtml(c)}</li>`).join("")
+            : (q.reject_reasons || []).map((c) => `<li class="forge-fail">✘ ${escapeHtml(c)}</li>`).join("");
+        const phuongAn = (q.options || [])
+            .map((o) => {
+                const dung = o.trim().startsWith(q.correct);
+                return `<div class="forge-opt ${dung ? "forge-opt-correct" : ""}">${escapeHtml(o)}</div>`;
+            })
+            .join("");
+        return `
+            <div class="forge-card ${dat ? "forge-card-ok" : "forge-card-bad"}">
+                <div class="forge-card-head">
+                    <span class="forge-badge">${dat ? "✅ ĐẠT" : "❌ BỊ LOẠI"}</span>
+                    <span class="forge-level">${escapeHtml(q.level || "")} · ${escapeHtml(q.grade || "")}</span>
+                </div>
+                <div class="forge-content">${escapeHtml(q.content || "")}</div>
+                <div class="forge-opts">${phuongAn}</div>
+                <div class="forge-answer">Đáp án đề ghi: <strong>${escapeHtml(q.correct || "?")}</strong>${
+                    q.resolve_answer ? ` · AI giải lại ra: <strong>${escapeHtml(q.resolve_answer)}</strong>` : ""
+                }</div>
+                <details class="forge-solution">
+                    <summary>Xem lời giải</summary>
+                    <div>${escapeMultiline(q.solution || "")}</div>
+                </details>
+                <ul class="forge-checks">${dauHieu}</ul>
+            </div>
+        `;
+    }
+
+    if (btnForgeRun) {
+        btnForgeRun.addEventListener("click", async () => {
+            btnForgeRun.disabled = true;
+            btnForgeRun.textContent = "⏳ Đang soạn và thẩm định...";
+            forgeResult.classList.remove("hidden");
+            forgeResult.innerHTML = '<div class="forge-loading">AI đang soạn đề, sau đó sẽ tự giải lại để đối chiếu. Mất khoảng 20-60 giây...</div>';
+
+            try {
+                const res = await apiFetch("/api/generate-questions", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        topic_key: forgeTopic.value,
+                        subject: selectedSubject,
+                        grade: forgeGrade.value,
+                        level: forgeLevel.value,
+                        so_luong: parseInt(forgeCount.value, 10),
+                    }),
+                });
+                const data = await res.json();
+
+                if (!res.ok || data.status !== "success") {
+                    throw new Error(data.detail || "Không soạn được câu hỏi");
+                }
+
+                const dat = data.dat || [];
+                const truot = data.truot || [];
+                veThongKeNganHang(data.thong_ke);
+
+                forgeResult.innerHTML = `
+                    <div class="forge-summary">
+                        AI soạn <strong>${data.tong}</strong> câu ·
+                        <span class="forge-pass">${dat.length} đạt, đã vào ngân hàng</span> ·
+                        <span class="forge-fail">${truot.length} bị loại</span> ·
+                        tốn ${data.so_luot_goi_api} lượt API
+                    </div>
+                    ${dat.map((q) => veMotCau(q, true)).join("")}
+                    ${truot.map((q) => veMotCau(q, false)).join("")}
+                `;
+            } catch (err) {
+                forgeResult.innerHTML = `<div class="forge-error">❌ ${escapeHtml(err.message)}</div>`;
+            } finally {
+                btnForgeRun.disabled = false;
+                btnForgeRun.textContent = "⚡ Soạn đề & Thẩm định";
+            }
+        });
+    }
+
+    // Tải ngân hàng về / nhập lại — cần thiết vì đĩa trên Render là tạm
+    if (btnBankExport) {
+        btnBankExport.addEventListener("click", async () => {
+            try {
+                const res = await apiFetch("/api/question-bank/export");
+                if (!res.ok) {
+                    const d = await res.json();
+                    throw new Error(d.detail || "Không tải được");
+                }
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "ngan_hang_cau_hoi.json";
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                alert("Lỗi: " + err.message);
+            }
+        });
+    }
+
+    if (btnBankImport) {
+        btnBankImport.addEventListener("click", () => bankImportInput.click());
+        bankImportInput.addEventListener("change", async (e) => {
+            if (!e.target.files.length) return;
+            const fd = new FormData();
+            fd.append("file", e.target.files[0]);
+            try {
+                const res = await apiFetch("/api/question-bank/import", { method: "POST", body: fd });
+                const data = await res.json();
+                if (!res.ok || data.status !== "success") {
+                    throw new Error(data.detail || "Không nhập được");
+                }
+                veThongKeNganHang(data.thong_ke);
+                alert(`Đã nhập thêm ${data.da_them} câu vào ngân hàng` +
+                      (data.bo_qua ? `, bỏ qua ${data.bo_qua} câu chưa thẩm định hoặc sai định dạng.` : "."));
+            } catch (err) {
+                alert("Lỗi: " + err.message);
+            } finally {
+                bankImportInput.value = "";
+            }
+        });
+    }
 
     // ==========================================
     // MÀN HÌNH KHÓA TRUY CẬP NỘI BỘ

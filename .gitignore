@@ -21,3 +21,8 @@ input/unzipped_*/
 
 # Thu muc phien nap lieu
 input/ingest_*/
+
+# Ngan hang cau hoi: giu lai de khong mat cong soan de
+!data/
+!data/*.json
+data/*.tmp

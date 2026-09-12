@@ -30,6 +30,9 @@
                 <button id="btn-open-folder" class="btn btn-outline" title="Mở thư mục output trên máy tính (Chế độ Local)">
                     <span class="icon">📂</span> Thư Mục Kết Quả
                 </button>
+                <button id="btn-forge" class="btn btn-outline" title="Dùng AI soạn câu hỏi mới cho ngân hàng, có thẩm định trước khi nhận">
+                    <span class="icon">🏭</span> Lò Soạn Đề AI
+                </button>
                 <button id="btn-settings" class="btn btn-outline" title="Cấu hình Google Gemini AI">
                     <span class="icon">⚙️</span> Cài Đặt AI
                 </button>
@@ -397,6 +400,81 @@
                     <div id="reader-content" class="reader-paper-a4">
                         <!-- Book Content rendered here formatted like a real published book -->
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: LÒ SOẠN ĐỀ AI -->
+        <div id="modal-forge" class="modal-overlay hidden">
+            <div class="modal-box modal-box-wide">
+                <div class="modal-header">
+                    <h3>🏭 Lò Soạn Đề AI — Ngân hàng câu hỏi</h3>
+                    <button id="btn-close-forge" class="btn-close">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="forge-note">
+                        AI soạn đề mới, nhưng <strong>không câu nào vào ngân hàng nếu chưa qua đủ 3 lớp thẩm định</strong>:
+                        kiểm tra cấu trúc → bắt AI giải lại độc lập (giấu đáp án) → đối chiếu số bằng sympy.
+                        Câu bị loại vẫn hiện kèm lý do để bạn biết AI sai ở đâu.
+                    </div>
+
+                    <div id="forge-stats" class="forge-stats">Đang tải ngân hàng...</div>
+
+                    <div class="forge-form">
+                        <div class="form-group">
+                            <label for="forge-topic">Chuyên đề:</label>
+                            <select id="forge-topic" class="form-control"></select>
+                        </div>
+                        <div class="forge-row">
+                            <div class="form-group">
+                                <label for="forge-grade">Khối lớp:</label>
+                                <select id="forge-grade" class="form-control">
+                                    <option value="Lớp 10">Lớp 10</option>
+                                    <option value="Lớp 11">Lớp 11</option>
+                                    <option value="Lớp 12" selected>Lớp 12</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="forge-level">Mức độ:</label>
+                                <select id="forge-level" class="form-control">
+                                    <option value="Nhận biết">Nhận biết</option>
+                                    <option value="Thông hiểu">Thông hiểu</option>
+                                    <option value="Vận dụng" selected>Vận dụng</option>
+                                    <option value="Vận dụng cao">Vận dụng cao</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="forge-count">Số câu:</label>
+                                <select id="forge-count" class="form-control">
+                                    <option value="2">2 câu</option>
+                                    <option value="4" selected>4 câu</option>
+                                    <option value="6">6 câu</option>
+                                    <option value="8">8 câu</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button id="btn-forge-run" class="btn btn-primary btn-large">
+                            ⚡ Soạn đề & Thẩm định
+                        </button>
+                        <p class="field-hint">
+                            Mỗi lượt soạn tốn <strong>2 lượt gọi API</strong> (1 soạn + 1 giải lại đối chiếu),
+                            không phụ thuộc số câu. Gói Gemini miễn phí cho 20 lượt/ngày.
+                        </p>
+                    </div>
+
+                    <div class="forge-backup">
+                        <span class="forge-backup-note">
+                            ⚠️ Trên bản Web, ngân hàng bị xóa mỗi lần deploy lại (đĩa máy chủ là tạm).
+                            Hãy tải về để giữ công soạn đề.
+                        </span>
+                        <div class="forge-backup-actions">
+                            <button type="button" id="btn-bank-export" class="btn btn-outline">📥 Tải ngân hàng về</button>
+                            <button type="button" id="btn-bank-import" class="btn btn-outline">📤 Nhập lại từ tệp</button>
+                            <input type="file" id="bank-import-input" accept=".json" style="display:none !important;">
+                        </div>
+                    </div>
+
+                    <div id="forge-result" class="forge-result hidden"></div>
                 </div>
             </div>
         </div>

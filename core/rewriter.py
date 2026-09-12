@@ -572,11 +572,34 @@ def create_added_question(
 ) -> RewrittenQuestionItem:
     """
     Tạo thêm bài tập vận dụng cao ĐÚNG CHUYÊN ĐỀ của tài liệu gốc.
-    Toàn bộ đáp án trong ngân hàng đã được kiểm chứng lại bằng tính toán độc lập.
+
+    Nguồn câu hỏi gồm hai phần, đều đã qua thẩm định:
+      1. Ngân hàng gốc viết tay, đáp án tính lại độc lập bằng Python.
+      2. Ngân hàng do AI sinh ra, nhưng CHỈ những câu đã qua đủ ba lớp kiểm
+         chứng của core/question_forge (cấu trúc, giải lại độc lập, đối chiếu
+         sympy). Câu nào AI sinh mà chưa thẩm định thì không bao giờ tới đây.
     """
     fallback = _FALLBACK_TOPIC.get(subject, "ham_so")
     key = topic_key if topic_key in VERIFIED_QUESTION_BANK else fallback
-    bank = VERIFIED_QUESTION_BANK.get(key) or VERIFIED_QUESTION_BANK[fallback]
+    bank = list(VERIFIED_QUESTION_BANK.get(key) or VERIFIED_QUESTION_BANK[fallback])
+
+    # Bổ sung các câu AI đã sinh và đã được thẩm định cho đúng chuyên đề này
+    try:
+        from core.question_forge import doc_ngan_hang
+        for item in doc_ngan_hang(topic_key=key, subject=subject):
+            if not item.get("verified"):
+                continue          # chốt chặn cuối, không bao giờ lấy câu chưa duyệt
+            bank.append({
+                "content": item.get("content", ""),
+                "options": item.get("options", []),
+                "correct": item.get("correct", ""),
+                "sol1": item.get("solution", ""),
+                "sol2": item.get("casio_tip", ""),
+                "trap": item.get("trap_warning", ""),
+            })
+    except Exception as e:
+        print(f"Không đọc được ngân hàng câu hỏi AI: {e}")
+
     q = bank[variant % len(bank)]
 
     return RewrittenQuestionItem(
