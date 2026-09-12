@@ -401,6 +401,23 @@
             </div>
         </div>
 
+        <!-- MÀN HÌNH KHÓA: chỉ hiện khi máy chủ có đặt mã truy cập nội bộ -->
+        <div id="access-gate" class="access-gate hidden">
+            <div class="access-box">
+                <div class="access-icon">🔐</div>
+                <h2>Tài liệu nội bộ</h2>
+                <p class="access-desc">
+                    Trang này chỉ dành cho người được cấp quyền.
+                    Vui lòng nhập mã truy cập để tiếp tục.
+                </p>
+                <input type="password" id="access-code-input" class="form-control"
+                       placeholder="Nhập mã truy cập" autocomplete="current-password">
+                <div id="access-error" class="access-error hidden">Mã truy cập không đúng. Vui lòng thử lại.</div>
+                <button id="btn-access-submit" class="btn btn-primary btn-large">Vào trang</button>
+                <p class="access-hint">Mã được ghi nhớ trên trình duyệt này, lần sau không phải nhập lại.</p>
+            </div>
+        </div>
+
         <!-- MODAL 3: Cloud Web Deploy Guide Modal -->
         <div id="modal-deploy" class="modal-overlay hidden">
             <div class="modal-box">

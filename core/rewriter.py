@@ -1,13 +1,15 @@
 import os
 import re
 import json
-import random
 from pathlib import Path
 from dataclasses import dataclass, field, asdict
 from typing import List, Dict, Any, Optional
 from core.parser import QuestionItem
 from core.math_engine import format_math_typography, clean_paragraph_text
-from core.theory_bank import detect_subject_and_topic, build_pedagogical_theory_section
+from core.theory_bank import (
+    detect_subject_and_topic, build_pedagogical_theory_section,
+    get_casio_tip, get_trap_warning
+)
 from core.ai_namer import synthesize_book_metadata
 
 @dataclass
@@ -81,22 +83,6 @@ class RewrittenBook:
 
 
 
-CASIO_TIPS = [
-    "Sử dụng tính năng TABLE (Menu 8 trên Casio fx-580VN X): Nhập hàm f(x) trên đoạn [Start, End] với Step = (End - Start)/29 để quét nhanh cực trị, nghiệm hoặc tập xác định.",
-    "Sử dụng lệnh SHIFT SOLVE: Nhập trực tiếp phương trình, gán giá trị x ban đầu gần các đáp án để máy tính lặp Newton-Raphson tìm nghiệm nhanh chóng.",
-    "Kỹ thuật CALC giá trị đại diện: Thay các giá trị đặc biệt của tham số (ví dụ x = 0, x = 1 hoặc x = π/4) để loại trừ ngay 2-3 phương án sai trong 15 giây.",
-    "Kỹ thuật tích phân vi phân: Nhấn phím tích phân ∫ hoặc đạo hàm d/dx tại điểm x₀ bất kỳ để so sánh trực tiếp kết quả với đáp số đề bài.",
-    "Dùng tính năng VECTOR / COMPLEX: Chuyển máy sang mode số phức (Menu 2) để cộng trừ biên độ và pha dao động cực nhanh mà không cần vẽ giản đồ."
-]
-
-TRAP_WARNINGS = [
-    "⚠️ Bẫy điều kiện xác định: Học sinh rất hay quên đặt điều kiện cho biểu thức dưới mẫu khác 0, trong căn bậc chẵn (≥ 0) hoặc trong logarit (> 0), dẫn đến nhận nghiệm ngoại lai.",
-    "⚠️ Bẫy đơn vị đo lường: Đề bài cho khoảng cách theo km nhưng vận tốc lại tính bằng m/s, hoặc tần số theo kHz. Không đổi về đơn vị chuẩn SI sẽ dẫn tới kết quả sai lệch.",
-    "⚠️ Bẫy pha ban đầu (Vật lý): Chú ý chiều chuyển động ban đầu. Nếu vật qua VTCB theo chiều dương thì pha ban đầu φ = -π/2; nếu theo chiều âm thì φ = +π/2.",
-    "⚠️ Bẫy cực trị hàm số: Điểm cực trị của hàm số là x, giá trị cực trị là y, còn điểm cực trị của đồ thị hàm số là tọa độ (x; y). Đọc kỹ câu hỏi để không chọn nhầm.",
-    "⚠️ Bẫy chia cho 0 khi biện luận tham số: Khi chia cả 2 vế cho biểu thức chứa tham số m, bắt buộc phải xét trường hợp hệ số bằng 0 trước."
-]
-
 def assign_cognitive_level(idx: int, total: int) -> str:
     """Phân loại cấp độ nhận thức chuẩn ma trận đề thi Bộ GD&ĐT"""
     ratio = idx / max(1, total)
@@ -109,7 +95,13 @@ def assign_cognitive_level(idx: int, total: int) -> str:
     else:
         return "Vận dụng cao"
 
-def generate_offline_enhancement(q: QuestionItem, idx: int, total: int, subject: str = "toan") -> RewrittenQuestionItem:
+def generate_offline_enhancement(
+    q: QuestionItem,
+    idx: int,
+    total: int,
+    subject: str = "toan",
+    topic_key: Optional[str] = None
+) -> RewrittenQuestionItem:
     """
     Chuẩn hóa nội dung câu hỏi:
     - GIỮ NGUYÊN 100% CẤU TRÚC VÀ BẢN CHẤT CÂU HỎI GỐC (Tuyệt đối không chèn tiền tố ngẫu nhiên gây sai nghĩa).
@@ -136,8 +128,18 @@ def generate_offline_enhancement(q: QuestionItem, idx: int, total: int, subject:
                 f"Đáp án chính xác là {q.correct_answer or 'phương án tương ứng'}."
             )
 
-    sol2 = random.choice(CASIO_TIPS)
-    trap = random.choice(TRAP_WARNINGS)
+    # Mẹo Casio và cảnh báo bẫy phải KHỚP chuyên đề của bài. Trước đây dùng
+    # random.choice nên một bài xác suất có thể bị gắn mẹo về dao động điều hòa.
+    #
+    # Nhận diện theo TỪNG CÂU chứ không theo cả tài liệu: một cuốn sách thường
+    # trộn nhiều chuyên đề, lấy chuyên đề chung sẽ gắn mẹo hàm số cho cả bài
+    # logarit lẫn bài tích phân. Câu nào không đủ từ khóa để nhận diện thì mới
+    # lùi về chuyên đề chung của tài liệu.
+    q_topic = detect_subject_and_topic([clean_content], subject=subject)
+    effective_topic = q_topic["topic_key"] if q_topic.get("match_score", 0) > 0 else topic_key
+
+    sol2 = get_casio_tip(effective_topic, idx - 1)
+    trap = get_trap_warning(effective_topic, idx - 1)
     level = assign_cognitive_level(idx, total)
 
     return RewrittenQuestionItem(
@@ -683,7 +685,8 @@ Chỉ trả về JSON thuần túy.
             print(f"Lô {batch_no} gặp lỗi Gemini ({e}), dùng bộ xử lý ngoại tuyến cho lô này.")
             for q in batch:
                 rewritten_items.append(
-                    generate_offline_enhancement(q, len(rewritten_items) + 1, new_total, subject)
+                    generate_offline_enhancement(q, len(rewritten_items) + 1, new_total, subject,
+                                                 topic_key=topic_data.get("topic_key"))
                 )
             continue
 
@@ -723,14 +726,16 @@ Chỉ trả về JSON thuần túy.
         for q in batch:
             if q.index not in matched_indices and len(returned) < len(batch):
                 rewritten_items.append(
-                    generate_offline_enhancement(q, len(rewritten_items) + 1, new_total, subject)
+                    generate_offline_enhancement(q, len(rewritten_items) + 1, new_total, subject,
+                                                 topic_key=topic_data.get("topic_key"))
                 )
 
     # Các câu vượt quá giới hạn số lô vẫn phải có mặt trong sách
     processed_source = sum(len(b) for b in batches)
     for q in questions[processed_source:]:
         rewritten_items.append(
-            generate_offline_enhancement(q, len(rewritten_items) + 1, new_total, subject)
+            generate_offline_enhancement(q, len(rewritten_items) + 1, new_total, subject,
+                                                 topic_key=topic_data.get("topic_key"))
         )
 
     # Câu bổ sung lấy từ ngân hàng đã thẩm định đáp án, KHÔNG để AI tự bịa
@@ -807,6 +812,13 @@ def rewrite_offline(
             if not ch_questions:
                 continue
 
+            # Luôn nhận diện chuyên đề của chương, kể cả khi tài liệu gốc đã có
+            # sẵn phần lý thuyết — vì còn cần khóa chuyên đề để chọn đúng mẹo
+            # Casio và cảnh báo bẫy cho từng bài.
+            ch_texts = [q.content for q in ch_questions]
+            ch_topic_data = detect_subject_and_topic(ch_texts, subject=subject)
+            ch_topic_key = ch_topic_data.get("topic_key")
+
             # Ưu tiên lý thuyết có sẵn trong tài liệu gốc (theory_box / Ghi nhớ)
             ch_theory = ""
             for q in ch_questions:
@@ -815,13 +827,12 @@ def rewrite_offline(
                     break
 
             if not ch_theory:
-                ch_texts = [q.content for q in ch_questions]
-                ch_topic_data = detect_subject_and_topic(ch_texts, subject=subject)
                 ch_theory = build_pedagogical_theory_section(ch_topic_data)
 
             rewritten_items: List[RewrittenQuestionItem] = []
             for q_idx, q in enumerate(ch_questions, 1):
-                enh = generate_offline_enhancement(q, q_idx, len(ch_questions), subject=subject)
+                enh = generate_offline_enhancement(q, q_idx, len(ch_questions), subject=subject,
+                                                   topic_key=ch_topic_key)
                 rewritten_items.append(enh)
 
             chapters.append(RewrittenChapter(
@@ -863,7 +874,8 @@ def rewrite_offline(
 
     rewritten_items: List[RewrittenQuestionItem] = []
     for idx, q in enumerate(questions, 1):
-        enh = generate_offline_enhancement(q, idx, new_total, subject=subject)
+        enh = generate_offline_enhancement(q, idx, new_total, subject=subject,
+                                           topic_key=topic_data.get("topic_key"))
         rewritten_items.append(enh)
 
     for i in range(1, add_count + 1):
@@ -904,6 +916,11 @@ def create_master_book_from_chapters(
         if not questions:
             continue
 
+        # Luôn nhận diện chuyên đề để còn chọn đúng mẹo Casio và cảnh báo bẫy
+        all_texts = [q.content for q in questions]
+        topic_data = detect_subject_and_topic(all_texts, subject=subject)
+        ch_topic_key = topic_data.get("topic_key")
+
         # Lấy lý thuyết gốc hoặc sinh chuẩn
         ch_theory = ""
         for q in questions:
@@ -912,13 +929,12 @@ def create_master_book_from_chapters(
                 break
 
         if not ch_theory:
-            all_texts = [q.content for q in questions]
-            topic_data = detect_subject_and_topic(all_texts, subject=subject)
             ch_theory = build_pedagogical_theory_section(topic_data)
 
         rewritten_items: List[RewrittenQuestionItem] = []
         for q_idx, q in enumerate(questions, 1):
-            enh = generate_offline_enhancement(q, q_idx, len(questions), subject=subject)
+            enh = generate_offline_enhancement(q, q_idx, len(questions), subject=subject,
+                                               topic_key=ch_topic_key)
             rewritten_items.append(enh)
 
         clean_chapter_name = Path(source_name).stem.replace("_", " ").replace("-", " ")

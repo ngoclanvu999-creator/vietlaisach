@@ -207,9 +207,12 @@ def detect_subject_and_topic(text_samples: List[str], subject: str = "toan") -> 
     if not best_topic or max_matches == 0:
         best_topic = list(db.keys())[0]
 
-    # Trả về bản sao kèm khóa chuyên đề để các mô-đun khác chọn đúng ngân hàng bài tập
+    # Trả về bản sao kèm khóa chuyên đề để các mô-đun khác chọn đúng ngân hàng bài tập.
+    # match_score = 0 nghĩa là KHÔNG khớp từ khóa nào, chỉ đang lấy mặc định —
+    # nơi gọi cần biết điều này để còn quyết định có tin kết quả hay không.
     result = dict(db[best_topic])
     result["topic_key"] = best_topic
+    result["match_score"] = max(0, max_matches)
     return result
 
 def build_pedagogical_theory_section(topic_data: Dict[str, Any]) -> str:
@@ -230,3 +233,159 @@ def build_pedagogical_theory_section(topic_data: Dict[str, Any]) -> str:
         text += f"  {m}\n"
 
     return text
+
+
+# ==========================================================
+# MẸO CASIO & CẢNH BÁO BẪY THEO TỪNG CHUYÊN ĐỀ
+# Trước đây hai mục này được bốc NGẪU NHIÊN từ một danh sách chung, nên một bài
+# xác suất tổ hợp có thể bị gắn mẹo "chuyển sang mode số phức để cộng biên độ
+# dao động" — sai hoàn toàn ngữ cảnh và phản tác dụng sư phạm.
+# ==========================================================
+
+TOPIC_CASIO_TIPS: Dict[str, List[str]] = {
+    "ham_so": [
+        "Dùng TABLE (Menu 8 trên Casio fx-580VN X): nhập f(X), chọn Start/End đúng miền cần xét, "
+        "Step = (End − Start)/29 để quét nhanh khoảng đồng biến, nghịch biến và điểm cực trị.",
+        "Tính đạo hàm tại một điểm bằng phím d/dx: so sánh dấu của f'(x) ở hai bên điểm nghi ngờ "
+        "là biết ngay đó là cực đại hay cực tiểu, khỏi lập bảng biến thiên.",
+        "Tìm tiệm cận đứng: dùng CALC thay x bằng giá trị rất gần nghiệm của mẫu (ví dụ x = 2 + 10⁻⁹) "
+        "để xem hàm tiến ra vô cực hay không.",
+    ],
+    "mu_logarit": [
+        "Dùng CALC thử trực tiếp từng phương án vào phương trình mũ/logarit — nhanh hơn nhiều so với "
+        "biến đổi đại số, và tránh được sai sót khi đổi cơ số.",
+        "SHIFT SOLVE cho phương trình mũ-logarit: gán giá trị x ban đầu gần đáp án để máy hội tụ nhanh, "
+        "sau đó nhớ ĐỐI CHIẾU với điều kiện xác định.",
+        "Khi đề có log cơ số lạ, dùng công thức đổi cơ số log_a b = ln b / ln a rồi bấm thẳng bằng phím ln.",
+    ],
+    "nguyen_ham_tich_phan": [
+        "Bấm thẳng phím tích phân ∫ với cận đã cho rồi so kết quả với từng phương án — "
+        "đây là dạng câu Casio giải nhanh nhất trong đề thi.",
+        "Tính diện tích hình phẳng: nhập ∫|f(x) − g(x)|dx với dấu giá trị tuyệt đối thì không cần "
+        "xét đồ thị nào nằm trên, máy tự cho kết quả dương.",
+        "Kiểm tra một nguyên hàm F(x) có đúng không: dùng d/dx tại vài điểm bất kỳ, nếu bằng f(x) tại "
+        "mọi điểm thử thì đáp án đó đúng.",
+    ],
+    "hinh_hoc_khong_gian": [
+        "Tọa độ hóa khối đa diện vuông vức rồi dùng Menu 5 (VECTOR): tính tích có hướng để ra vectơ pháp "
+        "tuyến, từ đó tính góc và khoảng cách mà không cần vẽ hình phụ.",
+        "Khoảng cách từ điểm đến mặt phẳng: sau khi có phương trình (P), bấm thẳng "
+        "|Ax₀ + By₀ + Cz₀ + D| ÷ √(A² + B² + C²) trên máy.",
+        "Góc giữa hai mặt phẳng: dùng tích vô hướng hai vectơ pháp tuyến rồi lấy SHIFT cos⁻¹ của giá trị "
+        "tuyệt đối thương số.",
+    ],
+    "dai_so_co_ban": [
+        "Dùng phím nCr và nPr để tính tổ hợp, chỉnh hợp ngay trên máy — nhớ phân biệt 'lấy đồng thời' "
+        "(tổ hợp C) với 'lấy có thứ tự' (chỉnh hợp A).",
+        "Tính tổng cấp số bằng phím Σ (SHIFT log): nhập trực tiếp công thức số hạng tổng quát với biến X "
+        "chạy từ 1 đến n, không cần nhớ công thức tổng.",
+        "Bài toán xác suất có cụm từ 'ít nhất một': tính xác suất biến cố đối rồi lấy 1 trừ đi — "
+        "chỉ một phép tính thay vì cộng nhiều trường hợp.",
+    ],
+    "dao_dong_co": [
+        "Tổng hợp hai dao động cùng phương cùng tần số: chuyển sang Menu 2 (COMPLEX), nhập "
+        "A₁∠φ₁ + A₂∠φ₂ rồi SHIFT 2 3 để đọc ngay biên độ và pha tổng hợp.",
+        "Hệ thức độc lập thời gian x² + (v/ω)² = A²: bấm trực tiếp để tìm đại lượng còn thiếu, "
+        "không cần giải phương trình lượng giác.",
+        "Chu kỳ con lắc: T = 2π√(m/k) hoặc 2π√(l/g) — bấm thẳng, nhưng nhớ đổi khối lượng về kg và "
+        "chiều dài về mét trước.",
+    ],
+    "song_co": [
+        "Bước sóng λ = v/f bấm một phép chia là xong; nhớ ba mốc phản xạ: cùng pha cách λ, "
+        "ngược pha cách λ/2, vuông pha cách λ/4.",
+        "Đếm số cực đại giao thoa: tính AB/λ rồi dùng phần nguyên — hai nguồn cùng pha cho "
+        "2⌊AB/λ⌋ + 1 điểm khi tỉ số không nguyên.",
+        "Độ lệch pha Δφ = 2πd/λ: bấm ra rồi chia cho π để biết ngay là bội chẵn (cùng pha) hay "
+        "bội lẻ (ngược pha) của π.",
+    ],
+    "dien_xoay_chieu": [
+        "Menu 2 (COMPLEX) là vũ khí mạnh nhất cho điện xoay chiều: nhập u = U₀∠φᵤ chia cho "
+        "Z = R + (Z_L − Z_C)i là ra ngay biểu thức dòng điện cả biên độ lẫn pha.",
+        "Với ω = 100π và L, C có chứa π ở mẫu, hai chữ π luôn triệt tiêu — nhẩm được Z_L, Z_C "
+        "mà không cần chạm vào máy.",
+        "Bài toán cực trị (R thay đổi để P_max): dùng TABLE quét R trên một khoảng rồi nhìn cột "
+        "công suất để đoán điểm cực đại trước khi giải chính xác.",
+    ],
+}
+
+TOPIC_TRAPS: Dict[str, List[str]] = {
+    "ham_so": [
+        "⚠️ Bẫy phân biệt khái niệm: điểm cực trị của HÀM SỐ là giá trị x, giá trị cực trị là y, "
+        "còn điểm cực trị của ĐỒ THỊ là cả tọa độ (x; y). Đọc kỹ câu hỏi hỏi cái nào.",
+        "⚠️ Bẫy đầu mút: giá trị lớn nhất, nhỏ nhất trên một ĐOẠN có thể rơi vào hai đầu mút chứ "
+        "không chỉ tại điểm cực trị bên trong.",
+        "⚠️ Bẫy điều kiện tồn tại cực trị: với hàm bậc ba phải kiểm tra y' = 0 có hai nghiệm phân biệt "
+        "(Δ > 0) trước khi áp dụng Vi-ét.",
+    ],
+    "mu_logarit": [
+        "⚠️ Bẫy điều kiện xác định: log_a(b) đòi hỏi 0 < a ≠ 1 và b > 0. Quên đặt điều kiện là nhận "
+        "nghiệm ngoại lai.",
+        "⚠️ Bẫy chiều bất phương trình: cơ số trong khoảng (0; 1) làm hàm NGHỊCH BIẾN nên phải ĐỔI CHIỀU "
+        "bất phương trình; cơ số lớn hơn 1 thì giữ nguyên.",
+        "⚠️ Bẫy đổi cơ số: log_(aⁿ) x = (1/n)·log_a x — số mũ của CƠ SỐ đi xuống làm mẫu, rất hay bị "
+        "nhầm thành nhân lên.",
+    ],
+    "nguyen_ham_tich_phan": [
+        "⚠️ Bẫy đổi biến: khi đặt t = φ(x) phải đổi CẢ vi phân dt lẫn hai cận tích phân. "
+        "Quên một trong hai là sai dấu hoặc sai kết quả.",
+        "⚠️ Bẫy diện tích âm: diện tích là ∫|f(x) − g(x)|dx. Lấy sai thứ tự hiệu sẽ ra số âm — "
+        "một diện tích âm là vô nghĩa.",
+        "⚠️ Bẫy hằng số C: với nguyên hàm phải viết + C; với tích phân xác định thì không có C.",
+    ],
+    "hinh_hoc_khong_gian": [
+        "⚠️ Bẫy xác định chân đường vuông góc: phải tìm đúng giao tuyến của hai mặt phẳng vuông góc "
+        "rồi mới hạ đường cao xuống giao tuyến đó.",
+        "⚠️ Bẫy góc: góc giữa đường thẳng và mặt phẳng luôn thuộc [0°; 90°]; nếu tính ra góc tù phải "
+        "lấy góc bù.",
+        "⚠️ Bẫy công thức thể tích: khối chóp có hệ số 1/3 (V = ⅓·S·h), khối lăng trụ thì không "
+        "(V = S·h). Nhầm hệ số này sai gấp ba lần.",
+    ],
+    "dai_so_co_ban": [
+        "⚠️ Bẫy 'ít nhất một': nên dùng biến cố đối thay vì cộng dồn nhiều trường hợp — cộng dồn rất "
+        "dễ đếm thiếu hoặc đếm trùng.",
+        "⚠️ Bẫy tổ hợp và chỉnh hợp: 'lấy đồng thời' dùng tổ hợp C (không phân biệt thứ tự), "
+        "'xếp thành hàng' hay 'lấy lần lượt' dùng chỉnh hợp A.",
+        "⚠️ Bẫy số hạng tổng quát: uₙ = u₁ + (n − 1)d, KHÔNG phải u₁ + n·d. Sai một bước này là sai "
+        "toàn bộ phần sau.",
+    ],
+    "dao_dong_co": [
+        "⚠️ Bẫy pha ban đầu: vật qua vị trí cân bằng theo chiều dương thì φ = −π/2; theo chiều âm thì "
+        "φ = +π/2. Nhầm dấu là sai cả bài.",
+        "⚠️ Bẫy đơn vị: biên độ cho theo cm thì vận tốc ra cm/s; đổi nhầm sang m/s là sai 100 lần. "
+        "Khối lượng phải đổi về kg trước khi tính chu kỳ.",
+        "⚠️ Bẫy tốc độ cực đại: v_max = ωA chỉ đạt tại vị trí cân bằng, đừng nhầm với tốc độ tại "
+        "một li độ x bất kỳ.",
+    ],
+    "song_co": [
+        "⚠️ Bẫy cùng pha và ngược pha: hai điểm cùng pha cách nhau λ, ngược pha cách nhau λ/2. "
+        "Câu hỏi 'gần nhau nhất' thường nhắm vào chỗ nhầm này.",
+        "⚠️ Bẫy chẵn lẻ: hai nguồn CÙNG pha cho số cực đại LẺ và số cực tiểu CHẴN; hai nguồn ngược pha "
+        "thì ngược lại. Cũng đừng quên giá trị k = 0.",
+        "⚠️ Bẫy đơn vị: v cho theo cm/s thì λ ra cm; trộn lẫn mét và centimét trong cùng một bài là "
+        "nguồn sai phổ biến nhất.",
+    ],
+    "dien_xoay_chieu": [
+        "⚠️ Bẫy giá trị hiệu dụng và cực đại: u = U₀·cos(ωt) nghĩa là U = U₀/√2. Dùng nhầm U₀ vào công "
+        "thức công suất sẽ cho kết quả gấp đôi.",
+        "⚠️ Bẫy cuộn cảm thuần và tụ điện: hai phần tử này KHÔNG tiêu thụ công suất (cos φ = 0), "
+        "chỉ điện trở R mới sinh nhiệt.",
+        "⚠️ Bẫy đơn vị điện dung: C thường cho theo μF (10⁻⁶) hoặc nF (10⁻⁹). Quên đổi là sai hàng "
+        "nghìn lần khi tính Z_C.",
+    ],
+}
+
+
+def get_casio_tip(topic_key: str, index: int = 0) -> str:
+    """Mẹo Casio đúng chuyên đề. Xoay vòng theo index để các câu không lặp lời."""
+    tips = TOPIC_CASIO_TIPS.get(topic_key or "")
+    if not tips:
+        tips = TOPIC_CASIO_TIPS["ham_so"]
+    return tips[index % len(tips)]
+
+
+def get_trap_warning(topic_key: str, index: int = 0) -> str:
+    """Cảnh báo bẫy đúng chuyên đề. Xoay vòng theo index để các câu không lặp lời."""
+    traps = TOPIC_TRAPS.get(topic_key or "")
+    if not traps:
+        traps = TOPIC_TRAPS["ham_so"]
+    return traps[index % len(traps)]

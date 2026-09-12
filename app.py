@@ -298,8 +298,23 @@ async def health_check():
         # biết chắc bản deploy đã lên hay máy chủ còn phục vụ mã cũ, thay vì
         # phải mở trang ra nhìn bằng mắt.
         "asset_version": _asset_version(),
-        "local_mode": LOCAL_MODE
+        "local_mode": LOCAL_MODE,
+        # Trang có đang khóa hay không. Giao diện dựa vào đây để hiện màn hình
+        # nhập mã truy cập. Chỉ báo CÓ/KHÔNG, không hé lộ mã.
+        "auth_required": bool(ACCESS_TOKEN)
     }
+
+
+@app.post("/api/verify-access")
+def verify_access():
+    """
+    Kiểm tra mã truy cập người dùng vừa nhập.
+
+    Middleware đã chặn sẵn mọi /api/ khác, endpoint này chỉ để giao diện biết
+    mã đúng hay sai mà báo lại cho người dùng. Nếu trang không khóa thì luôn
+    trả hợp lệ.
+    """
+    return {"status": "success", "valid": True, "auth_required": bool(ACCESS_TOKEN)}
 
 @app.post("/api/scan-folder")
 def api_scan_folder(req: ScanFolderRequest):
@@ -644,14 +659,46 @@ def upload_zip(
         "files": files
     }
 
+def _bool_form(value: Optional[str], default: bool = True) -> bool:
+    """Ô tick trên web gửi lên dạng chuỗi 'true'/'false'."""
+    if value is None:
+        return default
+    return str(value).strip().lower() in ("1", "true", "yes", "on")
+
+
+def book_options_from_form(
+    theory: Optional[str], foreword: Optional[str], secrets_: Optional[str],
+    stem: Optional[str], casio: Optional[str], traps: Optional[str]
+) -> dict:
+    """Gom các ô tick thành bộ tùy chọn cho bộ xuất bản."""
+    return {
+        "theory": _bool_form(theory),
+        "foreword": _bool_form(foreword),
+        "secrets": _bool_form(secrets_),
+        "stem": _bool_form(stem),
+        "casio": _bool_form(casio),
+        "traps": _bool_form(traps),
+    }
+
+
 @app.post("/api/process")
 def process_single_document(
     request: Request,
     filename: str = Form(...),
     subject: str = Form("toan"),
     add_count: int = Form(2),
-    custom_title: Optional[str] = Form(None)
+    custom_title: Optional[str] = Form(None),
+    include_theory: Optional[str] = Form(None),
+    include_foreword: Optional[str] = Form(None),
+    include_secrets: Optional[str] = Form(None),
+    include_stem: Optional[str] = Form(None),
+    include_casio: Optional[str] = Form(None),
+    include_traps: Optional[str] = Form(None)
 ):
+    book_options = book_options_from_form(
+        include_theory, include_foreword, include_secrets,
+        include_stem, include_casio, include_traps
+    )
     # Chấp nhận cả tên tệp trực tiếp trong input/ lẫn đường dẫn nhiều cấp bên
     # trong thư mục phiên nạp liệu (ví dụ "ingest_1726.../De_thi.docx").
     input_path = resolve_subpath_within(INPUT_DIR, filename)
@@ -685,7 +732,7 @@ def process_single_document(
         clean_title_slug = "".join(c for c in book.new_title[:30] if c.isalnum() or c in (" ", "-", "_")).strip().replace(" ", "_")
         out_filename = f"Sach_Bien_Soan_{stem}_{clean_title_slug}.docx"
         out_path = resolve_within(OUTPUT_DIR, out_filename)
-        DocxBookExporter.export(book, out_path, paper_format=paper_format)
+        DocxBookExporter.export(book, out_path, paper_format=paper_format, options=book_options)
         prune_output_dir()
 
         # 4. Thẩm định — chạy SAU khi xuất để đo được thể thức thật trên file thành phẩm
@@ -718,8 +765,18 @@ def process_folder(
     mode: str = Form("merge"),  # "merge" (1 cuốn) hoặc "split" (từng cuốn riêng)
     subject: str = Form("toan"),
     add_count: int = Form(2),
-    master_title: Optional[str] = Form(None)
+    master_title: Optional[str] = Form(None),
+    include_theory: Optional[str] = Form(None),
+    include_foreword: Optional[str] = Form(None),
+    include_secrets: Optional[str] = Form(None),
+    include_stem: Optional[str] = Form(None),
+    include_casio: Optional[str] = Form(None),
+    include_traps: Optional[str] = Form(None)
 ):
+    book_options = book_options_from_form(
+        include_theory, include_foreword, include_secrets,
+        include_stem, include_casio, include_traps
+    )
     p = resolve_user_folder(folder_path)
 
     settings = load_settings()
@@ -760,7 +817,7 @@ def process_folder(
             clean_folder_name = p.name.replace(" ", "_")
             out_filename = f"Dai_Cam_Nang_{clean_folder_name}_Chuan_BGD.docx"
             out_path = resolve_within(OUTPUT_DIR, out_filename)
-            DocxBookExporter.export(master_book, out_path, paper_format=paper_format)
+            DocxBookExporter.export(master_book, out_path, paper_format=paper_format, options=book_options)
             prune_output_dir()
 
             val_report = PreFlightValidator.validate(
@@ -802,7 +859,7 @@ def process_folder(
                     clean_slug = "".join(c for c in single_book.new_title[:25] if c.isalnum() or c in (" ", "-", "_")).strip().replace(" ", "_")
                     out_name = f"Sach_{f_path.stem}_{clean_slug}.docx"
                     out_path = resolve_within(OUTPUT_DIR, out_name)
-                    DocxBookExporter.export(single_book, out_path, paper_format=paper_format)
+                    DocxBookExporter.export(single_book, out_path, paper_format=paper_format, options=book_options)
 
                     val_report = PreFlightValidator.validate(
                         book_title=single_book.new_title,

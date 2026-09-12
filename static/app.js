@@ -34,11 +34,31 @@ document.addEventListener("DOMContentLoaded", () => {
     const checkTheory = document.getElementById("check-theory");
     const checkCasio = document.getElementById("check-casio");
     const checkTraps = document.getElementById("check-traps");
+    const checkForeword = document.getElementById("check-foreword");
+    const checkSecrets = document.getElementById("check-secrets");
+    const checkStem = document.getElementById("check-stem");
     const paperFormatSelect = document.getElementById("paper-format");
 
     // Lọc HTML nhưng vẫn giữ ngắt dòng — dùng cho lời giải nhiều dòng.
     function escapeMultiline(str) {
         return escapeHtml(str).replace(/\n/g, "<br>");
+    }
+
+    // Gom 6 ô tick thành các trường gửi kèm yêu cầu biên soạn.
+    // Trước đây các ô này chỉ là trang trí: tick hay không thì file Word vẫn y hệt.
+    function themTuyChonBienSoan(formData) {
+        const map = {
+            include_theory: checkTheory,
+            include_foreword: checkForeword,
+            include_secrets: checkSecrets,
+            include_stem: checkStem,
+            include_casio: checkCasio,
+            include_traps: checkTraps,
+        };
+        Object.keys(map).forEach((ten) => {
+            const o = map[ten];
+            formData.append(ten, o && o.checked ? "true" : "false");
+        });
     }
 
     // ==========================================
@@ -68,14 +88,19 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // Bọc fetch để mọi lệnh gọi API đều tự mang theo khóa của người đang dùng
+    // Mã truy cập nội bộ (chỉ dùng khi máy chủ đặt APP_ACCESS_TOKEN)
+    const ACCESS_STORE = "app_access_token";
+
+    // Bọc fetch để mọi lệnh gọi API đều tự mang theo khóa và mã truy cập
     function apiFetch(url, options) {
         const opts = options || {};
         const headers = new Headers(opts.headers || {});
         const key = readStore(KEY_STORE);
         const model = readStore(MODEL_STORE);
+        const access = readStore(ACCESS_STORE);
         if (key) headers.set("X-Gemini-Key", key);
         if (model) headers.set("X-Gemini-Model", model);
+        if (access) headers.set("X-Access-Token", access);
         return fetch(url, Object.assign({}, opts, { headers: headers }));
     }
 
@@ -855,6 +880,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (customTitleInput.value.trim()) {
                     formData.append("master_title", customTitleInput.value.trim());
                 }
+                themTuyChonBienSoan(formData);
 
                 const res = await apiFetch("/api/process-folder", { method: "POST", body: formData });
                 const data = await res.json();
@@ -915,6 +941,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (customTitleInput.value.trim()) {
                     formData.append("custom_title", customTitleInput.value.trim());
                 }
+                themTuyChonBienSoan(formData);
 
                 const res = await apiFetch("/api/process", { method: "POST", body: formData });
                 const data = await res.json();
@@ -1217,6 +1244,86 @@ document.addEventListener("DOMContentLoaded", () => {
             alert("Đã xóa khóa API khỏi trình duyệt. Ứng dụng sẽ chạy bằng Bộ máy Offline.");
         }
     });
+
+    // ==========================================
+    // MÀN HÌNH KHÓA TRUY CẬP NỘI BỘ
+    // Chỉ bật khi máy chủ có đặt APP_ACCESS_TOKEN. Mã nhập vào được nhớ trên
+    // trình duyệt và gửi kèm mọi lệnh gọi API qua header X-Access-Token.
+    // ==========================================
+    const accessGate = document.getElementById("access-gate");
+    const accessInput = document.getElementById("access-code-input");
+    const accessError = document.getElementById("access-error");
+    const btnAccessSubmit = document.getElementById("btn-access-submit");
+
+    function showGate(saiMa) {
+        if (!accessGate) return;
+        accessGate.classList.remove("hidden");
+        accessError.classList.toggle("hidden", !saiMa);
+        if (saiMa) accessInput.value = "";
+        setTimeout(() => accessInput.focus(), 60);
+    }
+
+    function hideGate() {
+        if (accessGate) accessGate.classList.add("hidden");
+    }
+
+    async function thuMaTruyCap() {
+        // /api/verify-access bị middleware chặn nếu mã sai, nên chỉ cần xem mã trả về
+        try {
+            const res = await apiFetch("/api/verify-access", { method: "POST" });
+            return res.status !== 401;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    async function kiemTraQuyenTruyCap() {
+        let canMa = false;
+        try {
+            const res = await fetch("/api/health");   // endpoint này luôn mở
+            canMa = !!(await res.json()).auth_required;
+        } catch (e) {
+            return;   // không gọi được máy chủ thì để giao diện chạy bình thường
+        }
+
+        if (!canMa) {
+            hideGate();
+            return;
+        }
+        if (await thuMaTruyCap()) {
+            hideGate();
+        } else {
+            showGate(false);
+        }
+    }
+
+    if (btnAccessSubmit) {
+        btnAccessSubmit.addEventListener("click", async () => {
+            const ma = accessInput.value.trim();
+            if (!ma) return;
+
+            btnAccessSubmit.disabled = true;
+            btnAccessSubmit.textContent = "Đang kiểm tra...";
+            writeStore(ACCESS_STORE, ma);
+
+            const dung = await thuMaTruyCap();
+            btnAccessSubmit.disabled = false;
+            btnAccessSubmit.textContent = "Vào trang";
+
+            if (dung) {
+                hideGate();
+            } else {
+                writeStore(ACCESS_STORE, "");
+                showGate(true);
+            }
+        });
+
+        accessInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") btnAccessSubmit.click();
+        });
+    }
+
+    kiemTraQuyenTruyCap();
 
     // Hiện trạng thái khóa ngay khi mở trang
     refreshKeyStatus();

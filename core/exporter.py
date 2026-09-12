@@ -116,8 +116,25 @@ class DocxBookExporter:
         except Exception:
             pass
 
+    # Mặc định bật hết. Người dùng tắt mục nào thì mục đó biến mất khỏi file Word.
+    DEFAULT_OPTIONS = {
+        "theory": True,      # Phần I: lý thuyết nền tảng
+        "foreword": True,    # Lời tựa truyền cảm hứng
+        "secrets": True,     # Bí kíp thủ khoa
+        "stem": True,        # Góc kết nối STEM
+        "casio": True,       # Mẹo Casio
+        "traps": True,       # Cảnh báo bẫy
+    }
+
     @classmethod
-    def render_question_item(cls, doc: docx.Document, q: RewrittenQuestionItem):
+    def merge_options(cls, options: Optional[dict]) -> dict:
+        merged = dict(cls.DEFAULT_OPTIONS)
+        if options:
+            merged.update({k: bool(v) for k, v in options.items() if k in merged})
+        return merged
+
+    @classmethod
+    def render_question_item(cls, doc: docx.Document, q: RewrittenQuestionItem, options: Optional[dict] = None):
         """Trình bày từng câu hỏi theo chuẩn sư phạm Bộ GD&ĐT"""
         # Đề mục câu hỏi
         p_qtitle = doc.add_paragraph()
@@ -199,8 +216,10 @@ class DocxBookExporter:
                 r_sol_l.font.size = Pt(12.5)
                 r_sol_l.font.color.rgb = COLOR_TEXT_MAIN
 
+        opts = cls.merge_options(options)
+
         # Khung Kỹ thuật Casio & Mẹo nhanh
-        if q.solution_method2:
+        if q.solution_method2 and opts["casio"]:
             add_callout_box(
                 doc,
                 title="💡 KỸ THUẬT BẤM MÁY CASIO FX-580VN X & TƯ DUY GIẢI NHANH",
@@ -211,7 +230,7 @@ class DocxBookExporter:
             )
 
         # Khung Cảnh báo bẫy sai lầm
-        if q.trap_warning:
+        if q.trap_warning and opts["traps"]:
             add_callout_box(
                 doc,
                 title="⚠️ BẪY ĐỀ THI & LỖI SAI HỌC SINH HAY MẮC PHẢI",
@@ -231,7 +250,14 @@ class DocxBookExporter:
         r_sep.font.size = Pt(8)
 
     @classmethod
-    def export(cls, book: RewrittenBook, output_path: Path, paper_format: str = "a4") -> Path:
+    def export(
+        cls,
+        book: RewrittenBook,
+        output_path: Path,
+        paper_format: str = "a4",
+        options: Optional[dict] = None
+    ) -> Path:
+        opts = cls.merge_options(options)
         doc = docx.Document()
         cls.apply_default_style(doc)
         section = doc.sections[0]
@@ -281,7 +307,7 @@ class DocxBookExporter:
         r_sub.font.color.rgb = COLOR_SECONDARY
 
         # Lời tựa truyền cảm hứng
-        if book.author_note:
+        if book.author_note and opts["foreword"]:
             add_callout_box(
                 doc,
                 title="✨ LỜI TỰA TRUYỀN CẢM HỨNG & SỨ MỆNH CUỐN SÁCH",
@@ -292,7 +318,7 @@ class DocxBookExporter:
             )
 
         # Bí kíp thủ khoa
-        if hasattr(book, "valedictorian_secrets") and book.valedictorian_secrets:
+        if opts["secrets"] and getattr(book, "valedictorian_secrets", None):
             secrets_content = "\n".join(f"• {sec}" for sec in book.valedictorian_secrets)
             add_callout_box(
                 doc,
@@ -304,7 +330,7 @@ class DocxBookExporter:
             )
 
         # Góc kết nối STEM thực tế đời sống
-        if hasattr(book, "stem_connection") and book.stem_connection:
+        if opts["stem"] and getattr(book, "stem_connection", ""):
             add_callout_box(
                 doc,
                 title="🌐 GÓC KẾT NỐI THỰC TIỄN ĐỜI SỐNG & CÔNG NGHỆ (GDPT 2018)",
@@ -352,7 +378,7 @@ class DocxBookExporter:
                 r_ct.font.color.rgb = COLOR_PRIMARY
 
                 # PHẦN I: LÝ THUYẾT TRỌNG TÂM CỦA CHƯƠNG
-                if ch.theory_section:
+                if ch.theory_section and opts["theory"]:
                     add_callout_box(
                         doc,
                         title="PHẦN I: KIẾN THỨC TRỌNG TÂM & LÝ THUYẾT CỐT LÕI",
@@ -373,7 +399,7 @@ class DocxBookExporter:
                 r_st.font.color.rgb = COLOR_PRIMARY
 
                 for q in ch.questions:
-                    cls.render_question_item(doc, q)
+                    cls.render_question_item(doc, q, options=opts)
 
                 doc.add_page_break()
 
@@ -382,7 +408,7 @@ class DocxBookExporter:
         # ==========================================
         else:
             # PHẦN I: KIẾN THỨC TRỌNG TÂM & LÝ THUYẾT CỐT LÕI
-            if book.theory_section:
+            if book.theory_section and opts["theory"]:
                 add_callout_box(
                     doc,
                     title="PHẦN I: KIẾN THỨC TRỌNG TÂM & LÝ THUYẾT NỀN TẢNG CHUẨN BGD",
@@ -405,7 +431,7 @@ class DocxBookExporter:
             r_st.font.color.rgb = COLOR_PRIMARY
 
             for q in book.questions:
-                cls.render_question_item(doc, q)
+                cls.render_question_item(doc, q, options=opts)
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
         doc.save(str(output_path))
