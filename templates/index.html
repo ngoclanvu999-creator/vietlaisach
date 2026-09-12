@@ -344,23 +344,33 @@
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
-                        <label for="gemini-api-key">Gemini API Key (Tùy chọn):</label>
+                        <label for="gemini-api-key">Gemini API Key của riêng bạn:</label>
                         <div class="input-with-button">
-                            <input type="password" id="gemini-api-key" class="form-control" placeholder="Dán khóa API (AIzaSy...)">
+                            <input type="password" id="gemini-api-key" class="form-control" placeholder="Dán khóa API của bạn (AIzaSy...)">
                             <button id="btn-toggle-key" class="btn-small" type="button">Hiện</button>
                         </div>
+                        <div id="key-status" class="key-status">Chưa có khóa — đang dùng Bộ máy Offline</div>
                         <p class="field-hint">
-                            Lấy API Key miễn phí tại <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>. 
-                            Nếu để trống, ứng dụng sẽ chạy tự động bằng <strong>Bộ máy Toán học Thông minh Offline</strong> mà không cần Internet.
+                            🔒 <strong>Khóa chỉ được lưu trên trình duyệt của chính bạn</strong> và gửi kèm từng lượt biên soạn.
+                            Máy chủ không lưu lại và không dùng chung với ai. Người khác vào trang này phải dán khóa của họ,
+                            mỗi người tiêu hạn mức trên tài khoản Google của riêng mình.
+                        </p>
+                        <p class="field-hint">
+                            Lấy API Key miễn phí tại <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>.
+                            Để trống thì ứng dụng vẫn chạy bằng <strong>Bộ máy Toán học Thông minh Offline</strong>.
                         </p>
                     </div>
 
                     <div class="form-group">
                         <label for="gemini-model">Mô hình AI:</label>
                         <select id="gemini-model" class="form-control">
-                            <option value="gemini-3.6-flash" selected>Gemini 3.6 Flash (Siêu nhanh & Sáng tạo đỉnh cao)</option>
-                            <option value="gemini-2.0-flash">Gemini 2.0 Flash (Tối ưu phản hồi)</option>
+                            <option value="gemini-3.6-flash" selected>Gemini 3.6 Flash — nhanh, tiết kiệm hạn mức (khuyên dùng)</option>
+                            <option value="gemini-3.6-pro">Gemini 3.6 Pro — lời giải sâu hơn, tốn hạn mức hơn</option>
+                            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                            <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                            <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
                         </select>
+                        <p class="field-hint">Mô hình áp dụng cho riêng bạn, không ảnh hưởng người khác đang dùng trang.</p>
                     </div>
                 </div>
                 <div class="modal-footer">

@@ -9,7 +9,7 @@ import re
 import json
 from pathlib import Path
 from typing import Dict, Any, Optional, List
-from config import load_settings
+from config import load_settings, LOCAL_MODE
 
 def extract_grade_and_subject(text: str, default_subject: str = "toan") -> Dict[str, str]:
     t_lower = text.lower()
@@ -41,10 +41,26 @@ def _cache_put(key: str, value):
 
 
 def get_effective_api_key(explicit_key: Optional[str] = None) -> str:
+    """
+    Khóa dùng cho lần gọi này.
+
+    Trên bản Web/Cloud chỉ chấp nhận khóa do chính người dùng gửi lên. Nếu họ
+    chưa dán khóa thì trả về rỗng để hệ thống chạy chế độ ngoại tuyến — tuyệt
+    đối không lặng lẽ mượn khóa của chủ máy chủ, vì làm vậy là tiêu hạn mức của
+    người khác mà họ không hề biết.
+
+    Khi chạy trên máy cá nhân thì mới lấy tiếp khóa đã lưu hoặc biến môi trường.
+    """
+    explicit = (explicit_key or "").strip()
+    if explicit:
+        return explicit
+
+    if not LOCAL_MODE:
+        return ""
+
     settings = load_settings()
     return (
-        (explicit_key or "").strip()
-        or settings.get("gemini_api_key", "").strip()
+        settings.get("gemini_api_key", "").strip()
         or os.environ.get("GEMINI_API_KEY", "").strip()
         or os.environ.get("GOOGLE_API_KEY", "").strip()
     )

@@ -41,6 +41,44 @@ document.addEventListener("DOMContentLoaded", () => {
         return escapeHtml(str).replace(/\n/g, "<br>");
     }
 
+    // ==========================================
+    // KHÓA API CỦA RIÊNG TỪNG NGƯỜI DÙNG
+    // Khóa nằm trong trình duyệt của người dùng và gửi kèm từng yêu cầu qua
+    // header. Máy chủ không lưu, nên nhiều người cùng vào một trang web vẫn
+    // tiêu hạn mức trên tài khoản Google của riêng mỗi người.
+    // ==========================================
+    const KEY_STORE = "gemini_api_key";
+    const MODEL_STORE = "gemini_model";
+
+    function readStore(name) {
+        try {
+            return localStorage.getItem(name) || "";
+        } catch (e) {
+            return "";   // chế độ ẩn danh hoặc trình duyệt chặn lưu trữ
+        }
+    }
+
+    function writeStore(name, value) {
+        try {
+            if (value) localStorage.setItem(name, value);
+            else localStorage.removeItem(name);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    // Bọc fetch để mọi lệnh gọi API đều tự mang theo khóa của người đang dùng
+    function apiFetch(url, options) {
+        const opts = options || {};
+        const headers = new Headers(opts.headers || {});
+        const key = readStore(KEY_STORE);
+        const model = readStore(MODEL_STORE);
+        if (key) headers.set("X-Gemini-Key", key);
+        if (model) headers.set("X-Gemini-Model", model);
+        return fetch(url, Object.assign({}, opts, { headers: headers }));
+    }
+
     function escapeHtml(str) {
         if (!str) return "";
         return String(str)
@@ -88,6 +126,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const btnToggleKey = document.getElementById("btn-toggle-key");
     const geminiModelSelect = document.getElementById("gemini-model");
     const btnSaveSettings = document.getElementById("btn-save-settings");
+    const keyStatusEl = document.getElementById("key-status");
 
     const modalReader = document.getElementById("modal-reader");
     const btnCloseReader = document.getElementById("btn-close-reader");
@@ -221,7 +260,7 @@ document.addEventListener("DOMContentLoaded", () => {
         formData.append("subject", selectedSubject);
 
         try {
-            const res = await fetch("/api/ingest", { method: "POST", body: formData });
+            const res = await apiFetch("/api/ingest", { method: "POST", body: formData });
             const data = await res.json();
 
             if (!res.ok || data.status !== "success") {
@@ -338,7 +377,7 @@ document.addEventListener("DOMContentLoaded", () => {
             btnScanFolder.disabled = true;
             btnScanFolder.textContent = "Đang quét...";
             try {
-                const res = await fetch("/api/scan-folder", {
+                const res = await apiFetch("/api/scan-folder", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ folder_path: path })
@@ -702,7 +741,7 @@ document.addEventListener("DOMContentLoaded", () => {
             let fname = currentScannedFiles.length > 0 ? currentScannedFiles[0].name : "";
 
             try {
-                const resp = await fetch("/api/suggest-titles", {
+                const resp = await apiFetch("/api/suggest-titles", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -787,7 +826,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Khổ giấy được lưu vào cài đặt để bộ xuất bản dùng đúng kích thước trang
         if (paperFormatSelect) {
             try {
-                await fetch("/api/settings", {
+                await apiFetch("/api/settings", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ output_format: paperFormatSelect.value })
@@ -810,7 +849,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     formData.append("master_title", customTitleInput.value.trim());
                 }
 
-                const res = await fetch("/api/process-folder", { method: "POST", body: formData });
+                const res = await apiFetch("/api/process-folder", { method: "POST", body: formData });
                 const data = await res.json();
                 clearInterval(timer);
                 progressBar.style.width = "100%";
@@ -870,7 +909,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     formData.append("custom_title", customTitleInput.value.trim());
                 }
 
-                const res = await fetch("/api/process", { method: "POST", body: formData });
+                const res = await apiFetch("/api/process", { method: "POST", body: formData });
                 const data = await res.json();
                 clearInterval(timer);
                 progressBar.style.width = "100%";
@@ -1077,7 +1116,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // ==========================================
     async function triggerOpenOutputFolder() {
         try {
-            const res = await fetch("/api/open-output-folder", { method: "POST" });
+            const res = await apiFetch("/api/open-output-folder", { method: "POST" });
             const data = await res.json();
             if (data.status === "info") {
                 alert(data.message);
@@ -1090,25 +1129,46 @@ document.addEventListener("DOMContentLoaded", () => {
     btnOpenResultFolder.addEventListener("click", triggerOpenOutputFolder);
 
     // ==========================================
-    // SETTINGS MODAL
+    // HỘP THOẠI CÀI ĐẶT
+    // Khóa API được giữ trong trình duyệt của chính người dùng. Máy chủ không
+    // nhận, không lưu và không dùng chung khóa giữa những người vào trang.
     // ==========================================
-    btnSettings.addEventListener("click", async () => {
-        try {
-            const res = await fetch("/api/settings");
-            const settings = await res.json();
-            // Máy chủ KHÔNG trả về API key nữa (tránh lộ khóa cho người mở trang).
-            // Ô nhập để trống: bỏ trống khi lưu nghĩa là giữ nguyên khóa đang dùng.
-            geminiApiKeyInput.value = "";
-            if (settings.gemini_api_key_set) {
-                geminiApiKeyInput.placeholder =
-                    `Đã lưu khóa ${settings.gemini_api_key_hint || ""} — để trống nếu muốn giữ nguyên`;
-            } else {
-                geminiApiKeyInput.placeholder = "Dán Google Gemini API Key vào đây";
-            }
-            geminiModelSelect.value = settings.gemini_model || "gemini-3.6-flash";
-        } catch (e) {
-            console.error(e);
+    function describeKey(key) {
+        if (!key) return "";
+        return "••••••••" + key.slice(-4);
+    }
+
+    function refreshKeyStatus() {
+        if (!keyStatusEl) return;
+        const key = readStore(KEY_STORE);
+        if (key) {
+            keyStatusEl.textContent = `✅ Đang dùng khóa của bạn (${describeKey(key)}) — lưu trên trình duyệt này`;
+            keyStatusEl.className = "key-status key-status-on";
+        } else if (serverHasKey) {
+            keyStatusEl.textContent = "💻 Đang chạy trên máy cá nhân, dùng khóa đã cấu hình sẵn trong máy";
+            keyStatusEl.className = "key-status key-status-local";
+        } else {
+            keyStatusEl.textContent = "Chưa có khóa — đang dùng Bộ máy Offline (vẫn biên soạn được sách)";
+            keyStatusEl.className = "key-status";
         }
+    }
+
+    let serverHasKey = false;
+
+    btnSettings.addEventListener("click", async () => {
+        // Khóa lấy từ trình duyệt, không hỏi máy chủ
+        geminiApiKeyInput.value = readStore(KEY_STORE);
+        geminiModelSelect.value = readStore(MODEL_STORE) || "gemini-3.6-flash";
+
+        try {
+            const res = await apiFetch("/api/settings");
+            const settings = await res.json();
+            serverHasKey = !!settings.server_key_available;
+        } catch (e) {
+            serverHasKey = false;
+        }
+
+        refreshKeyStatus();
         modalSettings.classList.remove("hidden");
     });
 
@@ -1127,29 +1187,30 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    btnSaveSettings.addEventListener("click", async () => {
-        btnSaveSettings.disabled = true;
-        btnSaveSettings.textContent = "Đang lưu...";
-        try {
-            const res = await fetch("/api/settings", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    gemini_api_key: geminiApiKeyInput.value.trim(),
-                    gemini_model: geminiModelSelect.value
-                })
-            });
-            const data = await res.json();
-            btnSaveSettings.disabled = false;
-            btnSaveSettings.textContent = "Lưu Cấu Hình";
-            if (data.status === "success") {
-                modalSettings.classList.add("hidden");
-                alert("Đã lưu cấu hình Google Gemini AI thành công!");
-            }
-        } catch (err) {
-            btnSaveSettings.disabled = false;
-            btnSaveSettings.textContent = "Lưu Cấu Hình";
-            alert("Lỗi khi lưu cấu hình: " + err.message);
+    btnSaveSettings.addEventListener("click", () => {
+        const key = geminiApiKeyInput.value.trim();
+        const model = geminiModelSelect.value;
+
+        const okKey = writeStore(KEY_STORE, key);
+        const okModel = writeStore(MODEL_STORE, model);
+
+        if (!okKey || !okModel) {
+            alert(
+                "Trình duyệt đang chặn lưu trữ cục bộ (thường gặp ở chế độ ẩn danh), " +
+                "nên không giữ được khóa cho lần sau. Khóa vẫn dùng được trong phiên này."
+            );
+        }
+
+        refreshKeyStatus();
+        modalSettings.classList.add("hidden");
+
+        if (key) {
+            alert("Đã lưu khóa API vào trình duyệt của bạn. Khóa này chỉ mình bạn dùng.");
+        } else {
+            alert("Đã xóa khóa API khỏi trình duyệt. Ứng dụng sẽ chạy bằng Bộ máy Offline.");
         }
     });
+
+    // Hiện trạng thái khóa ngay khi mở trang
+    refreshKeyStatus();
 });

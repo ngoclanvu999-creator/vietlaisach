@@ -13,7 +13,7 @@ if sys.platform == "win32":
         pass
 
 import shutil
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -207,28 +207,82 @@ async def serve_home():
         headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
     )
 
-def _mask_settings(settings: dict) -> dict:
-    """Che giấu API key trước khi gửi ra trình duyệt (tránh lộ khóa Gemini)."""
-    masked = dict(settings)
-    raw_key = (masked.get("gemini_api_key") or "").strip()
-    masked["gemini_api_key"] = ""
-    masked["gemini_api_key_set"] = bool(raw_key)
-    masked["gemini_api_key_hint"] = f"••••••••{raw_key[-4:]}" if len(raw_key) >= 4 else ""
-    return masked
+DEFAULT_MODEL = "gemini-3.6-flash"
+
+# Các model người dùng được phép chọn. Chặn giá trị lạ để không ai lợi dụng
+# trường này gọi sang endpoint khác.
+ALLOWED_MODELS = {
+    "gemini-3.6-flash",
+    "gemini-3.6-pro",
+    "gemini-2.5-flash",
+    "gemini-2.5-pro",
+    "gemini-2.0-flash",
+}
+
+
+def request_credentials(request: Request) -> tuple:
+    """
+    Lấy khóa Gemini và model THEO TỪNG NGƯỜI DÙNG, gửi kèm mỗi yêu cầu qua header.
+
+    Nguyên tắc: khóa là tài sản riêng của mỗi người, máy chủ không lưu và không
+    dùng chung. Trên bản Web/Cloud, nếu người dùng chưa dán khóa thì coi như
+    không có khóa — tuyệt đối KHÔNG mượn khóa của chủ máy chủ để chạy, vì như vậy
+    là tiêu hạn mức của người khác.
+
+    Riêng khi chạy trên máy cá nhân (LOCAL_MODE) thì vẫn cho phép lấy khóa đã lưu
+    trong app_settings.json hoặc biến môi trường, vì đó chính là máy của bạn.
+    """
+    key = (request.headers.get("X-Gemini-Key") or "").strip()
+    model = (request.headers.get("X-Gemini-Model") or "").strip()
+
+    if not key and LOCAL_MODE:
+        settings = load_settings()
+        key = (settings.get("gemini_api_key") or "").strip()
+        if not model:
+            model = (settings.get("gemini_model") or "").strip()
+
+    if model not in ALLOWED_MODELS:
+        model = DEFAULT_MODEL
+
+    return key, model
+
+
+# Những tùy chọn KHÔNG phải bí mật, lưu chung trên máy chủ được.
+# Khóa API cố tình không nằm trong danh sách này: nó là của riêng từng người.
+PUBLIC_SETTING_KEYS = {
+    "default_subject", "default_add_count", "default_rewrite_level",
+    "enable_casio", "enable_traps", "enable_summary_box",
+    "enable_dual_solutions", "output_format",
+}
+
+
+def _public_settings(settings: dict) -> dict:
+    """Chỉ trả ra các tùy chọn công khai. Khóa API không bao giờ rời khỏi máy chủ."""
+    out = {k: v for k, v in settings.items() if k in PUBLIC_SETTING_KEYS}
+    out["local_mode"] = LOCAL_MODE
+    out["allowed_models"] = sorted(ALLOWED_MODELS)
+    out["default_model"] = DEFAULT_MODEL
+    # Trên máy cá nhân, báo cho giao diện biết máy đã có sẵn khóa để dùng
+    out["server_key_available"] = bool(
+        LOCAL_MODE and (
+            (load_settings().get("gemini_api_key") or "").strip()
+            or os.environ.get("GEMINI_API_KEY", "").strip()
+        )
+    )
+    return out
 
 
 @app.get("/api/settings")
 def get_settings():
-    return _mask_settings(load_settings())
+    return _public_settings(load_settings())
 
 @app.post("/api/settings")
 def update_settings(settings: dict):
-    # Gửi chuỗi rỗng đồng nghĩa "giữ nguyên khóa cũ", không phải "xóa khóa".
-    payload = dict(settings or {})
-    if not (payload.get("gemini_api_key") or "").strip():
-        payload.pop("gemini_api_key", None)
+    # Khóa API bị loại bỏ khỏi mọi yêu cầu lưu: mỗi người tự giữ khóa của mình
+    # trong trình duyệt, máy chủ không nhận và không lưu hộ.
+    payload = {k: v for k, v in (settings or {}).items() if k in PUBLIC_SETTING_KEYS}
     saved = save_settings(payload)
-    return {"status": "success", "settings": _mask_settings(saved)}
+    return {"status": "success", "settings": _public_settings(saved)}
 
 class ScanFolderRequest(BaseModel):
     folder_path: str
@@ -328,6 +382,7 @@ def _extract_zip_into(zip_path: Path, dest: Path) -> int:
 
 @app.post("/api/ingest")
 def ingest_documents(
+    request: Request,
     files: List[UploadFile] = File(...),
     subject: str = Form("toan")
 ):
@@ -404,7 +459,7 @@ def ingest_documents(
         only = Path(found[0]["path"])
         single_rel = f"{session_dir.name}/{only.name}"
         try:
-            api_key = load_settings().get("gemini_api_key", "").strip()
+            api_key, _ = request_credentials(request)
             parsed = parse_input_file(only, subject=subject, api_key=api_key)
             total_items = len(parsed)
             preview = [item.to_dict() for item in parsed[:15]]
@@ -439,10 +494,8 @@ class SuggestTitlesRequest(BaseModel):
     subject: str = "toan"
 
 @app.post("/api/suggest-titles")
-def api_suggest_titles(req: SuggestTitlesRequest):
-    settings = load_settings()
-    api_key = settings.get("gemini_api_key", "").strip()
-    model_name = settings.get("gemini_model", "gemini-3.6-flash")
+def api_suggest_titles(req: SuggestTitlesRequest, request: Request):
+    api_key, model_name = request_credentials(request)
 
     titles = generate_creative_titles_gemini(
         sample_text=req.sample_text,
@@ -459,6 +512,7 @@ def api_suggest_titles(req: SuggestTitlesRequest):
 
 @app.post("/api/upload")
 def upload_file(
+    request: Request,
     file: UploadFile = File(...),
     subject: str = Form("toan")
 ):
@@ -472,8 +526,7 @@ def upload_file(
     with open(save_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    settings = load_settings()
-    api_key = settings.get("gemini_api_key", "").strip()
+    api_key, _ = request_credentials(request)
 
     try:
         parsed_items = parse_input_file(save_path, subject=subject, api_key=api_key)
@@ -588,6 +641,7 @@ def upload_zip(
 
 @app.post("/api/process")
 def process_single_document(
+    request: Request,
     filename: str = Form(...),
     subject: str = Form("toan"),
     add_count: int = Form(2),
@@ -600,8 +654,7 @@ def process_single_document(
         raise HTTPException(status_code=404, detail="Không tìm thấy file nguồn đã tải lên")
 
     settings = load_settings()
-    api_key = settings.get("gemini_api_key", "").strip()
-    model_name = settings.get("gemini_model", "gemini-3.6-flash")
+    api_key, model_name = request_credentials(request)
     paper_format = settings.get("output_format", "a4")
 
     try:
@@ -655,6 +708,7 @@ def process_single_document(
 
 @app.post("/api/process-folder")
 def process_folder(
+    request: Request,
     folder_path: str = Form(...),
     mode: str = Form("merge"),  # "merge" (1 cuốn) hoặc "split" (từng cuốn riêng)
     subject: str = Form("toan"),
@@ -664,8 +718,7 @@ def process_folder(
     p = resolve_user_folder(folder_path)
 
     settings = load_settings()
-    api_key = settings.get("gemini_api_key", "").strip()
-    model_name = settings.get("gemini_model", "gemini-3.6-flash")
+    api_key, model_name = request_credentials(request)
     paper_format = settings.get("output_format", "a4")
 
     files = scan_directory(p)
