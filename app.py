@@ -24,7 +24,10 @@ from config import (
 )
 from core.parser import parse_input_file, scan_directory, lay_dau_hieu_tai_lieu
 from core.doc_type import detect_document_type, trich_thong_tin_de_thi, TEN_HIEN_THI, DE_THI, SACH, CHUYEN_DE
-from core.rewriter import process_rewrite_pipeline, create_master_book_from_chapters
+from core.rewriter import (
+    process_rewrite_pipeline, create_master_book_from_chapters,
+    AI_SCOPE_THIEU, AI_SCOPE_TAT_CA, AI_SCOPE_KHONG, can_ai_xu_ly
+)
 from core.ai_namer import generate_creative_titles_gemini
 from core.exporter import DocxBookExporter
 from core.validator import PreFlightValidator
@@ -490,6 +493,9 @@ def ingest_documents(
             total_items = len(parsed)
             preview = [item.to_dict() for item in parsed[:15]]
             nhan_dien = detect_document_type(parsed, lay_dau_hieu_tai_lieu(), only.name)
+            can_ai = sum(1 for q in parsed if can_ai_xu_ly(q))
+            nhan_dien["so_cau_can_ai"] = can_ai
+            nhan_dien["so_cau_co_san"] = len(parsed) - can_ai
         except Exception as e:
             print(f"Không xem trước được {only.name}: {e}")
 
@@ -703,6 +709,7 @@ def process_single_document(
     add_count: int = Form(2),
     custom_title: Optional[str] = Form(None),
     doc_type: Optional[str] = Form(None),
+    ai_scope: Optional[str] = Form(None),
     include_theory: Optional[str] = Form(None),
     include_foreword: Optional[str] = Form(None),
     include_secrets: Optional[str] = Form(None),
@@ -745,7 +752,8 @@ def process_single_document(
             api_key=api_key,
             model_name=model_name,
             doc_type=loai,
-            exam_info=thong_tin_de
+            exam_info=thong_tin_de,
+            ai_scope=ai_scope if ai_scope in (AI_SCOPE_THIEU, AI_SCOPE_TAT_CA, AI_SCOPE_KHONG) else AI_SCOPE_THIEU
         )
 
         if custom_title and custom_title.strip():

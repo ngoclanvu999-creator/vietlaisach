@@ -630,12 +630,53 @@ def create_added_question(
 # CƠ CHẾ GOOGLE GEMINI AI REWRITER
 # ==========================================
 
+# ============================================================
+# CHỌN LỌC CÂU CẦN AI XỬ LÝ
+# Đo trên tài liệu thật: 86% câu trong kho của người dùng ĐÃ CÓ SẴN lời giải.
+# Gửi hết cho AI viết lại là trả tiền để sinh lại thứ đã có, mà đầu ra lại là
+# phần đắt nhất (gấp 5 lần đầu vào). Chỉ gọi AI ở chỗ thật sự thiếu.
+# ============================================================
+
+AI_SCOPE_THIEU = "thieu"   # chỉ câu còn thiếu lời giải / đáp án  (mặc định)
+AI_SCOPE_TAT_CA = "tat_ca"  # gửi toàn bộ, viết lại tất
+AI_SCOPE_KHONG = "khong"    # không gọi AI, chạy hoàn toàn ngoại tuyến
+
+MIN_SOLUTION_LEN = 40       # ngắn hơn thế thì coi như chưa có lời giải thật
+
+
+def can_ai_xu_ly(q: QuestionItem) -> bool:
+    """
+    Câu này có thực sự cần AI không?
+
+    Cần khi: chưa có lời giải tử tế, HOẶC là câu trắc nghiệm mà chưa biết đáp án
+    đúng (lúc đó AI phải giải ra mới điền được đáp án).
+    """
+    thieu_loi_giai = len((q.solution or "").strip()) < MIN_SOLUTION_LEN
+    la_trac_nghiem = len(q.options or []) >= 2
+    thieu_dap_an = la_trac_nghiem and not (q.correct_answer or "").strip()
+    return thieu_loi_giai or thieu_dap_an
+
+
+def phan_loai_theo_nhu_cau(questions: List[QuestionItem], scope: str):
+    """Tách danh sách thành (cần AI, tự xử lý ngoại tuyến), giữ nguyên thứ tự gốc."""
+    if scope == AI_SCOPE_KHONG:
+        return [], list(enumerate(questions))
+    if scope == AI_SCOPE_TAT_CA:
+        return list(enumerate(questions)), []
+
+    can, khong_can = [], []
+    for i, q in enumerate(questions):
+        (can if can_ai_xu_ly(q) else khong_can).append((i, q))
+    return can, khong_can
+
+
 def rewrite_with_gemini(
     questions: List[QuestionItem],
     api_key: str,
     model_name: str = "gemini-3.6-flash",
     subject: str = "toan",
-    add_count: int = 2
+    add_count: int = 2,
+    ai_scope: str = AI_SCOPE_THIEU
 ) -> RewrittenBook:
     from google import genai
     from google.genai import types
@@ -650,34 +691,73 @@ def rewrite_with_gemini(
 
     subj_label = "Toán học" if subject == "toan" else "Vật lý"
 
-    # Mỗi lần gọi chỉ gửi một lô câu hỏi để không vượt giới hạn ngữ cảnh, nhưng
-    # LẶP QUA TOÀN BỘ tài liệu thay vì bỏ rơi các câu từ thứ 26 trở đi.
+    # Chỉ gửi cho AI những câu thật sự cần. Tài liệu đã có sẵn lời giải thì chỉ
+    # cần chuẩn hóa lại bằng bộ ngoại tuyến — vừa miễn phí, vừa giữ nguyên lời
+    # giải gốc của tác giả thay vì để AI viết lại theo cách của nó.
+    can_ai, tu_xu_ly = phan_loai_theo_nhu_cau(questions, ai_scope)
+    ket_qua_theo_vi_tri: Dict[int, RewrittenQuestionItem] = {}
+
+    for vi_tri, q in tu_xu_ly:
+        ket_qua_theo_vi_tri[vi_tri] = generate_offline_enhancement(
+            q, vi_tri + 1, new_total, subject, topic_key=topic_data.get("topic_key")
+        )
+
+    if not can_ai:
+        # Không câu nào cần AI: vẫn lấy metadata (tên sách, lời tựa) rồi trả về
+        rewritten_items = [ket_qua_theo_vi_tri[i] for i in sorted(ket_qua_theo_vi_tri)]
+        for i in range(add_count):
+            rewritten_items.append(create_added_question(
+                len(rewritten_items) + 1, subject=subject,
+                topic_key=topic_data.get("topic_key"), variant=i
+            ))
+        source_filename = questions[0].source_file if questions else ""
+        meta = synthesize_book_metadata(
+            filename=source_filename,
+            sample_content="\n".join(q.content for q in questions[:6]),
+            subject=subject, api_key=api_key, model_name=model_name
+        )
+        return RewrittenBook(
+            original_title=source_filename,
+            new_title=meta.get("book_title", ""),
+            subtitle=meta.get("subtitle", ""),
+            author_note=meta.get("author_note", ""),
+            chapter_summary=topic_data.get("title", ""),
+            theory_section=theory_text,
+            valedictorian_secrets=meta.get("valedictorian_secrets", []),
+            stem_connection=meta.get("stem_connection", ""),
+            creative_options=meta.get("creative_options", []),
+            questions=rewritten_items
+        )
+
+    # Mỗi lần gọi chỉ gửi một lô để không vượt giới hạn ngữ cảnh
     BATCH_SIZE = 25
     MAX_BATCHES = 12
-    batches = [questions[i:i + BATCH_SIZE] for i in range(0, total_orig, BATCH_SIZE)][:MAX_BATCHES]
+    batches = [can_ai[i:i + BATCH_SIZE] for i in range(0, len(can_ai), BATCH_SIZE)][:MAX_BATCHES]
 
     rewritten_items: List[RewrittenQuestionItem] = []
     ai_processed = 0
     meta_from_ai: Dict[str, Any] = {}
 
     for batch_no, batch in enumerate(batches, 1):
+        # batch là danh sách cặp (vị trí trong tài liệu gốc, câu hỏi)
         sample_text = ""
-        for q in batch:
+        for stt_lo, (_, q) in enumerate(batch):
             opts = "\n".join(q.options) if q.options else ""
             sample_text += (
-                f"\n--- Câu {q.index} ---\nĐề: {q.content}\n{opts}\n"
+                f"\n--- Câu {stt_lo} ---\nĐề: {q.content}\n{opts}\n"
                 f"Đáp án: {q.correct_answer}\nGiải: {q.solution}\n"
             )
 
         prompt = f"""
 Bạn là chuyên gia biên soạn tài liệu giảng dạy môn {subj_label} theo chuẩn chương trình GDPT 2018 của Bộ Giáo dục và Đào tạo Việt Nam.
-Đây là LÔ {batch_no}/{len(batches)} của tài liệu, gồm {len(batch)} câu hỏi. Hãy biên soạn chuẩn mực:
+Đây là LÔ {batch_no}/{len(batches)}, gồm {len(batch)} câu hỏi. Hãy biên soạn chuẩn mực:
 1. GIỮ NGUYÊN 100% CẤU TRÚC VÀ ĐỀ BÀI GỐC: chỉ chuẩn hóa ngữ pháp và ký hiệu toán học cho liền mạch, tuyệt đối không thêm câu mở đầu lạ, không đổi số liệu.
 2. Phân cấp độ từng câu: 'Nhận biết', 'Thông hiểu', 'Vận dụng', 'Vận dụng cao'.
 3. Viết lời giải 2 cách: Cách 1 (tự luận chuẩn mực sư phạm) + Cách 2 (mẹo Casio fx-580VN X).
 4. Chỉ ra cảnh báo bẫy sai lầm học sinh hay mắc.
 5. TUYỆT ĐỐI KHÔNG tự sinh thêm câu hỏi mới. Trả về đúng {len(batch)} câu của lô này.
-6. Trường "correct_answer" phải là một trong các nhãn A, B, C, D và phải khớp với lời giải bạn viết.
+6. Trường "index" phải là SỐ THỨ TỰ TRONG LÔ như đánh dấu ở trên (0, 1, 2, ...), không phải số câu trong đề gốc.
+7. Trường "correct_answer" phải là một trong các nhãn A, B, C, D và phải khớp với lời giải bạn viết.
 
 Dữ liệu lô này:
 {sample_text}
@@ -689,7 +769,7 @@ TRẢ VỀ ĐỊNH DẠNG JSON:
   "author_note": "Lời tựa sư phạm",
   "questions": [
     {{
-      "index": 1,
+      "index": 0,
       "level": "Thông hiểu",
       "new_content": "Đề bài đã chuẩn hóa",
       "new_options": ["A. ...", "B. ...", "C. ...", "D. ..."],
@@ -702,7 +782,6 @@ TRẢ VỀ ĐỊNH DẠNG JSON:
 }}
 Chỉ trả về JSON thuần túy.
 """
-        batch_map = {q.index: q for q in batch}
         try:
             response = client.models.generate_content(
                 model=model_name,
@@ -711,13 +790,12 @@ Chỉ trả về JSON thuần túy.
             )
             data = json.loads(response.text)
         except Exception as e:
-            # Một lô lỗi không được làm hỏng cả cuốn sách: rơi về bộ xử lý ngoại tuyến
-            # cho riêng lô đó rồi đi tiếp.
+            # Một lô lỗi không được làm hỏng cả cuốn sách: rơi về bộ xử lý ngoại
+            # tuyến cho riêng lô đó rồi đi tiếp.
             print(f"Lô {batch_no} gặp lỗi Gemini ({e}), dùng bộ xử lý ngoại tuyến cho lô này.")
-            for q in batch:
-                rewritten_items.append(
-                    generate_offline_enhancement(q, len(rewritten_items) + 1, new_total, subject,
-                                                 topic_key=topic_data.get("topic_key"))
+            for vi_tri, q in batch:
+                ket_qua_theo_vi_tri[vi_tri] = generate_offline_enhancement(
+                    q, vi_tri + 1, new_total, subject, topic_key=topic_data.get("topic_key")
                 )
             continue
 
@@ -729,45 +807,59 @@ Chỉ trả về JSON thuần túy.
             }
 
         returned = data.get("questions", []) or []
-        matched_indices = set()
+        da_nhan = set()
 
         for q_json in returned:
-            orig_q = batch_map.get(q_json.get("index"))
-            if orig_q is not None:
-                matched_indices.add(orig_q.index)
-            seq = len(rewritten_items) + 1
+            try:
+                stt_lo = int(q_json.get("index"))
+            except (TypeError, ValueError):
+                continue
+            if not (0 <= stt_lo < len(batch)):
+                continue
+
+            vi_tri, orig_q = batch[stt_lo]
+            da_nhan.add(stt_lo)
             level = q_json.get("level", "Vận dụng")
-            rewritten_items.append(RewrittenQuestionItem(
-                index=seq,
-                title=f"Câu {seq} [{level}]",
+            ket_qua_theo_vi_tri[vi_tri] = RewrittenQuestionItem(
+                index=vi_tri + 1,
+                title=f"Câu {vi_tri + 1} [{level}]",
                 level=level,
-                original_content=orig_q.content if orig_q else "",
-                original_solution=orig_q.solution if orig_q else "",
-                new_content=clean_paragraph_text(q_json.get("new_content", "")),
-                new_options=[clean_paragraph_text(o) for o in q_json.get("new_options", [])],
+                original_content=orig_q.content,
+                original_solution=orig_q.solution,
+                new_content=clean_paragraph_text(q_json.get("new_content", "")) or orig_q.content,
+                new_options=[clean_paragraph_text(o) for o in q_json.get("new_options", [])] or list(orig_q.options),
                 correct_answer=(q_json.get("correct_answer", "") or "").strip(),
                 solution_method1=clean_paragraph_text(q_json.get("solution_method1", "")),
                 solution_method2=clean_paragraph_text(q_json.get("solution_method2", "")),
                 trap_warning=clean_paragraph_text(q_json.get("trap_warning", "")),
-                is_added_new=False
-            ))
+                is_added_new=False,
+                source_file=orig_q.source_file
+            )
             ai_processed += 1
 
-        # Câu nào AI bỏ sót trong lô thì bù bằng bộ xử lý ngoại tuyến, không để mất bài
-        for q in batch:
-            if q.index not in matched_indices and len(returned) < len(batch):
-                rewritten_items.append(
-                    generate_offline_enhancement(q, len(rewritten_items) + 1, new_total, subject,
-                                                 topic_key=topic_data.get("topic_key"))
+        # Câu nào AI bỏ sót thì bù bằng bộ ngoại tuyến, không để mất bài
+        for stt_lo, (vi_tri, q) in enumerate(batch):
+            if stt_lo not in da_nhan:
+                ket_qua_theo_vi_tri[vi_tri] = generate_offline_enhancement(
+                    q, vi_tri + 1, new_total, subject, topic_key=topic_data.get("topic_key")
                 )
 
-    # Các câu vượt quá giới hạn số lô vẫn phải có mặt trong sách
-    processed_source = sum(len(b) for b in batches)
-    for q in questions[processed_source:]:
-        rewritten_items.append(
-            generate_offline_enhancement(q, len(rewritten_items) + 1, new_total, subject,
-                                                 topic_key=topic_data.get("topic_key"))
-        )
+    # Câu vượt quá giới hạn số lô cũng phải có mặt, xử lý ngoại tuyến
+    da_gui = {vi_tri for lo in batches for vi_tri, _ in lo}
+    for vi_tri, q in can_ai:
+        if vi_tri not in da_gui and vi_tri not in ket_qua_theo_vi_tri:
+            ket_qua_theo_vi_tri[vi_tri] = generate_offline_enhancement(
+                q, vi_tri + 1, new_total, subject, topic_key=topic_data.get("topic_key")
+            )
+
+    # Gộp lại ĐÚNG THỨ TỰ trong tài liệu gốc rồi đánh số lại liên tục
+    rewritten_items = []
+    for vi_tri in sorted(ket_qua_theo_vi_tri):
+        item = ket_qua_theo_vi_tri[vi_tri]
+        stt = len(rewritten_items) + 1
+        item.index = stt
+        item.title = f"Câu {stt} [{item.level}]"
+        rewritten_items.append(item)
 
     # Câu bổ sung lấy từ ngân hàng đã thẩm định đáp án, KHÔNG để AI tự bịa
     for i in range(add_count):
@@ -1030,7 +1122,8 @@ def process_rewrite_pipeline(
     api_key: Optional[str] = None,
     model_name: str = "gemini-3.6-flash",
     doc_type: str = CHUYEN_DE,
-    exam_info: Optional[Dict[str, str]] = None
+    exam_info: Optional[Dict[str, str]] = None,
+    ai_scope: str = AI_SCOPE_THIEU
 ) -> RewrittenBook:
     """
     Đầu vào là đề thi thì KHÔNG chèn thêm câu mới: một đề thi 50 câu mà tự dưng
@@ -1044,11 +1137,17 @@ def process_rewrite_pipeline(
         book.exam_info = dict(exam_info or {})
         return book
 
+    # Không dùng AI thì khỏi gọi, chạy thẳng bộ ngoại tuyến
+    if ai_scope == AI_SCOPE_KHONG:
+        return _gan_loai(rewrite_offline(
+            questions, subject=subject, add_count=add_count, api_key=None
+        ))
+
     if api_key and api_key.strip():
         try:
             return _gan_loai(rewrite_with_gemini(
                 questions, api_key=api_key.strip(), model_name=model_name,
-                subject=subject, add_count=add_count
+                subject=subject, add_count=add_count, ai_scope=ai_scope
             ))
         except Exception as e:
             print(f"Lỗi Gemini pipeline: {e}. Chuyển sang rewrite_offline.")

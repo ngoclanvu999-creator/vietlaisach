@@ -17,6 +17,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const doctypeBox = document.getElementById("doctype-box");
     const doctypeDetected = document.getElementById("doctype-detected");
     const doctypeSelect = document.getElementById("doctype-select");
+    const aiScopeSelect = document.getElementById("ai-scope-select");
     const btnClearIngest = document.getElementById("btn-clear-ingest");
 
     // Quét thư mục có sẵn trên máy (chỉ dùng khi chạy Localhost)
@@ -382,7 +383,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 `🔎 Nhận diện: <strong>${escapeHtml(nd.ten_hien_thi || "")}</strong>` +
                 ` · ${nd.tong_cau} câu` +
                 (nd.so_chuong ? ` · ${nd.so_chuong} chương` : "") +
-                tinCay;
+                tinCay +
+                (nd.so_cau_can_ai !== undefined
+                    ? `<div class="doctype-cost">💰 ${nd.so_cau_co_san} câu đã có sẵn lời giải (miễn phí) · ` +
+                      `<strong>${nd.so_cau_can_ai} câu</strong> cần nhờ AI</div>`
+                    : "");
             doctypeSelect.value = "";
         } else {
             doctypeBox.classList.add("hidden");
@@ -1013,6 +1018,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
                 if (doctypeSelect && doctypeSelect.value) {
                     formData.append("doc_type", doctypeSelect.value);
+                }
+                if (aiScopeSelect && aiScopeSelect.value) {
+                    formData.append("ai_scope", aiScopeSelect.value);
                 }
                 themTuyChonBienSoan(formData);
 

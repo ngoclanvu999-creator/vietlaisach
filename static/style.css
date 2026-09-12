@@ -1901,3 +1901,4 @@ body {
 .doctype-warn { color: #EAB308; font-size: 11.5px; }
 .doctype-label { display: block; font-size: 11.8px; color: var(--text-muted); margin-bottom: 4px; }
 .doctype-box .form-control { font-size: 12.5px; padding: 6px 9px; }
+.doctype-cost { margin-top: 6px; font-size: 11.8px; color: #4ADE80; }

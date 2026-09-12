@@ -142,6 +142,13 @@
                                 <!-- Loại tài liệu quyết định định dạng đầu ra -->
                                 <div id="doctype-box" class="doctype-box hidden">
                                     <div id="doctype-detected" class="doctype-detected"></div>
+                                    <label for="ai-scope-select" class="doctype-label">Mức dùng AI (ảnh hưởng trực tiếp tới chi phí):</label>
+                                    <select id="ai-scope-select" class="form-control" style="margin-bottom:9px;">
+                                        <option value="thieu" selected>Tiết kiệm — chỉ nhờ AI những câu còn thiếu lời giải</option>
+                                        <option value="tat_ca">Toàn bộ — AI viết lại mọi câu (tốn nhất)</option>
+                                        <option value="khong">Không dùng AI — miễn phí hoàn toàn</option>
+                                    </select>
+
                                     <label for="doctype-select" class="doctype-label">Định dạng đầu ra:</label>
                                     <select id="doctype-select" class="form-control">
                                         <option value="">Tự động theo tài liệu đầu vào</option>
