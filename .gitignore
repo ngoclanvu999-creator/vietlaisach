@@ -26,3 +26,6 @@ input/ingest_*/
 !data/
 !data/*.json
 data/*.tmp
+
+# File rac do bo test bao mat sinh ra
+input/evil_test.docx
