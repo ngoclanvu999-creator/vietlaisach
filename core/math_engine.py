@@ -54,15 +54,34 @@ def format_math_typography(text: str) -> str:
         sup = "".join(SUPERSCRIPT_DIGITS.get(c, c) for c in num)
         return f"{var}{sup}"
 
-    s = re.sub(r'\b([a-zA-Z\)])\s*([0-9]{1,2})\b(?!\s*(?:h|phút|giây|cm|m|kg|điểm))', replace_pow, s)
+    # Đơn vị đo và danh từ đếm được: nếu đứng ngay sau con số thì đó KHÔNG phải số mũ.
+    _NOT_POWER = (
+        r"(?!\s*(?:h|giờ|phút|giây|cm|mm|dm|km|m|kg|g|mg|ml|lít|l|"
+        r"điểm|người|bạn|em|tháng|năm|ngày|tuần|lần|tuổi|câu|bài|phần|cách|học)\b)"
+    )
+
+    # Số mũ đứng sau một biến: x 2 -> x², và quan trọng là 3x 2 -> 3x² (biến có hệ số
+    # đứng trước). Điều kiện chặn: ký tự liền trước KHÔNG được là chữ cái (kể cả chữ
+    # tiếng Việt có dấu), nếu không "Câu 12" sẽ thành "Câu¹²" và "lớp 10" thành "lớp¹⁰".
+    s = re.sub(r'(?<![^\W\d_])([a-zA-Z])\s*([0-9]{1,2})\b' + _NOT_POWER, replace_pow, s)
+
+    # Số mũ đứng sau dấu ngoặc đóng: (1 + 3x) 10 -> (1 + 3x)¹⁰
+    s = re.sub(r'(\))\s*([0-9]{1,2})\b' + _NOT_POWER, replace_pow, s)
 
     # Chuẩn hóa vectơ: v → -> v⃗, AB → -> AB⃗
     s = re.sub(r'\b([A-Z]{1,2}|[a-z])\s*→', r'\1⃗', s)
+
+    # Xóa khoảng trắng thừa ngay bên trong cặp ngoặc: "( 1 − 2x )" -> "(1 − 2x)"
+    s = re.sub(r'\(\s+', '(', s)
+    s = re.sub(r'\s+\)', ')', s)
 
     # Xóa khoảng trắng trước các dấu câu , . : ;
     s = re.sub(r'\s+([,.:;?])', r'\1', s)
     # Đảm bảo có khoảng trắng sau dấu câu
     s = re.sub(r'([,.:;?])(?=[^\s\d])', r'\1 ', s)
+
+    # Gộp các dấu câu bị lặp do PDF tách span: "ℤ. ." -> "ℤ." ; ",," -> ","
+    s = re.sub(r'([,.:;?])[\s]*(?:\1[\s]*)+', r'\1 ', s)
 
     # Chuẩn hóa nhiều khoảng trắng liên tiếp
     s = " ".join(s.split())

@@ -240,6 +240,88 @@ def extract_questions_from_text_lines(raw_lines: List[str], subject: str = "toan
 
 class PdfParser:
     @classmethod
+    def collect_fraction_bars(cls, page) -> List[Any]:
+        """
+        Thu thập các nét gạch ngang có khả năng là GẠCH PHÂN SỐ trên trang PDF.
+        Gạch phân số là nét ngang mảnh; nét gạch chân hoặc viền bảng thường dài hơn nhiều.
+        """
+        bars = []
+        try:
+            drawings = page.get_drawings()
+        except Exception:
+            return bars
+
+        for item in drawings:
+            rect = item.get("rect")
+            if rect is None:
+                continue
+            width = rect.x1 - rect.x0
+            height = abs(rect.y1 - rect.y0)
+            if height <= 2.5 and 3.0 <= width <= 160.0:
+                bars.append(rect)
+        return bars
+
+    @classmethod
+    def merge_fractions(cls, spans: List[Dict[str, Any]], bars: List[Any]) -> List[Dict[str, Any]]:
+        """
+        Dựng lại phân số bị PDF làm bẹp thành một dòng.
+
+        Không có bước này, biểu thức π/6 bị đọc thành "π 6" (mất hoàn toàn ý nghĩa
+        phân số). Với mỗi gạch phân số, ta tìm các span nằm SÁT phía trên (tử số) và
+        SÁT phía dưới (mẫu số), đồng thời phải nằm gọn trong bề ngang của gạch — điều
+        kiện này giúp loại trừ nét gạch chân hay viền bảng (văn bản ở dòng dưới sẽ
+        tràn ra ngoài bề ngang của nét gạch).
+        """
+        if not bars or not spans:
+            return spans
+
+        consumed = set()
+        produced: List[Dict[str, Any]] = []
+
+        for bar in bars:
+            numerator, denominator = [], []
+            for idx, sp in enumerate(spans):
+                if idx in consumed:
+                    continue
+                # Span phải nằm gọn trong bề ngang của gạch phân số
+                if sp["x0"] < bar.x0 - 2.0 or sp["x1"] > bar.x1 + 2.0:
+                    continue
+                if 0 <= bar.y0 - sp["y1"] <= 6.0:
+                    numerator.append(idx)
+                elif 0 <= sp["y0"] - bar.y1 <= 6.0:
+                    denominator.append(idx)
+
+            if not numerator or not denominator:
+                continue
+
+            num_text = " ".join(spans[i]["text"] for i in sorted(numerator, key=lambda i: spans[i]["x0"])).strip()
+            den_text = " ".join(spans[i]["text"] for i in sorted(denominator, key=lambda i: spans[i]["x0"])).strip()
+            if not num_text or not den_text or len(num_text) > 24 or len(den_text) > 24:
+                continue
+
+            # Thêm ngoặc khi tử/mẫu là biểu thức nhiều thành phần để giữ đúng thứ tự phép toán
+            if re.search(r"[+\-−±]", num_text):
+                num_text = f"({num_text})"
+            if re.search(r"[+\-−±]", den_text):
+                den_text = f"({den_text})"
+
+            consumed.update(numerator)
+            consumed.update(denominator)
+            produced.append({
+                "text": f"{num_text}/{den_text}",
+                "x0": bar.x0,
+                "y0": min(spans[i]["y0"] for i in numerator),
+                "x1": bar.x1,
+                "y1": max(spans[i]["y1"] for i in denominator),
+                "ymid": (bar.y0 + bar.y1) / 2
+            })
+
+        if not produced:
+            return spans
+
+        return [sp for i, sp in enumerate(spans) if i not in consumed] + produced
+
+    @classmethod
     def parse(cls, file_path: Path, subject: str = "toan") -> List[QuestionItem]:
         """Trích xuất PDF bằng mô hình gom cụm không gian (Spatial Block Grouping)"""
         doc = pymupdf.open(str(file_path))
@@ -247,6 +329,8 @@ class PdfParser:
 
         for page in doc:
             data = page.get_text("dict")
+            page_bars = cls.collect_fraction_bars(page)
+
             for b in data.get("blocks", []):
                 if "lines" not in b:
                     continue
@@ -267,6 +351,16 @@ class PdfParser:
 
                 if not spans:
                     continue
+
+                # Dựng lại phân số trước khi gom span thành dòng
+                block_rect = b.get("bbox")
+                if block_rect and page_bars:
+                    bx0, by0, bx1, by1 = block_rect
+                    local_bars = [
+                        r for r in page_bars
+                        if r.x0 >= bx0 - 4 and r.x1 <= bx1 + 4 and by0 - 4 <= r.y0 and r.y1 <= by1 + 4
+                    ]
+                    spans = cls.merge_fractions(spans, local_bars)
 
                 spans.sort(key=lambda s: (s["ymid"], s["x0"]))
 
