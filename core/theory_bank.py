@@ -207,7 +207,10 @@ def detect_subject_and_topic(text_samples: List[str], subject: str = "toan") -> 
     if not best_topic or max_matches == 0:
         best_topic = list(db.keys())[0]
 
-    return db[best_topic]
+    # Trả về bản sao kèm khóa chuyên đề để các mô-đun khác chọn đúng ngân hàng bài tập
+    result = dict(db[best_topic])
+    result["topic_key"] = best_topic
+    return result
 
 def build_pedagogical_theory_section(topic_data: Dict[str, Any]) -> str:
     """Tạo nội dung văn bản phần Lý thuyết nền tảng & Bảng công thức theo chuẩn sư phạm Bộ GD&ĐT"""
