@@ -249,6 +249,236 @@ class DocxBookExporter:
         r_sep.font.color.rgb = RGBColor(203, 213, 225)
         r_sep.font.size = Pt(8)
 
+
+    # =======================================================================
+    # KIỂU RIÊNG CHO ĐỀ THI
+    # Đề thi phải đọc được như một đề thi thật: học sinh làm bài trước, xem đáp
+    # án sau. Chen lời giải và mẹo Casio ngay dưới từng câu là hỏng mục đích sử
+    # dụng — nhìn xuống là thấy đáp án, không còn gì để luyện.
+    # =======================================================================
+
+    @classmethod
+    def render_exam_header(cls, doc: docx.Document, book: RewrittenBook):
+        """Dựng lại phần đầu đề thi theo thể thức hành chính quen thuộc."""
+        info = book.exam_info or {}
+
+        table = doc.add_table(rows=1, cols=2)
+        table.autofit = False
+        table.columns[0].width = Inches(3.2)
+        table.columns[1].width = Inches(3.3)
+
+        trai = table.cell(0, 0)
+        p_trai = trai.paragraphs[0]
+        p_trai.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r = p_trai.add_run(info.get("don_vi") or "ĐƠN VỊ TỔ CHỨC")
+        r.bold = True
+        r.font.name = FONT_MAIN
+        r.font.size = Pt(12)
+        p2 = trai.add_paragraph()
+        p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r2 = p2.add_run("(Đề thi gồm nhiều trang)")
+        r2.italic = True
+        r2.font.name = FONT_MAIN
+        r2.font.size = Pt(10)
+        r2.font.color.rgb = COLOR_TEXT_MUTED
+
+        phai = table.cell(0, 1)
+        p_phai = phai.paragraphs[0]
+        p_phai.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r3 = p_phai.add_run(info.get("ky_thi") or book.new_title.upper())
+        r3.bold = True
+        r3.font.name = FONT_MAIN
+        r3.font.size = Pt(13)
+        r3.font.color.rgb = COLOR_PRIMARY
+
+        dong_phu = []
+        if info.get("mon"):
+            dong_phu.append(f"Môn: {info['mon']}")
+        if info.get("thoi_gian"):
+            dong_phu.append(f"Thời gian làm bài: {info['thoi_gian']}")
+        if not dong_phu:
+            dong_phu.append("Thời gian làm bài: 90 phút (không kể thời gian phát đề)")
+        p4 = phai.add_paragraph()
+        p4.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r4 = p4.add_run(" — ".join(dong_phu))
+        r4.italic = True
+        r4.font.name = FONT_MAIN
+        r4.font.size = Pt(11)
+
+        if info.get("ma_de"):
+            p5 = phai.add_paragraph()
+            p5.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            r5 = p5.add_run(f"Mã đề: {info['ma_de']}")
+            r5.bold = True
+            r5.font.name = FONT_MAIN
+            r5.font.size = Pt(11.5)
+
+        # Dòng họ tên và số báo danh
+        p_hs = doc.add_paragraph()
+        p_hs.paragraph_format.space_before = Pt(14)
+        p_hs.paragraph_format.space_after = Pt(12)
+        r_hs = p_hs.add_run("Họ và tên thí sinh: " + "." * 42 + "   Số báo danh: " + "." * 14)
+        r_hs.font.name = FONT_MAIN
+        r_hs.font.size = Pt(12.5)
+
+    @classmethod
+    def render_exam_question(cls, doc: docx.Document, q: RewrittenQuestionItem, so_thu_tu: int):
+        """Câu hỏi trong phần đề: chỉ đề bài và 4 phương án, KHÔNG lộ đáp án."""
+        p_q = doc.add_paragraph()
+        p_q.paragraph_format.space_before = Pt(8)
+        p_q.paragraph_format.space_after = Pt(3)
+        p_q.paragraph_format.line_spacing = 1.25
+
+        r_num = p_q.add_run(f"Câu {so_thu_tu}. ")
+        r_num.bold = True
+        r_num.font.name = FONT_MAIN
+        r_num.font.size = Pt(13)
+        r_num.font.color.rgb = COLOR_PRIMARY
+
+        r_ct = p_q.add_run(q.new_content)
+        r_ct.font.name = FONT_MAIN
+        r_ct.font.size = Pt(13)
+        r_ct.font.color.rgb = COLOR_TEXT_MAIN
+
+        if not q.new_options:
+            return
+
+        # Bốn phương án dàn 2x2, KHÔNG tô đậm đáp án đúng
+        table = doc.add_table(rows=2, cols=2)
+        table.autofit = False
+        for row in table.rows:
+            for cell in row.cells:
+                cell.width = Inches(3.25)
+
+        for i, opt in enumerate(q.new_options[:4]):
+            c = table.cell(i // 2, i % 2)
+            p_opt = c.paragraphs[0]
+            p_opt.paragraph_format.space_before = Pt(1)
+            p_opt.paragraph_format.space_after = Pt(1)
+            r_opt = p_opt.add_run(opt)
+            r_opt.font.name = FONT_MAIN
+            r_opt.font.size = Pt(12.5)
+            r_opt.font.color.rgb = COLOR_TEXT_MAIN
+
+    @classmethod
+    def render_answer_key(cls, doc: docx.Document, questions: list):
+        """Bảng đáp án 10 câu mỗi hàng, tra cứu nhanh như đáp án đề thi thật."""
+        p_head = doc.add_paragraph()
+        p_head.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_head.paragraph_format.space_after = Pt(12)
+        r = p_head.add_run("BẢNG ĐÁP ÁN")
+        r.bold = True
+        r.font.name = FONT_MAIN
+        r.font.size = Pt(16)
+        r.font.color.rgb = COLOR_PRIMARY
+
+        moi_hang = 10
+        for bat_dau in range(0, len(questions), moi_hang):
+            nhom = questions[bat_dau:bat_dau + moi_hang]
+            table = doc.add_table(rows=2, cols=len(nhom))
+            table.alignment = WD_TABLE_ALIGNMENT.CENTER
+
+            for i, q in enumerate(nhom):
+                o_cau = table.cell(0, i)
+                set_cell_background(o_cau, "EFF6FF")
+                p_c = o_cau.paragraphs[0]
+                p_c.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                r_c = p_c.add_run(str(bat_dau + i + 1))
+                r_c.bold = True
+                r_c.font.name = FONT_MAIN
+                r_c.font.size = Pt(11)
+                r_c.font.color.rgb = COLOR_PRIMARY
+
+                o_da = table.cell(1, i)
+                p_d = o_da.paragraphs[0]
+                p_d.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                dap_an = (q.correct_answer or "—").strip().upper()[:1] or "—"
+                r_d = p_d.add_run(dap_an)
+                r_d.bold = True
+                r_d.font.name = FONT_MAIN
+                r_d.font.size = Pt(12)
+                r_d.font.color.rgb = COLOR_SUCCESS
+
+            doc.add_paragraph().paragraph_format.space_after = Pt(6)
+
+    @classmethod
+    def export_exam(cls, book: RewrittenBook, doc: docx.Document, opts: dict):
+        """Bố cục đề thi: phần đề → bảng đáp án → hướng dẫn giải chi tiết."""
+        ds_cau = book.questions or [q for ch in book.chapters for q in ch.questions]
+
+        cls.render_exam_header(doc, book)
+
+        for i, q in enumerate(ds_cau, 1):
+            cls.render_exam_question(doc, q, i)
+
+        p_het = doc.add_paragraph()
+        p_het.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_het.paragraph_format.space_before = Pt(16)
+        r_het = p_het.add_run("---------- HẾT ----------")
+        r_het.bold = True
+        r_het.font.name = FONT_MAIN
+        r_het.font.size = Pt(12)
+
+        p_note = doc.add_paragraph()
+        p_note.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r_note = p_note.add_run("Thí sinh không được sử dụng tài liệu. Cán bộ coi thi không giải thích gì thêm.")
+        r_note.italic = True
+        r_note.font.name = FONT_MAIN
+        r_note.font.size = Pt(10.5)
+        r_note.font.color.rgb = COLOR_TEXT_MUTED
+
+        # ---- Bảng đáp án ----
+        doc.add_page_break()
+        cls.render_answer_key(doc, ds_cau)
+
+        # ---- Hướng dẫn giải chi tiết ----
+        doc.add_page_break()
+        p_hd = doc.add_paragraph()
+        p_hd.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_hd.paragraph_format.space_after = Pt(14)
+        r_hd = p_hd.add_run("HƯỚNG DẪN GIẢI CHI TIẾT")
+        r_hd.bold = True
+        r_hd.font.name = FONT_MAIN
+        r_hd.font.size = Pt(16)
+        r_hd.font.color.rgb = COLOR_PRIMARY
+
+        for i, q in enumerate(ds_cau, 1):
+            p_t = doc.add_paragraph()
+            p_t.paragraph_format.space_before = Pt(10)
+            p_t.paragraph_format.space_after = Pt(3)
+            r_t = p_t.add_run(f"Câu {i}. ")
+            r_t.bold = True
+            r_t.font.name = FONT_MAIN
+            r_t.font.size = Pt(13)
+            r_t.font.color.rgb = COLOR_PRIMARY
+            if q.correct_answer:
+                r_da = p_t.add_run(f"Đáp án {q.correct_answer.strip().upper()[:1]}")
+                r_da.bold = True
+                r_da.font.name = FONT_MAIN
+                r_da.font.size = Pt(12.5)
+                r_da.font.color.rgb = COLOR_SUCCESS
+
+            if q.solution_method1:
+                for line in q.solution_method1.strip().split("\n"):
+                    if not line.strip():
+                        continue
+                    p_l = doc.add_paragraph()
+                    p_l.paragraph_format.space_after = Pt(2)
+                    p_l.paragraph_format.line_spacing = 1.2
+                    r_l = p_l.add_run(line.strip())
+                    r_l.font.name = FONT_MAIN
+                    r_l.font.size = Pt(12.5)
+                    r_l.font.color.rgb = COLOR_TEXT_MAIN
+
+            if q.solution_method2 and opts["casio"]:
+                add_callout_box(doc, "💡 KỸ THUẬT CASIO fx-580VN X",
+                                q.solution_method2, "F0FDF4", "2F855A", COLOR_SUCCESS)
+            if q.trap_warning and opts["traps"]:
+                add_callout_box(doc, "⚠️ BẪY & LỖI SAI THƯỜNG GẶP",
+                                q.trap_warning, "FFF5F5", "C53030", COLOR_WARNING)
+
+        return doc
+
     @classmethod
     def export(
         cls,
@@ -279,6 +509,17 @@ class DocxBookExporter:
         r_ftr.font.name = FONT_MAIN
         r_ftr.font.size = Pt(9)
         r_ftr.font.color.rgb = COLOR_TEXT_MUTED
+
+        # ==========================================
+        # RẼ NHÁNH THEO LOẠI TÀI LIỆU
+        # Đầu vào là đề thi thì đầu ra cũng phải là đề thi: học sinh làm bài
+        # trước rồi mới xem đáp án. Đầu vào là sách thì giữ bố cục sách.
+        # ==========================================
+        if getattr(book, "doc_type", "") == "DE_THI":
+            cls.export_exam(book, doc, opts)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            doc.save(str(output_path))
+            return output_path
 
         # ==========================================
         # TRANG TIÊU ĐỀ & LỜI TỰA

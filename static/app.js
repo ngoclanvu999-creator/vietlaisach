@@ -14,6 +14,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const ingestFileList = document.getElementById("ingest-file-list");
     const ingestSkipped = document.getElementById("ingest-skipped");
     const batchModeSelector = document.getElementById("batch-mode-selector");
+    const doctypeBox = document.getElementById("doctype-box");
+    const doctypeDetected = document.getElementById("doctype-detected");
+    const doctypeSelect = document.getElementById("doctype-select");
     const btnClearIngest = document.getElementById("btn-clear-ingest");
 
     // Quét thư mục có sẵn trên máy (chỉ dùng khi chạy Localhost)
@@ -30,6 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const aiTitlesDrawer = document.getElementById("ai-titles-drawer");
     const aiTitlesList = document.getElementById("ai-titles-list");
     const btnCloseTitles = document.getElementById("btn-close-titles");
+    const btnRefreshTitles = document.getElementById("btn-refresh-titles");
     const addCountSelect = document.getElementById("add-count");
     const checkTheory = document.getElementById("check-theory");
     const checkCasio = document.getElementById("check-casio");
@@ -284,6 +288,7 @@ document.addEventListener("DOMContentLoaded", () => {
         ingestResults.classList.add("hidden");
         batchModeSelector.classList.add("hidden");
         ingestSkipped.classList.add("hidden");
+        doctypeBox.classList.add("hidden");
         dropZone.classList.remove("hidden");
         btnProcess.disabled = true;
         previewPlaceholder.classList.remove("hidden");
@@ -366,6 +371,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Chỉ hỏi gộp/tách khi thực sự có nhiều tài liệu
         batchModeSelector.classList.toggle("hidden", isSingle);
+
+        // Báo loại tài liệu nhận diện được — đầu vào dạng nào thì đầu ra dạng đó
+        const nd = data.nhan_dien;
+        if (isSingle && nd && nd.doc_type) {
+            doctypeBox.classList.remove("hidden");
+            const tinCay = nd.do_tin_cay === "cao" ? "" :
+                ` <span class="doctype-warn">(độ tin cậy ${escapeHtml(nd.do_tin_cay)} — chọn tay bên dưới nếu chưa đúng)</span>`;
+            doctypeDetected.innerHTML =
+                `🔎 Nhận diện: <strong>${escapeHtml(nd.ten_hien_thi || "")}</strong>` +
+                ` · ${nd.tong_cau} câu` +
+                (nd.so_chuong ? ` · ${nd.so_chuong} chương` : "") +
+                tinCay;
+            doctypeSelect.value = "";
+        } else {
+            doctypeBox.classList.add("hidden");
+        }
 
         // Xem trước
         previewPlaceholder.classList.add("hidden");
@@ -780,53 +801,88 @@ document.addEventListener("DOMContentLoaded", () => {
     // AI GEMINI CREATIVE TITLES DRAWER
     // ==========================================
     if (btnSuggestTitles) {
-        btnSuggestTitles.addEventListener("click", async () => {
-            aiTitlesDrawer.classList.remove("hidden");
-            aiTitlesList.innerHTML = `<div class="ai-title-loading">⚡ Đang kích hoạt Gemini AI phân tích chuyên đề và sáng tạo 5 tựa sách độc bản...</div>`;
+        btnSuggestTitles.addEventListener("click", () => goiYTuaSach(false));
+    }
 
-            let fname = currentScannedFiles.length > 0 ? currentScannedFiles[0].name : "";
+    // Nhớ các tựa đã đề xuất để nút "Đổi 5 tựa khác" không lặp lại ý cũ
+    let tuaDaDeXuat = [];
 
-            try {
-                const resp = await apiFetch("/api/suggest-titles", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        filename: fname,
-                        sample_text: "",
-                        subject: selectedSubject
-                    })
-                });
-                const data = await resp.json();
-                if (data.status === "success" && data.titles && data.titles.length > 0) {
-                    aiTitlesList.innerHTML = "";
-                    data.titles.forEach((t, idx) => {
-                        const card = document.createElement("div");
-                        card.className = "ai-title-card";
-                        card.innerHTML = `
-                            <div class="ai-card-style-badge">✨ Trường Phái ${idx + 1}: ${escapeHtml(t.style)}</div>
-                            <div class="ai-card-main-title">${escapeHtml(t.title)}</div>
-                            <div class="ai-card-subtitle">${escapeHtml(t.subtitle)}</div>
-                            <div class="ai-card-hook">💡 ${escapeHtml(t.hook)}</div>
-                            <button type="button" class="btn-apply-title" data-title="${escapeHtml(t.title)}">👉 Áp Dụng Tựa Này</button>
-                        `;
-                        card.querySelector(".btn-apply-title").addEventListener("click", () => {
-                            customTitleInput.value = t.title;
-                            customTitleInput.style.borderColor = "#10B981";
-                            customTitleInput.style.boxShadow = "0 0 10px rgba(16, 185, 129, 0.4)";
-                            setTimeout(() => {
-                                customTitleInput.style.borderColor = "";
-                                customTitleInput.style.boxShadow = "";
-                            }, 2000);
-                            aiTitlesDrawer.classList.add("hidden");
-                        });
-                        aiTitlesList.appendChild(card);
-                    });
-                } else {
-                    aiTitlesList.innerHTML = `<div class="ai-title-loading" style="color:#F87171">Không thể tạo tựa sách. Vui lòng kiểm tra lại kết nối hoặc API Key.</div>`;
-                }
-            } catch (err) {
-                aiTitlesList.innerHTML = `<div class="ai-title-loading" style="color:#F87171">Lỗi kết nối: ${escapeHtml(err.message)}</div>`;
+    async function goiYTuaSach(doiTuaKhac) {
+        aiTitlesDrawer.classList.remove("hidden");
+        aiTitlesList.innerHTML = `<div class="ai-title-loading">⚡ ${
+            doiTuaKhac ? "Đang nghĩ 5 tựa hoàn toàn khác..." : "Đang phân tích chuyên đề và đặt tựa..."
+        }</div>`;
+
+        if (!doiTuaKhac) tuaDaDeXuat = [];
+
+        const fname = currentScannedFiles.length > 0 ? currentScannedFiles[0].name : "";
+        // Lấy vài câu đầu làm mẫu nội dung — đặt tựa theo nội dung thật sát hơn
+        // nhiều so với chỉ nhìn tên tệp.
+        let mauNoiDung = "";
+        if (currentCompiledBook && currentCompiledBook.questions) {
+            mauNoiDung = currentCompiledBook.questions.slice(0, 4)
+                .map((q) => q.new_content || "").join(" ").slice(0, 900);
+        }
+
+        try {
+            const resp = await apiFetch("/api/suggest-titles", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    filename: fname,
+                    sample_text: mauNoiDung,
+                    subject: selectedSubject,
+                    exclude_titles: tuaDaDeXuat,
+                    doc_type: (currentCompiledBook && currentCompiledBook.doc_type) || "",
+                }),
+            });
+            const data = await resp.json();
+
+            if (!(data.status === "success" && data.titles && data.titles.length)) {
+                throw new Error(data.detail || "Không tạo được tựa. Kiểm tra lại API Key trong ⚙️ Cài Đặt AI.");
             }
+
+            data.titles.forEach((t) => {
+                if (t.title && !tuaDaDeXuat.includes(t.title)) tuaDaDeXuat.push(t.title);
+            });
+
+            aiTitlesList.innerHTML = "";
+            data.titles.forEach((t) => {
+                const card = document.createElement("div");
+                card.className = "ai-title-card";
+                card.innerHTML = `
+                    <div class="ai-card-style-badge">${escapeHtml(t.style || "")}</div>
+                    <div class="ai-card-main-title">${escapeHtml(t.title || "")}</div>
+                    <div class="ai-card-subtitle">${escapeHtml(t.subtitle || "")}</div>
+                    <div class="ai-card-hook">💡 ${escapeHtml(t.hook || "")}</div>
+                    <button type="button" class="btn-apply-title">👉 Dùng tựa này</button>
+                `;
+                card.querySelector(".btn-apply-title").addEventListener("click", () => {
+                    customTitleInput.value = t.title;
+                    customTitleInput.style.borderColor = "#10B981";
+                    customTitleInput.style.boxShadow = "0 0 10px rgba(16, 185, 129, 0.4)";
+                    setTimeout(() => {
+                        customTitleInput.style.borderColor = "";
+                        customTitleInput.style.boxShadow = "";
+                    }, 2000);
+                    aiTitlesDrawer.classList.add("hidden");
+                });
+                aiTitlesList.appendChild(card);
+            });
+        } catch (err) {
+            aiTitlesList.innerHTML =
+                `<div class="ai-title-loading" style="color:#F87171">${escapeHtml(err.message)}</div>`;
+        }
+    }
+
+    if (btnRefreshTitles) {
+        btnRefreshTitles.addEventListener("click", async () => {
+            btnRefreshTitles.disabled = true;
+            const chuCu = btnRefreshTitles.textContent;
+            btnRefreshTitles.textContent = "⏳ Đang đổi...";
+            await goiYTuaSach(true);
+            btnRefreshTitles.disabled = false;
+            btnRefreshTitles.textContent = chuCu;
         });
     }
 
@@ -954,6 +1010,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 formData.append("add_count", addCountSelect.value);
                 if (customTitleInput.value.trim()) {
                     formData.append("custom_title", customTitleInput.value.trim());
+                }
+                if (doctypeSelect && doctypeSelect.value) {
+                    formData.append("doc_type", doctypeSelect.value);
                 }
                 themTuyChonBienSoan(formData);
 

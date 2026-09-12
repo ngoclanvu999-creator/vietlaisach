@@ -65,26 +65,104 @@ def get_effective_api_key(explicit_key: Optional[str] = None) -> str:
         or os.environ.get("GOOGLE_API_KEY", "").strip()
     )
 
+# Tên gọi NGẮN của từng chuyên đề, dùng khi đặt tựa.
+# Lấy tên tệp làm tựa cho ra kết quả xấu: "Lop10-So-Tay-Dang-Toan-va-Cong-Thuc"
+# biến thành tựa 7 chữ vô nghĩa. Nhận diện chuyên đề rồi dùng tên gọn hơn nhiều.
+TEN_NGAN_CHUYEN_DE = {
+    "ham_so": "Hàm Số",
+    "mu_logarit": "Mũ & Logarit",
+    "nguyen_ham_tich_phan": "Tích Phân",
+    "hinh_hoc_khong_gian": "Hình Không Gian",
+    "dai_so_co_ban": "Tổ Hợp & Xác Suất",
+    "dao_dong_co": "Dao Động Cơ",
+    "song_co": "Sóng Cơ",
+    "dien_xoay_chieu": "Điện Xoay Chiều",
+}
+
+
+def _ten_chu_de_ngan(sample_text: str, filename: str, subject: str, subj_name: str) -> str:
+    """Tên chủ đề gọn để ghép vào tựa sách."""
+    try:
+        from core.theory_bank import detect_subject_and_topic
+        kq = detect_subject_and_topic([sample_text or "", filename or ""], subject=subject)
+        if kq.get("match_score", 0) > 0:
+            ten = TEN_NGAN_CHUYEN_DE.get(kq.get("topic_key", ""))
+            if ten:
+                return ten
+    except Exception:
+        pass
+
+    # Không nhận ra chuyên đề thì thử rút gọn tên tệp, bỏ các tiền tố kỹ thuật
+    stem = Path(filename).stem.replace("_", " ").replace("-", " ")
+    stem = re.sub(r"(lop|lớp)\s*\d{1,2}", "", stem, flags=re.I)
+    stem = re.sub(r"(bai|bài|de|đề|tai lieu|tài liệu|chuyen de|chuyên đề|pdf|docx|xlsx)",
+                  "", stem, flags=re.I)
+    stem = " ".join(stem.split())
+    tu = stem.split()
+    if 1 <= len(tu) <= 3 and len(stem) >= 4:
+        return stem.title()
+    return subj_name
+
+
+def _gon_tua(t: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Chốt chặn cuối cho quy tắc "ngắn gọn": mô hình vẫn hay viết dài dù đã dặn.
+    Cắt phần sau dấu hai chấm và giới hạn số từ.
+    """
+    out = dict(t)
+    tieu_de = (out.get("title") or "").strip()
+    # Bỏ phần đuôi sau dấu hai chấm — đó thường là chỗ mô hình nhồi thêm chữ
+    if ":" in tieu_de:
+        dau, sau = tieu_de.split(":", 1)
+        if len(dau.split()) >= 3:
+            tieu_de = dau.strip()
+        else:
+            tieu_de = f"{dau.strip()}: {sau.strip()}"
+    tu = tieu_de.split()
+    if len(tu) > 8:
+        tieu_de = " ".join(tu[:8])
+    out["title"] = tieu_de.strip(" -—,;")
+
+    hook = (out.get("hook") or "").strip()
+    tu_hook = hook.split()
+    if len(tu_hook) > 30:
+        hook = " ".join(tu_hook[:30]).rstrip(",;") + "..."
+    out["hook"] = hook
+    return out
+
+
 def generate_creative_titles_gemini(
     sample_text: str = "",
     filename: str = "",
     chapter_titles: Optional[List[str]] = None,
     subject: str = "toan",
     api_key: Optional[str] = None,
-    model_name: str = "gemini-3.6-flash"
+    model_name: str = "gemini-3.6-flash",
+    exclude_titles: Optional[List[str]] = None,
+    doc_type: str = ""
 ) -> List[Dict[str, Any]]:
     """
-    Sử dụng Gemini API để sáng tạo ra 5 tựa sách 'THÔI MIÊN' — nhìn vào tựa đề là người đọc
-    khao khát muốn mở sách và đọc hết cuốn sách ngay lập tức!
+    Sáng tạo 5 tựa NGẮN GỌN kèm hook đủ mạnh để người đọc muốn xem từ đầu đến cuối.
+
+    Tựa dài lê thê kiểu "BỘ GIẢI MÃ TOÀN DIỆN ... 100 TUYỆT KỸ CASIO & TƯ DUY
+    ĐỈNH CAO CHINH PHỤC ĐIỂM 10" nghe thì kêu nhưng không ai nhớ nổi, in lên bìa
+    cũng không vừa. Sức hút nằm ở hook chứ không nằm ở độ dài tựa.
+
+    exclude_titles: các tựa đã đề xuất lần trước, để nút "Đổi 5 tựa khác" cho ra
+    phương án thực sự mới chứ không lặp lại.
     """
     key = get_effective_api_key(api_key)
     info = extract_grade_and_subject(f"{filename} {sample_text}", default_subject=subject)
     subj_name = "Toán Học" if info["subject"] == "toan" else "Vật Lý"
+    loai_tl = "đề thi" if doc_type == "DE_THI" else "cuốn sách"
 
-    cache_key = f"titles|{filename}|{subject}|{chapter_titles}|{hash(sample_text[:1200])}"
-    cached = _cache_get(cache_key)
-    if cached is not None:
-        return cached
+    tranh = [t.strip() for t in (exclude_titles or []) if t and t.strip()]
+    # Đã loại trừ thì không dùng lại kết quả cũ trong bộ nhớ đệm
+    cache_key = f"titles|{filename}|{subject}|{chapter_titles}|{hash(sample_text[:1200])}|{doc_type}"
+    if not tranh:
+        cached = _cache_get(cache_key)
+        if cached is not None:
+            return cached
 
     if key:
         try:
@@ -92,33 +170,51 @@ def generate_creative_titles_gemini(
             from google.genai import types
 
             client = genai.Client(api_key=key)
+            phan_tranh = ""
+            if tranh:
+                phan_tranh = (
+                    "\n\nTUYỆT ĐỐI TRÁNH các tựa đã đề xuất lần trước (phải khác hẳn về ý tưởng, "
+                    "không chỉ đổi vài chữ):\n- " + "\n- ".join(tranh[:15])
+                )
+
             prompt = f"""
-Bạn là Tổng Biên Tập kỳ cựu của Nhà Xuất Bản Sách Bán Chạy Nhất (Best-Seller Education Publisher).
-Nhiệm vụ của bạn là: SÁNG TẠO 5 TỰA SÁCH "THÔI MIÊN" CHO TÀI LIỆU {subj_name.upper()} {info['grade'].upper()}.
-Mục tiêu tối thượng: Người học, giáo viên hoặc phụ huynh khi nhìn vào tựa sách là BỊ HÚT HỒN, TÒ MÒ VÀ MUỐN ĐỌC HẾT TOÀN BỘ CUỐN SÁCH NGAY LẬP TỨC!
+Bạn là Tổng Biên Tập một nhà xuất bản sách giáo dục bán chạy.
+Hãy đặt 5 TỰA cho {loai_tl} {subj_name} {info['grade']} dưới đây.
+
+QUY TẮC VỀ TỰA — quan trọng nhất:
+- NGẮN GỌN: tối đa 6 từ. Tựa hay là tựa người ta đọc một lần là nhớ.
+- Không nhồi nhét: không liệt kê "toàn diện, chi tiết, đầy đủ, chuyên sâu" cùng lúc.
+- Không dùng dấu hai chấm để nối hai vế dài. Một ý sắc gọn là đủ.
+- Không bịa con số không có thật (đừng ghi "100 tuyệt kỹ" nếu tài liệu không có 100 mục).
+
+QUY TẮC VỀ HOOK:
+- Mỗi tựa kèm một câu hook DUY NHẤT, tối đa 25 từ.
+- Hook phải chạm vào một nỗi đau hoặc khát khao có thật của người học: sợ mất gốc,
+  làm bài chậm, học mãi không nhớ, muốn điểm cao, sắp thi mà chưa ôn kịp.
+- Hook nói ĐIỀU NGƯỜI ĐỌC NHẬN ĐƯỢC, không khoe cuốn sách hay thế nào.
+- Viết như đang nói chuyện với một học sinh thật, không sáo rỗng.
 
 Dữ liệu tài liệu:
 - Tên tệp gốc: {filename}
-- Các chương/chủ đề chính: {chapter_titles if chapter_titles else 'Chuyên đề trọng tâm'}
-- Mẫu nội dung: {sample_text[:1200]}
+- Các chương/chủ đề: {chapter_titles if chapter_titles else 'Chuyên đề trọng tâm'}
+- Mẫu nội dung: {sample_text[:1200]}{phan_tranh}
 
-Hãy sáng tạo đúng 5 phương án theo 5 trường phái cuốn hút tâm lý học sinh:
-1. TRƯỜNG PHÁI BỨT PHÁ THỦ KHOA: Tựa sách mang tính chinh phục điểm tuyệt đối (9+ và 10), giải mã bí mật đỉnh cao.
-2. TRƯỜNG PHÁI THỰC CHIẾN TỐC ĐỘ: Tựa sách nhấn mạnh vào tốc độ giải nhanh 15-30s, bảo bối Casio fx-580VN X và triệt tiêu bẫy đề thi.
-3. TRƯỜNG PHÁI TƯ DUY BẢN CHẤT & ĐỜI SỐNG: Tựa sách làm nổi bật triết lý GDPT 2018, kết nối toán học với thực tiễn, biến môn học trở nên sinh động hấp dẫn.
-4. TRƯỜNG PHÁI CẨM NANG BỎ TÚI / BẢO BỐI PHÒNG THI: Tựa sách mang lại cảm giác an tâm tuyệt đối, tóm gọn mọi công thức vàng không thể thiếu khi bước vào phòng thi.
-5. TRƯỜNG PHÁI ĐỘC BẢN TRUYỀN CẢM HỨNG: Tựa sách văn phong nghệ thuật, kích thích niềm đam mê sâu thẳm, khơi gợi khát vọng dẫn đầu.
+Năm tựa theo 5 hướng khác nhau:
+1. Hướng KẾT QUẢ: nói thẳng thứ người học đạt được.
+2. Hướng TỐC ĐỘ: nhấn vào giải nhanh, tiết kiệm thời gian.
+3. Hướng BẢN CHẤT: hiểu gốc rễ thay vì học vẹt.
+4. Hướng CẨM NANG: gọn, tra cứu nhanh, mang theo được.
+5. Hướng CẢM HỨNG: chạm vào khát vọng, giàu hình ảnh.
 
-TRẢ VỀ ĐỊNH DẠNG JSON DUY NHẤT:
+TRẢ VỀ JSON DUY NHẤT:
 {{
   "titles": [
     {{
-      "style": "Bứt Phá Thủ Khoa (Điểm 10 Tuyệt Đối)",
-      "title": "TÊN SÁCH IN HOA CỰC CUỐN",
-      "subtitle": "Phụ đề đắt giá kích thích hành động...",
-      "hook": "Lý do vì sao người đọc không thể bỏ qua cuốn sách này trong 1 câu"
-    }},
-    ...
+      "style": "Kết quả",
+      "title": "Tựa ngắn tối đa 6 từ",
+      "subtitle": "Phụ đề một dòng, tối đa 12 từ",
+      "hook": "Một câu chạm đúng điều người học đang lo, tối đa 25 từ."
+    }}
   ]
 }}
 """
@@ -130,46 +226,75 @@ TRẢ VỀ ĐỊNH DẠNG JSON DUY NHẤT:
             data = json.loads(response.text)
             titles = data.get("titles", [])
             if titles and len(titles) >= 3:
-                return _cache_put(cache_key, titles)
+                titles = [_gon_tua(t) for t in titles]
+                return titles if tranh else _cache_put(cache_key, titles)
         except Exception as e:
             print(f"Lỗi Gemini creative titles: {e}. Sử dụng bộ sáng tạo chuyên gia mặc định.")
 
-    # BỘ SÁNG TẠO DỰ PHÒNG CHUẨN MỰC TÂM LÝ HỌC SINH (OFFLINE FALLBACK)
-    clean_stem = Path(filename).stem.replace("_", " ").replace("-", " ")
-    topic = clean_stem if len(clean_stem) > 4 else f"Chuyên Đề {subj_name}"
+    # BỘ DỰ PHÒNG NGOẠI TUYẾN — cũng phải ngắn gọn và có hook thật.
+    # Có nhiều bộ khác nhau để nút "Đổi 5 tựa khác" vẫn cho ra phương án mới
+    # ngay cả khi không gọi được API (hết hạn mức hoặc chưa dán khóa).
+    chu_de = _ten_chu_de_ngan(sample_text, filename, info["subject"], subj_name)
+    lop = info["grade"]
 
-    return [
-        {
-            "style": "Bứt Phá Thủ Khoa (Chinh Phục Điểm 10)",
-            "title": f"BỘ GIẢI MÃ TOÀN DIỆN {topic.upper()}: 100 TUYỆT KỸ CASIO & TƯ DUY ĐỈNH CAO CHINH PHỤC ĐIỂM 10",
-            "subtitle": f"Bí Quyết Nắm Trọn Điểm 9+ {subj_name} {info['grade']} Dành Riêng Cho Học Sinh Khát Khao Dẫn Đầu",
-            "hook": "Giải mã tận gốc mọi câu hỏi phân hóa đỉnh cao, biến những bài toán khó nhất thành cơ hội ghi điểm tuyệt đối."
-        },
-        {
-            "style": "Thực Chiến Tốc Độ & Phản Xạ 15 Giây",
-            "title": f"CHIẾN THUẬT THỰC CHIẾN {topic.upper()}: CÔNG THỨC VÀNG & BÍ THUẬT TRIỆT TIÊU BẪY ĐỀ THI",
-            "subtitle": f"Làm Chủ Tốc Độ Giải Nhanh Với Casio fx-580VN X & Phương Pháp Loại Trừ Tối Ưu Thời Gian",
-            "hook": "Trang bị phản xạ nhận diện bẫy chỉ trong 5 giây đầu tiên và công phá trắc nghiệm trong 30 giây."
-        },
-        {
-            "style": "Bản Chất Học Thuật & Đời Sống (GDPT 2018)",
-            "title": f"LÀM CHỦ {topic.upper()} TỪ BẢN CHẤT ĐẾN ỨNG DỤNG ĐỜI SỐNG THEO ĐỊNH HƯỚNG GDPT 2018",
-            "subtitle": f"Sơ Đồ Tư Duy Khép Kín, Hệ Thống Bài Toán STEM Thực Tiễn & Lời Giải Đa Chiều",
-            "hook": "Hiểu sâu sắc bản chất toán học để nhớ mãi không quên, tự tin ứng biến với mọi dạng câu hỏi mới lạ của Bộ GD&ĐT."
-        },
-        {
-            "style": "Cẩm Nang Bỏ Túi Phòng Thi",
-            "title": f"SỔ TAY CÔNG THỨC VÀNG & BẢO BỐI PHÒNG THI {topic.upper()} {info['grade'].upper()}",
-            "subtitle": f"Cô Đọng Toàn Bộ Kiến Thức Cốt Lõi, Bảng Tra Cứu Nhanh & 50 Sai Lầm Cấm Kỵ",
-            "hook": "Cứu cánh đắc lực giúp bạn hệ thống hóa toàn bộ kiến thức chỉ trong 1 tuần trước kỳ thi quan trọng."
-        },
-        {
-            "style": "Truyền Cảm Hứng & Khát Vọng Đỉnh Cao",
-            "title": f"CHÌA KHÓA VÀNG BƯỚC VÀO CỔNG TRƯỜNG ĐẠI HỌC MƠ ƯỚC: CHINH PHỤC {topic.upper()}",
-            "subtitle": f"Hành Trình Bứt Phá Năng Lực Tự Học — Từ Mất Gốc Đến Làm Chủ Kiến Thức Đỉnh Cao",
-            "hook": "Đánh thức tiềm năng vô hạn và ngọn lửa đam mê, giúp bạn vượt qua mọi rào cản tâm lý phòng thi."
-        }
+    cac_bo = [
+        [
+            ("Kết quả", f"Bứt Phá {chu_de}", f"Lộ trình chắc điểm 9+ {subj_name} {lop}",
+             "Học đúng thứ cần học, bỏ hẳn phần không bao giờ ra thi."),
+            ("Tốc độ", f"{chu_de} Trong 30 Giây", "Mẹo Casio và phản xạ loại trừ nhanh",
+             "Hết cảnh còn 10 phút mà chưa làm xong 15 câu cuối."),
+            ("Bản chất", f"Hiểu Gốc {chu_de}", "Từ bản chất tới mọi biến thể của đề",
+             "Nhớ được lâu vì hiểu tại sao, không phải vì học thuộc."),
+            ("Cẩm nang", f"Sổ Tay {chu_de}", f"Công thức cốt lõi {subj_name} {lop} bỏ túi",
+             "Mỏng, tra nhanh, ôn trọn kiến thức trong tuần cuối trước thi."),
+            ("Cảm hứng", f"Chinh Phục {chu_de}", "Hành trình từ mất gốc đến tự tin",
+             "Dành cho người từng nghĩ mình không có khiếu môn này."),
+        ],
+        [
+            ("Kết quả", f"{chu_de} Không Còn Khó", "Mỗi dạng một cách làm cố định",
+             "Gặp dạng nào cũng biết bắt đầu từ đâu, không còn ngồi nhìn đề."),
+            ("Tốc độ", f"Giải Nhanh {chu_de}", "Rút ngắn mỗi câu còn một phần ba thời gian",
+             "Làm xong sớm, còn thời gian soát lại những câu dễ mất điểm oan."),
+            ("Bản chất", f"Đọc Vị {chu_de}", "Nhận ra dạng bài chỉ sau một dòng đề",
+             "Đề đổi số, đổi cách hỏi vẫn làm được vì đã hiểu đúng bản chất."),
+            ("Cẩm nang", f"{chu_de} Bỏ Túi", "Toàn bộ công thức trong vài trang",
+             "Mở ra là thấy ngay công thức cần, không phải lật cả quyển."),
+            ("Cảm hứng", f"Ngày Mai Giỏi {chu_de}", "Mỗi ngày một bước tiến nhỏ",
+             "Bắt đầu từ con số không cũng theo kịp, miễn là bắt đầu hôm nay."),
+        ],
+        [
+            ("Kết quả", f"Chắc Điểm {chu_de}", "Không bỏ sót dạng nào hay ra thi",
+             "Những câu chắc chắn có trong đề, chắc chắn bạn làm được."),
+            ("Tốc độ", f"{chu_de} Tức Thì", "Phản xạ loại trừ và bấm máy",
+             "Nhìn đề là biết chọn hướng nào, không thử hết bốn phương án."),
+            ("Bản chất", f"Gốc Rễ {chu_de}", "Hiểu một lần, dùng được mãi",
+             "Học một công thức nhưng giải được cả chục dạng khác nhau."),
+            ("Cẩm nang", f"Tra Cứu {chu_de}", f"Sổ tay {subj_name} {lop} gọn nhẹ",
+             "Đặt cạnh vở nháp, cần gì tra nấy, không mất mạch làm bài."),
+            ("Cảm hứng", f"Thắp Lửa {chu_de}", "Từ ngại học đến thấy thú vị",
+             "Khi hiểu rồi, môn khó nhất lại thành môn bạn thích làm nhất."),
+        ],
     ]
+
+    # Đã loại trừ bao nhiêu tựa thì chuyển sang bộ tiếp theo
+    chi_so_bo = (len(tranh) // 5) % len(cac_bo) if tranh else 0
+    bo_chon = cac_bo[chi_so_bo]
+
+    ket_qua = []
+    for style, title, subtitle, hook in bo_chon:
+        if title in tranh:
+            continue
+        ket_qua.append(_gon_tua({
+            "style": style, "title": title, "subtitle": subtitle, "hook": hook
+        }))
+
+    # Nếu bộ này trùng hết thì lấy tạm bộ khác cho có phương án
+    if not ket_qua:
+        bo_khac = cac_bo[(chi_so_bo + 1) % len(cac_bo)]
+        ket_qua = [_gon_tua({"style": st, "title": ti, "subtitle": su, "hook": ho})
+                   for st, ti, su, ho in bo_khac]
+    return ket_qua
+
 
 def generate_creative_enrichment_gemini(
     book_title: str,

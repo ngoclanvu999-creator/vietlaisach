@@ -11,6 +11,7 @@ from core.theory_bank import (
     get_casio_tip, get_trap_warning
 )
 from core.ai_namer import synthesize_book_metadata
+from core.doc_type import DE_THI, SACH, CHUYEN_DE
 
 @dataclass
 class RewrittenQuestionItem:
@@ -62,9 +63,16 @@ class RewrittenBook:
     creative_options: List[Dict[str, Any]] = field(default_factory=list) # Danh sách 5 tựa sách thôi miên từ Gemini
     chapters: List[RewrittenChapter] = field(default_factory=list)
     questions: List[RewrittenQuestionItem] = field(default_factory=list)
+    # Loại tài liệu quyết định cách trình bày đầu ra: DE_THI xuất ra đề sạch với
+    # đáp án dồn về cuối; SACH và CHUYEN_DE xuất ra sách có lý thuyết và lời giải
+    # ngay dưới mỗi bài. Xem core/doc_type.py.
+    doc_type: str = "CHUYEN_DE"
+    exam_info: Dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
+            "doc_type": self.doc_type,
+            "exam_info": self.exam_info,
             "original_title": self.original_title,
             "new_title": self.new_title,
             "subtitle": self.subtitle,
@@ -1010,7 +1018,8 @@ def create_master_book_from_chapters(
         stem_connection=meta.get("stem_connection", ""),
         creative_options=meta.get("creative_options", []),
         chapters=chapters,
-        questions=[]
+        questions=[],
+        doc_type=SACH          # gộp nhiều tài liệu thì kết quả luôn là một cuốn sách
     )
 
 
@@ -1019,13 +1028,36 @@ def process_rewrite_pipeline(
     subject: str = "toan",
     add_count: int = 2,
     api_key: Optional[str] = None,
-    model_name: str = "gemini-3.6-flash"
+    model_name: str = "gemini-3.6-flash",
+    doc_type: str = CHUYEN_DE,
+    exam_info: Optional[Dict[str, str]] = None
 ) -> RewrittenBook:
+    """
+    Đầu vào là đề thi thì KHÔNG chèn thêm câu mới: một đề thi 50 câu mà tự dưng
+    thành 52 câu là sai bản chất tài liệu. Câu bổ sung chỉ hợp lý với sách và
+    tài liệu chuyên đề, nơi càng nhiều bài luyện càng tốt.
+    """
+    if doc_type == DE_THI:
+        add_count = 0
+    def _gan_loai(book: RewrittenBook) -> RewrittenBook:
+        book.doc_type = doc_type
+        book.exam_info = dict(exam_info or {})
+        return book
+
     if api_key and api_key.strip():
         try:
-            return rewrite_with_gemini(questions, api_key=api_key.strip(), model_name=model_name, subject=subject, add_count=add_count)
+            return _gan_loai(rewrite_with_gemini(
+                questions, api_key=api_key.strip(), model_name=model_name,
+                subject=subject, add_count=add_count
+            ))
         except Exception as e:
             print(f"Lỗi Gemini pipeline: {e}. Chuyển sang rewrite_offline.")
-            return rewrite_offline(questions, subject=subject, add_count=add_count, api_key=api_key, model_name=model_name)
+            return _gan_loai(rewrite_offline(
+                questions, subject=subject, add_count=add_count,
+                api_key=api_key, model_name=model_name
+            ))
     else:
-        return rewrite_offline(questions, subject=subject, add_count=add_count, api_key=api_key, model_name=model_name)
+        return _gan_loai(rewrite_offline(
+            questions, subject=subject, add_count=add_count,
+            api_key=api_key, model_name=model_name
+        ))

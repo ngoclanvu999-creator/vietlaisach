@@ -37,12 +37,36 @@ PAGE_STAMP_PATTERNS = [
     re.compile(r"phần\s*trắc\s*nghiệm.*điểm", re.IGNORECASE)
 ]
 
+# Các dòng hành chính bị loại khỏi nội dung nhưng vẫn là CHỨNG CỨ quý để nhận
+# diện loại tài liệu ("Mã đề 132", "Thời gian làm bài 90 phút" chỉ có ở đề thi).
+# Vì vậy giữ lại thay vì vứt đi.
+_DAU_HIEU_TAI_LIEU: List[str] = []
+
+
+def bat_dau_thu_thap_dau_hieu() -> None:
+    _DAU_HIEU_TAI_LIEU.clear()
+
+
+def lay_dau_hieu_tai_lieu() -> List[str]:
+    return list(_DAU_HIEU_TAI_LIEU)
+
+
+def _ghi_nhan_dau_hieu(line: str) -> None:
+    if len(_DAU_HIEU_TAI_LIEU) < 120:
+        t = line.strip()
+        if t and t not in _DAU_HIEU_TAI_LIEU:
+            _DAU_HIEU_TAI_LIEU.append(t)
+
+
 def is_header_or_footer(line: str) -> bool:
     """Kiểm tra xem dòng có phải là tiêu đề trang, chân trang, mã đề hay thông tin hành chính không"""
     l_clean = line.strip()
     if len(l_clean) < 3:
         return True
-    return any(pat.search(l_clean) for pat in PAGE_STAMP_PATTERNS)
+    if any(pat.search(l_clean) for pat in PAGE_STAMP_PATTERNS):
+        _ghi_nhan_dau_hieu(l_clean)
+        return True
+    return False
 
 def extract_questions_from_text_lines(raw_lines: List[str], subject: str = "toan", source_file: str = "") -> List[QuestionItem]:
     """Bóc tách danh sách câu hỏi từ văn bản, tự động tách câu dính liền và định dạng hoàn hảo"""
@@ -96,6 +120,7 @@ def extract_questions_from_text_lines(raw_lines: List[str], subject: str = "toan
                 items.append(current_item)
                 current_item = None
             current_chapter_title = line.strip()
+            _ghi_nhan_dau_hieu(current_chapter_title)
             current_theory_box = ""
             state = "content"
             continue
@@ -107,6 +132,7 @@ def extract_questions_from_text_lines(raw_lines: List[str], subject: str = "toan
                 items.append(current_item)
                 current_item = None
             current_theory_box = line.strip()
+            _ghi_nhan_dau_hieu(current_theory_box)
             state = "content"
             continue
 
@@ -575,6 +601,8 @@ Hãy đọc kỹ hình ảnh tài liệu này (chứa các câu hỏi Toán ho�
 
 
 def parse_input_file(file_path: Path, subject: str = "toan", api_key: Optional[str] = None) -> List[QuestionItem]:
+    bat_dau_thu_thap_dau_hieu()
+    _ghi_nhan_dau_hieu(file_path.stem.replace("_", " ").replace("-", " "))
     ext = file_path.suffix.lower()
     if ext in [".docx", ".doc"]:
         return DocxParser.parse(file_path, subject=subject)

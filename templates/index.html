@@ -139,6 +139,18 @@
                                 <div id="ingest-file-list" class="folder-file-list"></div>
                                 <div id="ingest-skipped" class="ingest-skipped hidden"></div>
 
+                                <!-- Loại tài liệu quyết định định dạng đầu ra -->
+                                <div id="doctype-box" class="doctype-box hidden">
+                                    <div id="doctype-detected" class="doctype-detected"></div>
+                                    <label for="doctype-select" class="doctype-label">Định dạng đầu ra:</label>
+                                    <select id="doctype-select" class="form-control">
+                                        <option value="">Tự động theo tài liệu đầu vào</option>
+                                        <option value="DE_THI">Đề thi — đề sạch, đáp án &amp; lời giải ở cuối</option>
+                                        <option value="CHUYEN_DE">Tài liệu chuyên đề — lý thuyết rồi tới bài tập</option>
+                                        <option value="SACH">Sách nhiều chương — có mục lục, chia chương</option>
+                                    </select>
+                                </div>
+
                                 <!-- Chỉ hiện khi có từ 2 tài liệu trở lên -->
                                 <div id="batch-mode-selector" class="merge-mode-selector hidden">
                                     <label class="merge-option">
@@ -179,8 +191,11 @@
                             <!-- Drawer hiển thị 5 tựa sách thôi miên -->
                             <div id="ai-titles-drawer" class="ai-titles-drawer hidden">
                                 <div class="ai-drawer-header">
-                                    <h4>✨ 5 Tựa Sách Thôi Miên Sáng Tạo Bởi AI Gemini:</h4>
-                                    <button type="button" id="btn-close-titles" class="btn-close-drawer">✕ Đóng</button>
+                                    <h4>✨ 5 Tựa Đề Ngắn Gọn & Hook Hấp Dẫn:</h4>
+                                    <div class="ai-drawer-actions">
+                                        <button type="button" id="btn-refresh-titles" class="btn-refresh-titles" title="Đề xuất 5 tựa hoàn toàn khác">🔄 Đổi 5 tựa khác</button>
+                                        <button type="button" id="btn-close-titles" class="btn-close-drawer">✕ Đóng</button>
+                                    </div>
                                 </div>
                                 <div id="ai-titles-list" class="ai-titles-list">
                                     <div class="ai-title-loading">Đang phân tích tài liệu và kích hoạt động cơ sáng tạo Gemini AI...</div>

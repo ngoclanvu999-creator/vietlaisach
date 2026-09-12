@@ -22,7 +22,8 @@ from config import (
     BASE_DIR, INPUT_DIR, OUTPUT_DIR, TEMPLATES_DIR, STATIC_DIR,
     LOCAL_MODE, ACCESS_TOKEN, load_settings, save_settings
 )
-from core.parser import parse_input_file, scan_directory
+from core.parser import parse_input_file, scan_directory, lay_dau_hieu_tai_lieu
+from core.doc_type import detect_document_type, trich_thong_tin_de_thi, TEN_HIEN_THI, DE_THI, SACH, CHUYEN_DE
 from core.rewriter import process_rewrite_pipeline, create_master_book_from_chapters
 from core.ai_namer import generate_creative_titles_gemini
 from core.exporter import DocxBookExporter
@@ -479,6 +480,7 @@ def ingest_documents(
     preview: List[dict] = []
     total_items = 0
     single_rel = ""
+    nhan_dien: dict = {}
     if kind == "single":
         only = Path(found[0]["path"])
         single_rel = f"{session_dir.name}/{only.name}"
@@ -487,6 +489,7 @@ def ingest_documents(
             parsed = parse_input_file(only, subject=subject, api_key=api_key)
             total_items = len(parsed)
             preview = [item.to_dict() for item in parsed[:15]]
+            nhan_dien = detect_document_type(parsed, lay_dau_hieu_tai_lieu(), only.name)
         except Exception as e:
             print(f"Không xem trước được {only.name}: {e}")
 
@@ -508,6 +511,7 @@ def ingest_documents(
         "skipped": skipped,
         "total_items": total_items,
         "preview": preview,
+        "nhan_dien": nhan_dien,
         "source_summary": " + ".join(sources) if sources else f"{len(found)} tài liệu"
     }
 
@@ -516,6 +520,10 @@ class SuggestTitlesRequest(BaseModel):
     filename: str = ""
     sample_text: str = ""
     subject: str = "toan"
+    # Các tựa đã đề xuất lần trước — để nút "Đổi 5 tựa khác" cho ra phương án
+    # thực sự mới chứ không lặp lại.
+    exclude_titles: List[str] = []
+    doc_type: str = ""
 
 @app.post("/api/suggest-titles")
 def api_suggest_titles(req: SuggestTitlesRequest, request: Request):
@@ -526,7 +534,9 @@ def api_suggest_titles(req: SuggestTitlesRequest, request: Request):
         filename=req.filename,
         subject=req.subject,
         api_key=api_key,
-        model_name=model_name
+        model_name=model_name,
+        exclude_titles=req.exclude_titles,
+        doc_type=req.doc_type
     )
     return {
         "status": "success",
@@ -692,6 +702,7 @@ def process_single_document(
     subject: str = Form("toan"),
     add_count: int = Form(2),
     custom_title: Optional[str] = Form(None),
+    doc_type: Optional[str] = Form(None),
     include_theory: Optional[str] = Form(None),
     include_foreword: Optional[str] = Form(None),
     include_secrets: Optional[str] = Form(None),
@@ -719,13 +730,22 @@ def process_single_document(
         if not questions:
             raise HTTPException(status_code=400, detail="Không trích xuất được bài toán nào từ file này")
 
+        # 1b. Nhận diện loại tài liệu để xuất ra đúng dạng tương ứng.
+        # Người dùng chọn tay thì tôn trọng lựa chọn của họ.
+        dau_hieu = lay_dau_hieu_tai_lieu()
+        nhan_dien = detect_document_type(questions, dau_hieu, input_path.name)
+        loai = doc_type if doc_type in (DE_THI, SACH, CHUYEN_DE) else nhan_dien["doc_type"]
+        thong_tin_de = trich_thong_tin_de_thi(dau_hieu) if loai == DE_THI else {}
+
         # 2. Tái cấu trúc & Bổ sung lý thuyết chuẩn BGD
         book = process_rewrite_pipeline(
             questions=questions,
             subject=subject,
             add_count=int(add_count),
             api_key=api_key,
-            model_name=model_name
+            model_name=model_name,
+            doc_type=loai,
+            exam_info=thong_tin_de
         )
 
         if custom_title and custom_title.strip():
@@ -753,6 +773,7 @@ def process_single_document(
         return {
             "status": "success",
             "book": book.to_dict(),
+            "nhan_dien": nhan_dien,
             "validation_report": val_report.to_dict(),
             "output_filename": out_filename,
             "download_url": f"/api/download/{out_filename}"
