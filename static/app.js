@@ -395,14 +395,18 @@ document.addEventListener("DOMContentLoaded", () => {
         // Chỉ hỏi gộp/tách khi thực sự có nhiều tài liệu
         batchModeSelector.classList.toggle("hidden", isSingle);
 
-        // Báo loại tài liệu nhận diện được — đầu vào dạng nào thì đầu ra dạng đó
+        // Ô chọn dạng đầu ra LUÔN hiện — kể cả khi nạp nhiều tài liệu.
+        // Trước đây chỉ hiện khi nạp đúng một tệp, nên thả cả thư mục đề thi vào
+        // thì không có cách nào yêu cầu xuất ra đề thi, tất cả đều thành sách.
+        doctypeBox.classList.remove("hidden");
+        doctypeSelect.value = "";
+
         const nd = data.nhan_dien;
         if (isSingle && nd && nd.doc_type) {
-            doctypeBox.classList.remove("hidden");
             const tinCay = nd.do_tin_cay === "cao" ? "" :
                 ` <span class="doctype-warn">(độ tin cậy ${escapeHtml(nd.do_tin_cay)} — chọn tay bên dưới nếu chưa đúng)</span>`;
             doctypeDetected.innerHTML =
-                `🔎 Nhận diện: <strong>${escapeHtml(nd.ten_hien_thi || "")}</strong>` +
+                `🔎 Nhận diện tài liệu gốc: <strong>${escapeHtml(nd.ten_hien_thi || "")}</strong>` +
                 ` · ${nd.tong_cau} câu` +
                 (nd.so_chuong ? ` · ${nd.so_chuong} chương` : "") +
                 tinCay +
@@ -410,9 +414,10 @@ document.addEventListener("DOMContentLoaded", () => {
                     ? `<div class="doctype-cost">💰 ${nd.so_cau_co_san} câu đã có sẵn lời giải (miễn phí) · ` +
                       `<strong>${nd.so_cau_can_ai} câu</strong> cần nhờ AI</div>`
                     : "");
-            doctypeSelect.value = "";
         } else {
-            doctypeBox.classList.add("hidden");
+            doctypeDetected.innerHTML =
+                `🔎 Đã nạp <strong>${files.length}</strong> tài liệu. ` +
+                `Chọn dạng đầu ra bên dưới — áp dụng cho toàn bộ.`;
         }
 
         // Xem trước
@@ -634,8 +639,42 @@ document.addEventListener("DOMContentLoaded", () => {
         previewPlaceholder.classList.add("hidden");
         previewList.classList.remove("hidden");
         previewToolbar.classList.remove("hidden");
-        previewBadge.textContent = `Tổng: ${book.total_questions} bài toán chuẩn BGD`;
         previewList.innerHTML = "";
+
+        // Dạng ĐỀ THI có bố cục hoàn toàn khác sách: không lời tựa, không bí kíp
+        // thủ khoa, không góc STEM, không phần lý thuyết. Xem trước phải phản ánh
+        // đúng thứ sẽ nằm trong file Word, nếu không người dùng chọn "đề thi"
+        // nhưng nhìn màn hình vẫn thấy một cuốn sách.
+        const laDeThi = book.doc_type === "DE_THI";
+
+        previewBadge.textContent = laDeThi
+            ? `Đề thi: ${book.total_questions} câu`
+            : `Tổng: ${book.total_questions} bài toán chuẩn BGD`;
+
+        if (laDeThi) {
+            const info = book.exam_info || {};
+            const dong = [];
+            if (info.mon) dong.push(`Môn: ${escapeHtml(info.mon)}`);
+            if (info.thoi_gian) dong.push(`Thời gian: ${escapeHtml(info.thoi_gian)}`);
+            if (info.ma_de) dong.push(`Mã đề: ${escapeHtml(info.ma_de)}`);
+
+            const head = document.createElement("div");
+            head.className = "preview-book-banner preview-exam-banner";
+            head.innerHTML = `
+                <div class="exam-org">${escapeHtml(info.don_vi || "ĐƠN VỊ TỔ CHỨC")}</div>
+                <h4>${escapeHtml(info.ky_thi || book.new_title)}</h4>
+                <p class="book-sub">${dong.join(" · ") || "Thời gian làm bài: 90 phút"}</p>
+                <p class="exam-name-line">Họ và tên thí sinh: ....................................  SBD: ..............</p>
+                <p class="exam-note">
+                    Phần đề ở đây không kèm lời giải. Bảng đáp án và hướng dẫn giải chi tiết
+                    nằm ở cuối file Word.
+                </p>
+            `;
+            previewList.appendChild(head);
+
+            renderQuestionCards(book.questions || [], previewList);
+            return;
+        }
 
         // Banner Tiêu đề sách
         const bookHeader = document.createElement("div");
@@ -980,6 +1019,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 formData.append("add_count", addCountSelect.value);
                 if (customTitleInput.value.trim()) {
                     formData.append("master_title", customTitleInput.value.trim());
+                }
+                if (doctypeSelect && doctypeSelect.value) {
+                    formData.append("doc_type", doctypeSelect.value);
+                }
+                if (aiScopeSelect && aiScopeSelect.value) {
+                    formData.append("ai_scope", aiScopeSelect.value);
                 }
                 themTuyChonBienSoan(formData);
 

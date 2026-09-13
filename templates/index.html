@@ -139,22 +139,30 @@
                                 <div id="ingest-file-list" class="folder-file-list"></div>
                                 <div id="ingest-skipped" class="ingest-skipped hidden"></div>
 
-                                <!-- Loại tài liệu quyết định định dạng đầu ra -->
+                                <!-- BẠN MUỐN NHẬN LẠI DẠNG NÀO -->
                                 <div id="doctype-box" class="doctype-box hidden">
                                     <div id="doctype-detected" class="doctype-detected"></div>
+
+                                    <label for="doctype-select" class="doctype-label doctype-label-main">
+                                        📄 Bạn muốn nhận lại tài liệu dạng nào?
+                                    </label>
+                                    <select id="doctype-select" class="form-control doctype-main-select">
+                                        <option value="" selected>Giữ nguyên dạng như tài liệu gốc (tự nhận diện)</option>
+                                        <option value="DE_THI">ĐỀ THI — đề sạch để làm bài, đáp án &amp; lời giải dồn về cuối</option>
+                                        <option value="CHUYEN_DE">TÀI LIỆU CHUYÊN ĐỀ — lý thuyết nền tảng rồi tới hệ thống bài tập</option>
+                                        <option value="SACH">SÁCH NHIỀU CHƯƠNG — có mục lục, chia chương chuyên đề</option>
+                                    </select>
+                                    <p class="field-hint">
+                                        Đưa vào đề thi mà chọn <strong>ĐỀ THI</strong> thì nhận lại đúng một đề hoàn chỉnh:
+                                        phần đề sạch, cuối đề có bảng đáp án rồi mới tới hướng dẫn giải.
+                                        Chọn dạng khác thì tài liệu được biên soạn lại thành dạng đó.
+                                    </p>
+
                                     <label for="ai-scope-select" class="doctype-label">Mức dùng AI (ảnh hưởng trực tiếp tới chi phí):</label>
-                                    <select id="ai-scope-select" class="form-control" style="margin-bottom:9px;">
+                                    <select id="ai-scope-select" class="form-control">
                                         <option value="thieu" selected>Tiết kiệm — chỉ nhờ AI những câu còn thiếu lời giải</option>
                                         <option value="tat_ca">Toàn bộ — AI viết lại mọi câu (tốn nhất)</option>
                                         <option value="khong">Không dùng AI — miễn phí hoàn toàn</option>
-                                    </select>
-
-                                    <label for="doctype-select" class="doctype-label">Định dạng đầu ra:</label>
-                                    <select id="doctype-select" class="form-control">
-                                        <option value="">Tự động theo tài liệu đầu vào</option>
-                                        <option value="DE_THI">Đề thi — đề sạch, đáp án &amp; lời giải ở cuối</option>
-                                        <option value="CHUYEN_DE">Tài liệu chuyên đề — lý thuyết rồi tới bài tập</option>
-                                        <option value="SACH">Sách nhiều chương — có mục lục, chia chương</option>
                                     </select>
                                 </div>
 

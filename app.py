@@ -808,6 +808,8 @@ def process_folder(
     subject: str = Form("toan"),
     add_count: int = Form(2),
     master_title: Optional[str] = Form(None),
+    doc_type: Optional[str] = Form(None),
+    ai_scope: Optional[str] = Form(None),
     include_theory: Optional[str] = Form(None),
     include_foreword: Optional[str] = Form(None),
     include_secrets: Optional[str] = Form(None),
@@ -860,6 +862,21 @@ def process_folder(
                 model_name=model_name
             )
 
+            # Người dùng chọn dạng đầu ra là ĐỀ THI thì gộp mọi câu thành MỘT đề
+            # liền mạch, không chia chương. Gộp nhiều tài liệu mà vẫn chia chương
+            # thì ra sách chứ không ra đề thi.
+            if doc_type == DE_THI:
+                tat_ca_cau = [q for ch in master_book.chapters for q in ch.questions]
+                for i, q in enumerate(tat_ca_cau, 1):
+                    q.index = i
+                    q.title = f"Câu {i}"
+                master_book.questions = tat_ca_cau
+                master_book.chapters = []
+                master_book.doc_type = DE_THI
+                master_book.exam_info = {}
+            elif doc_type in (SACH, CHUYEN_DE):
+                master_book.doc_type = doc_type
+
             clean_folder_name = p.name.replace(" ", "_")
             out_filename = f"Dai_Cam_Nang_{clean_folder_name}_Chuan_BGD.docx"
             out_path = resolve_within(OUTPUT_DIR, out_filename)
@@ -894,12 +911,22 @@ def process_folder(
                     q_list = parse_input_file(f_path, subject=subject, api_key=api_key)
                     if not q_list:
                         continue
+                    # Mỗi tệp tự nhận diện loại của nó, trừ khi người dùng
+                    # đã chọn đè một dạng chung cho cả lô.
+                    dau_hieu_f = lay_dau_hieu_tai_lieu()
+                    nd_f = detect_document_type(q_list, dau_hieu_f, f_path.name)
+                    loai_f = doc_type if doc_type in (DE_THI, SACH, CHUYEN_DE) else nd_f["doc_type"]
+                    tt_de_f = trich_thong_tin_de_thi(dau_hieu_f) if loai_f == DE_THI else {}
+
                     single_book = process_rewrite_pipeline(
                         questions=q_list,
                         subject=subject,
                         add_count=int(add_count),
                         api_key=api_key,
-                        model_name=model_name
+                        model_name=model_name,
+                        doc_type=loai_f,
+                        exam_info=tt_de_f,
+                        ai_scope=ai_scope if ai_scope in (AI_SCOPE_THIEU, AI_SCOPE_TAT_CA, AI_SCOPE_KHONG) else AI_SCOPE_THIEU
                     )
 
                     clean_slug = "".join(c for c in single_book.new_title[:25] if c.isalnum() or c in (" ", "-", "_")).strip().replace(" ", "_")

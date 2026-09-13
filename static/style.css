@@ -1902,3 +1902,37 @@ body {
 .doctype-label { display: block; font-size: 11.8px; color: var(--text-muted); margin-bottom: 4px; }
 .doctype-box .form-control { font-size: 12.5px; padding: 6px 9px; }
 .doctype-cost { margin-top: 6px; font-size: 11.8px; color: #4ADE80; }
+
+
+/* Ô chọn dạng đầu ra — làm nổi bật vì đây là lựa chọn quan trọng nhất */
+.doctype-label-main {
+    font-size: 13.5px !important;
+    font-weight: 700;
+    color: var(--text-main, #E2E8F0) !important;
+    margin-bottom: 6px !important;
+}
+
+.doctype-main-select {
+    border-color: rgba(59, 130, 246, 0.45) !important;
+    background: rgba(59, 130, 246, 0.08) !important;
+    font-weight: 600;
+}
+
+.doctype-box .field-hint { margin: 6px 0 12px; }
+
+/* Khung xem trước dạng ĐỀ THI */
+.preview-exam-banner { text-align: center; }
+.preview-exam-banner .exam-org {
+    font-size: 12px; font-weight: 700; letter-spacing: 1px;
+    color: var(--text-muted); margin-bottom: 6px;
+}
+.preview-exam-banner .exam-name-line {
+    margin-top: 12px; font-size: 12.5px; color: var(--text-muted); text-align: left;
+}
+.preview-exam-banner .exam-note {
+    margin-top: 9px; padding: 8px 11px; border-radius: 8px;
+    font-size: 11.8px; line-height: 1.6; text-align: left;
+    background: rgba(59, 130, 246, 0.09);
+    border: 1px solid rgba(59, 130, 246, 0.24);
+    color: var(--text-muted);
+}
