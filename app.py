@@ -688,7 +688,9 @@ def _bool_form(value: Optional[str], default: bool = True) -> bool:
 
 def book_options_from_form(
     theory: Optional[str], foreword: Optional[str], secrets_: Optional[str],
-    stem: Optional[str], casio: Optional[str], traps: Optional[str]
+    stem: Optional[str], casio: Optional[str], traps: Optional[str],
+    solution: Optional[str] = None, answer_key: Optional[str] = None,
+    vi_tri_loi_giai: Optional[str] = None
 ) -> dict:
     """Gom các ô tick thành bộ tùy chọn cho bộ xuất bản."""
     return {
@@ -696,8 +698,11 @@ def book_options_from_form(
         "foreword": _bool_form(foreword),
         "secrets": _bool_form(secrets_),
         "stem": _bool_form(stem),
+        "solution": _bool_form(solution),
         "casio": _bool_form(casio),
         "traps": _bool_form(traps),
+        "answer_key": _bool_form(answer_key),
+        "vi_tri_loi_giai": (vi_tri_loi_giai or "sau_moi_bai").strip(),
     }
 
 
@@ -715,11 +720,15 @@ def process_single_document(
     include_secrets: Optional[str] = Form(None),
     include_stem: Optional[str] = Form(None),
     include_casio: Optional[str] = Form(None),
-    include_traps: Optional[str] = Form(None)
+    include_traps: Optional[str] = Form(None),
+    include_solution: Optional[str] = Form(None),
+    include_answer_key: Optional[str] = Form(None),
+    vi_tri_loi_giai: Optional[str] = Form(None)
 ):
     book_options = book_options_from_form(
         include_theory, include_foreword, include_secrets,
-        include_stem, include_casio, include_traps
+        include_stem, include_casio, include_traps,
+        include_solution, include_answer_key, vi_tri_loi_giai
     )
     # Chấp nhận cả tên tệp trực tiếp trong input/ lẫn đường dẫn nhiều cấp bên
     # trong thư mục phiên nạp liệu (ví dụ "ingest_1726.../De_thi.docx").
@@ -804,11 +813,15 @@ def process_folder(
     include_secrets: Optional[str] = Form(None),
     include_stem: Optional[str] = Form(None),
     include_casio: Optional[str] = Form(None),
-    include_traps: Optional[str] = Form(None)
+    include_traps: Optional[str] = Form(None),
+    include_solution: Optional[str] = Form(None),
+    include_answer_key: Optional[str] = Form(None),
+    vi_tri_loi_giai: Optional[str] = Form(None)
 ):
     book_options = book_options_from_form(
         include_theory, include_foreword, include_secrets,
-        include_stem, include_casio, include_traps
+        include_stem, include_casio, include_traps,
+        include_solution, include_answer_key, vi_tri_loi_giai
     )
     p = resolve_user_folder(folder_path)
 

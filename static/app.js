@@ -42,6 +42,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const checkForeword = document.getElementById("check-foreword");
     const checkSecrets = document.getElementById("check-secrets");
     const checkStem = document.getElementById("check-stem");
+    const checkSolution = document.getElementById("check-solution");
+    const checkAnswerKey = document.getElementById("check-answer-key");
+    const solutionPlace = document.getElementById("solution-place");
     const paperFormatSelect = document.getElementById("paper-format");
 
     // Lọc HTML nhưng vẫn giữ ngắt dòng — dùng cho lời giải nhiều dòng.
@@ -57,13 +60,18 @@ document.addEventListener("DOMContentLoaded", () => {
             include_foreword: checkForeword,
             include_secrets: checkSecrets,
             include_stem: checkStem,
+            include_solution: checkSolution,
             include_casio: checkCasio,
             include_traps: checkTraps,
+            include_answer_key: checkAnswerKey,
         };
         Object.keys(map).forEach((ten) => {
             const o = map[ten];
             formData.append(ten, o && o.checked ? "true" : "false");
         });
+        if (solutionPlace) {
+            formData.append("vi_tri_loi_giai", solutionPlace.value);
+        }
     }
 
     // ==========================================

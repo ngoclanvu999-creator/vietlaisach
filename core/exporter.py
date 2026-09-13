@@ -117,25 +117,38 @@ class DocxBookExporter:
             pass
 
     # Mặc định bật hết. Người dùng tắt mục nào thì mục đó biến mất khỏi file Word.
+    # Vị trí phần lời giải trong sách
+    LOI_GIAI_SAU_MOI_BAI = "sau_moi_bai"   # in ngay dưới từng câu
+    LOI_GIAI_CUOI_SACH = "cuoi_sach"       # dồn hết về cuối, học sinh tự làm trước
+
     DEFAULT_OPTIONS = {
         "theory": True,      # Phần I: lý thuyết nền tảng
         "foreword": True,    # Lời tựa truyền cảm hứng
         "secrets": True,     # Bí kíp thủ khoa
         "stem": True,        # Góc kết nối STEM
+        "solution": True,    # Lời giải tự luận chi tiết
         "casio": True,       # Mẹo Casio
         "traps": True,       # Cảnh báo bẫy
+        "answer_key": True,  # Bảng đáp án tra nhanh (khi lời giải dồn về cuối)
     }
 
     @classmethod
     def merge_options(cls, options: Optional[dict]) -> dict:
         merged = dict(cls.DEFAULT_OPTIONS)
+        vi_tri = cls.LOI_GIAI_SAU_MOI_BAI
         if options:
             merged.update({k: bool(v) for k, v in options.items() if k in merged})
+            gt = str(options.get("vi_tri_loi_giai", "") or "").strip()
+            if gt in (cls.LOI_GIAI_SAU_MOI_BAI, cls.LOI_GIAI_CUOI_SACH):
+                vi_tri = gt
+        merged["vi_tri_loi_giai"] = vi_tri
         return merged
 
     @classmethod
     def render_question_item(cls, doc: docx.Document, q: RewrittenQuestionItem, options: Optional[dict] = None):
         """Trình bày từng câu hỏi theo chuẩn sư phạm Bộ GD&ĐT"""
+        opts = cls.merge_options(options)
+
         # Đề mục câu hỏi
         p_qtitle = doc.add_paragraph()
         p_qtitle.paragraph_format.space_before = Pt(12)
@@ -192,8 +205,15 @@ class DocxBookExporter:
             p_sp.paragraph_format.space_before = Pt(0)
             p_sp.paragraph_format.space_after = Pt(4)
 
+        # Ba phần dưới đây chỉ in kèm câu hỏi khi người dùng chọn để lời giải
+        # NGAY SAU MỖI BÀI. Nếu chọn dồn về cuối sách thì bỏ qua hết ở đây,
+        # phần render_solution_section() sẽ lo.
+        if opts["vi_tri_loi_giai"] == cls.LOI_GIAI_CUOI_SACH:
+            cls.render_separator(doc)
+            return
+
         # Lời giải Tự luận chuẩn mực sư phạm
-        if q.solution_method1:
+        if q.solution_method1 and opts["solution"]:
             p_sol1_head = doc.add_paragraph()
             p_sol1_head.paragraph_format.space_before = Pt(6)
             p_sol1_head.paragraph_format.space_after = Pt(2)
@@ -215,8 +235,6 @@ class DocxBookExporter:
                 r_sol_l.font.name = FONT_MAIN
                 r_sol_l.font.size = Pt(12.5)
                 r_sol_l.font.color.rgb = COLOR_TEXT_MAIN
-
-        opts = cls.merge_options(options)
 
         # Khung Kỹ thuật Casio & Mẹo nhanh
         if q.solution_method2 and opts["casio"]:
@@ -240,7 +258,11 @@ class DocxBookExporter:
                 title_color=COLOR_WARNING
             )
 
-        # Đường kẻ phân cách nhẹ
+        cls.render_separator(doc)
+
+    @classmethod
+    def render_separator(cls, doc: docx.Document):
+        """Đường kẻ phân cách nhẹ giữa các bài."""
         p_sep = doc.add_paragraph()
         p_sep.paragraph_format.space_before = Pt(4)
         p_sep.paragraph_format.space_after = Pt(8)
@@ -248,6 +270,97 @@ class DocxBookExporter:
         r_sep = p_sep.add_run("· · · — — — · · ·")
         r_sep.font.color.rgb = RGBColor(203, 213, 225)
         r_sep.font.size = Pt(8)
+
+    @classmethod
+    def render_solution_section(cls, doc: docx.Document, book: RewrittenBook, opts: dict):
+        """
+        Phần lời giải dồn về cuối sách.
+
+        Dùng khi người dùng muốn học sinh tự làm hết bài rồi mới xem đáp án —
+        in lời giải ngay dưới đề thì nhìn xuống là thấy, mất tác dụng luyện tập.
+        """
+        if not opts["solution"] and not opts["casio"] and not opts["traps"] and not opts["answer_key"]:
+            return
+
+        doc.add_page_break()
+        p_head = doc.add_paragraph()
+        p_head.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_head.paragraph_format.space_after = Pt(14)
+        r_head = p_head.add_run("PHẦN LỜI GIẢI CHI TIẾT")
+        r_head.bold = True
+        r_head.font.name = FONT_MAIN
+        r_head.font.size = Pt(17)
+        r_head.font.color.rgb = COLOR_PRIMARY
+
+        # Gom câu theo chương để lời giải bám đúng bố cục sách
+        nhom = []
+        if book.chapters:
+            for ch in book.chapters:
+                nhom.append((ch.title, ch.questions))
+        else:
+            nhom.append(("", book.questions))
+
+        # Bảng đáp án tra nhanh đặt trước, để dò kết quả mà chưa cần đọc lời giải
+        if opts["answer_key"]:
+            for tieu_de, ds_cau in nhom:
+                co_dap_an = [q for q in ds_cau if (q.correct_answer or "").strip()]
+                if not co_dap_an:
+                    continue
+                if tieu_de:
+                    p_ch = doc.add_paragraph()
+                    p_ch.paragraph_format.space_before = Pt(10)
+                    r_ch = p_ch.add_run(tieu_de)
+                    r_ch.bold = True
+                    r_ch.font.name = FONT_MAIN
+                    r_ch.font.size = Pt(13)
+                    r_ch.font.color.rgb = COLOR_SECONDARY
+                cls.render_answer_key(doc, ds_cau)
+
+        for tieu_de, ds_cau in nhom:
+            if tieu_de:
+                p_ch = doc.add_paragraph()
+                p_ch.paragraph_format.space_before = Pt(16)
+                p_ch.paragraph_format.space_after = Pt(8)
+                r_ch = p_ch.add_run(tieu_de)
+                r_ch.bold = True
+                r_ch.font.name = FONT_MAIN
+                r_ch.font.size = Pt(14)
+                r_ch.font.color.rgb = COLOR_PRIMARY
+
+            for q in ds_cau:
+                p_t = doc.add_paragraph()
+                p_t.paragraph_format.space_before = Pt(10)
+                p_t.paragraph_format.space_after = Pt(3)
+                r_t = p_t.add_run(f"{q.title}. ")
+                r_t.bold = True
+                r_t.font.name = FONT_MAIN
+                r_t.font.size = Pt(13)
+                r_t.font.color.rgb = COLOR_PRIMARY
+                if q.correct_answer:
+                    r_da = p_t.add_run(f"Đáp án {q.correct_answer.strip().upper()[:1]}")
+                    r_da.bold = True
+                    r_da.font.name = FONT_MAIN
+                    r_da.font.size = Pt(12.5)
+                    r_da.font.color.rgb = COLOR_SUCCESS
+
+                if q.solution_method1 and opts["solution"]:
+                    for line in q.solution_method1.strip().split("\n"):
+                        if not line.strip():
+                            continue
+                        p_l = doc.add_paragraph()
+                        p_l.paragraph_format.space_after = Pt(2)
+                        p_l.paragraph_format.line_spacing = 1.25
+                        r_l = p_l.add_run(line.strip())
+                        r_l.font.name = FONT_MAIN
+                        r_l.font.size = Pt(12.5)
+                        r_l.font.color.rgb = COLOR_TEXT_MAIN
+
+                if q.solution_method2 and opts["casio"]:
+                    add_callout_box(doc, "💡 KỸ THUẬT BẤM MÁY CASIO FX-580VN X",
+                                    q.solution_method2, "F0FDF4", "2F855A", COLOR_SUCCESS)
+                if q.trap_warning and opts["traps"]:
+                    add_callout_box(doc, "⚠️ BẪY ĐỀ THI & LỖI SAI HỌC SINH HAY MẮC",
+                                    q.trap_warning, "FFF5F5", "C53030", COLOR_WARNING)
 
 
     # =======================================================================
@@ -673,6 +786,9 @@ class DocxBookExporter:
 
             for q in book.questions:
                 cls.render_question_item(doc, q, options=opts)
+
+        if opts["vi_tri_loi_giai"] == cls.LOI_GIAI_CUOI_SACH:
+            cls.render_solution_section(doc, book, opts)
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
         doc.save(str(output_path))

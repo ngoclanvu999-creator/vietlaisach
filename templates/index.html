@@ -230,7 +230,27 @@
                             </div>
                         </div>
 
+                        <div class="form-group">
+                            <label for="solution-place">Vị trí phần lời giải trong file xuất ra:</label>
+                            <select id="solution-place" class="form-control">
+                                <option value="sau_moi_bai" selected>Ngay sau mỗi bài — tiện tra cứu, hợp với sách tự học</option>
+                                <option value="cuoi_sach">Dồn về cuối sách — học sinh tự làm trước rồi mới xem đáp án</option>
+                            </select>
+                            <p class="field-hint">
+                                Chọn "dồn về cuối" thì phần đề sạch hoàn toàn, cuối sách có bảng đáp án
+                                tra nhanh rồi mới tới lời giải chi tiết.
+                            </p>
+                        </div>
+
                         <div class="feature-checklist">
+                            <label class="checkbox-row">
+                                <input type="checkbox" id="check-solution" checked>
+                                <span>✎ <strong>Lời giải tự luận chi tiết</strong> cho từng bài</span>
+                            </label>
+                            <label class="checkbox-row">
+                                <input type="checkbox" id="check-answer-key" checked>
+                                <span>📋 <strong>Bảng đáp án tra nhanh</strong> (chỉ áp dụng khi lời giải dồn về cuối sách)</span>
+                            </label>
                             <label class="checkbox-row">
                                 <input type="checkbox" id="check-theory" checked>
                                 <span>📖 Tự động bổ sung <strong>Phần I: Bảng lý thuyết & Công thức vàng</strong> (Chuẩn CT GDPT 2018)</span>
