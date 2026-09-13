@@ -47,6 +47,28 @@ NOI_TIM_SOFFICE = [
 ]
 
 
+def duong_dai(p) -> str:
+    r"""
+    Thêm tiền tố \?\ để vượt giới hạn 260 ký tự của Windows.
+
+    Kho tài liệu thật có những đường dẫn tới 306 ký tự (thư mục lồng nhiều cấp,
+    tên tệp dài). Không có tiền tố này thì Windows báo "không tìm thấy đường dẫn"
+    dù tệp vẫn nằm đó.
+    """
+    s = str(Path(p).resolve())
+    if sys.platform != "win32":
+        return s
+    # Tiền tố đúng là bốn ký tự:  \  \  ?  \
+    # Trong mã nguồn Python phải viết "\\\\?\\" — viết thiếu một cặp gạch chéo
+    # sẽ ra "\?\" (ba ký tự), Windows không hiểu và MỌI tệp đều báo không tồn tại.
+    tien_to = "\\\\?\\"
+    if s.startswith(tien_to):
+        return s
+    if s.startswith("\\\\"):              # đường dẫn mạng \\máy\thư mục
+        return "\\\\?\\UNC" + s[1:]
+    return tien_to + s
+
+
 def tim_soffice(chi_dinh: str = "") -> str:
     if chi_dinh:
         if Path(chi_dinh).exists():
@@ -90,7 +112,7 @@ def main():
                 continue
             p = Path(goc) / ten
             dich_dir = Path(args.ra) / p.parent.relative_to(nguon) if args.ra else p.parent
-            if (dich_dir / (p.stem + ".docx")).exists():
+            if os.path.exists(duong_dai(dich_dir / (p.stem + ".docx"))):
                 bo_qua += 1
                 continue
             theo_thu_muc[dich_dir].append(p)
@@ -122,8 +144,25 @@ def main():
             except Exception as e:
                 print(f"  Lô lỗi ({e}) — bỏ qua, đi tiếp")
 
+            # Một tệp hỏng trong lô có thể làm LibreOffice bỏ dở cả lô, và đôi khi
+            # cả lô không ra tệp nào dù từng tệp riêng lẻ vẫn chuyển được. Vì vậy
+            # LUÔN thử lại từng tệp còn thiếu — kể cả khi cả lô đều thiếu.
+            #
+            # Phiên bản trước chỉ thử lại khi `len(con_thieu) < len(lo)`, nên đúng
+            # trường hợp hỏng nặng nhất (cả lô trượt) lại không được cứu.
+            con_thieu = [q for q in lo
+                         if not os.path.exists(duong_dai(dich_dir / (q.stem + ".docx")))]
+            for q in con_thieu:
+                try:
+                    subprocess.run(
+                        [soffice, "--headless", "--norestore", "--convert-to", "docx",
+                         "--outdir", str(dich_dir), str(q)],
+                        capture_output=True, timeout=300)
+                except Exception:
+                    pass
+
             for p in lo:
-                if (dich_dir / (p.stem + ".docx")).exists():
+                if os.path.exists(duong_dai(dich_dir / (p.stem + ".docx"))):
                     xong += 1
                 else:
                     loi += 1
