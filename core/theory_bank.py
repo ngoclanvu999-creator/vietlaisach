@@ -87,6 +87,261 @@ MATH_THEORY_DATABASE: Dict[str, Dict[str, Any]] = {
             "• Dạng 3: Viết phương trình mặt phẳng, đường thẳng và mặt cầu thỏa mãn điều kiện tiếp xúc / cắt nhau."
         ]
     },
+    # ======================= LỚP 10 =======================
+    "menh_de_tap_hop": {
+        "title": "CHUYÊN ĐỀ: MỆNH ĐỀ VÀ TẬP HỢP",
+        "grade": "Lớp 10",
+        "concepts": [
+            "1. Mệnh đề: câu khẳng định hoặc đúng hoặc sai, không thể vừa đúng vừa sai. Câu cảm thán, câu hỏi không phải mệnh đề.",
+            "2. Mệnh đề chứa biến P(x): chỉ xác định được tính đúng sai khi gán giá trị cụ thể cho biến.",
+            "3. Mệnh đề kéo theo P ⇒ Q: chỉ SAI duy nhất khi P đúng mà Q sai. P là giả thiết, Q là kết luận.",
+            "4. Mệnh đề tương đương P ⇔ Q: đúng khi P và Q cùng đúng hoặc cùng sai; đọc là 'P khi và chỉ khi Q'.",
+            "5. Tập hợp: A ⊂ B ⇔ mọi phần tử của A đều thuộc B. Hai tập bằng nhau khi A ⊂ B và B ⊂ A.",
+        ],
+        "formulas": [
+            "• Phủ định: ¬(∀x ∈ X, P(x)) = ∃x ∈ X, ¬P(x);  ¬(∃x ∈ X, P(x)) = ∀x ∈ X, ¬P(x).",
+            "• Phủ định các quan hệ: ¬(a = b) là a ≠ b; ¬(a > b) là a ≤ b; ¬(a ≥ b) là a < b.",
+            "• Mệnh đề đảo của P ⇒ Q là Q ⇒ P. Mệnh đề phản đảo là ¬Q ⇒ ¬P (luôn tương đương với P ⇒ Q).",
+            "• Phép toán tập hợp: A ∪ B (hợp), A ∩ B (giao), A \\ B (hiệu), C_X A = X \\ A (phần bù).",
+            "• Số phần tử: n(A ∪ B) = n(A) + n(B) − n(A ∩ B).",
+            "• Các tập con của ℝ: (a; b), [a; b], (a; b], [a; b), (−∞; b), (a; +∞).",
+        ],
+        "methods": [
+            "• Dạng 1: Xét tính đúng sai của mệnh đề và lập mệnh đề phủ định (chú ý đổi ∀ thành ∃ và ngược lại).",
+            "• Dạng 2: Xác định quan hệ bao hàm giữa các tập hợp, liệt kê tập con.",
+            "• Dạng 3: Thực hiện phép toán trên các khoảng, đoạn — nên vẽ trục số để tránh sai sót ở đầu mút.",
+            "• Dạng 4: Tìm tham số m để hai tập hợp giao nhau khác rỗng hoặc tập này chứa tập kia.",
+        ],
+    },
+    "ham_so_bac_hai": {
+        "title": "CHUYÊN ĐỀ: HÀM SỐ BẬC HAI VÀ ĐỒ THỊ PARABOL",
+        "grade": "Lớp 10",
+        "concepts": [
+            "1. Hàm số bậc hai: y = ax² + bx + c (a ≠ 0), tập xác định D = ℝ.",
+            "2. Đồ thị là parabol có đỉnh I(−b/2a; −Δ/4a), trục đối xứng x = −b/2a.",
+            "3. Bề lõm: a > 0 quay lên (hàm có giá trị nhỏ nhất tại đỉnh); a < 0 quay xuống (có giá trị lớn nhất).",
+            "4. Tính đơn điệu: với a > 0 hàm nghịch biến trên (−∞; −b/2a) và đồng biến trên (−b/2a; +∞); a < 0 thì ngược lại.",
+        ],
+        "formulas": [
+            "• Tọa độ đỉnh: x_I = −b/(2a), y_I = −Δ/(4a) với Δ = b² − 4ac.",
+            "• Giao với trục Oy tại điểm (0; c); giao với Ox là nghiệm của ax² + bx + c = 0.",
+            "• Định lý Vi-ét: x₁ + x₂ = −b/a, x₁·x₂ = c/a.",
+            "• Dấu tam thức bậc hai: Δ < 0 thì f(x) cùng dấu a với mọi x; Δ = 0 thì cùng dấu a trừ tại x = −b/2a; Δ > 0 thì trái dấu a giữa hai nghiệm.",
+        ],
+        "methods": [
+            "• Dạng 1: Lập bảng biến thiên và vẽ parabol từ đỉnh, trục đối xứng và một vài điểm.",
+            "• Dạng 2: Xác định a, b, c khi biết các điều kiện về đỉnh hoặc điểm đi qua.",
+            "• Dạng 3: Tìm giá trị lớn nhất, nhỏ nhất trên một đoạn — phải so sánh giá trị tại đỉnh với hai đầu mút.",
+            "• Dạng 4: Biện luận số nghiệm phương trình bằng tương giao đồ thị.",
+        ],
+    },
+    "bat_phuong_trinh": {
+        "title": "CHUYÊN ĐỀ: BẤT PHƯƠNG TRÌNH VÀ HỆ BẤT PHƯƠNG TRÌNH",
+        "grade": "Lớp 10",
+        "concepts": [
+            "1. Bất phương trình bậc nhất hai ẩn ax + by + c ≤ 0: miền nghiệm là một nửa mặt phẳng có bờ là đường thẳng ax + by + c = 0.",
+            "2. Miền nghiệm của hệ bất phương trình là giao của các miền nghiệm thành phần, thường là một miền đa giác.",
+            "3. Bất phương trình bậc hai một ẩn: đưa về xét dấu tam thức f(x) = ax² + bx + c.",
+            "4. Bất phương trình chứa căn và chứa trị tuyệt đối phải đặt điều kiện xác định trước khi biến đổi.",
+        ],
+        "formulas": [
+            "• Xét dấu tam thức: 'trong trái ngoài cùng' — giữa hai nghiệm thì trái dấu a, ngoài hai nghiệm thì cùng dấu a.",
+            "• √A ≥ B ⇔ (B < 0 và A ≥ 0) hoặc (B ≥ 0 và A ≥ B²).",
+            "• √A ≤ B ⇔ B ≥ 0 và 0 ≤ A ≤ B².",
+            "• |A| ≤ B ⇔ −B ≤ A ≤ B (với B ≥ 0);  |A| ≥ B ⇔ A ≥ B hoặc A ≤ −B.",
+        ],
+        "methods": [
+            "• Dạng 1: Biểu diễn miền nghiệm trên mặt phẳng tọa độ, dùng điểm thử (thường lấy gốc O) để chọn nửa mặt phẳng.",
+            "• Dạng 2: Bài toán tối ưu — giá trị lớn nhất, nhỏ nhất của biểu thức đạt tại ĐỈNH của miền đa giác nghiệm.",
+            "• Dạng 3: Giải bất phương trình bậc hai bằng bảng xét dấu.",
+            "• Dạng 4: Tìm m để bất phương trình nghiệm đúng với mọi x — quy về điều kiện của Δ và dấu hệ số a.",
+        ],
+    },
+    "he_thuc_luong_vecto": {
+        "title": "CHUYÊN ĐỀ: VECTƠ VÀ HỆ THỨC LƯỢNG TRONG TAM GIÁC",
+        "grade": "Lớp 10",
+        "concepts": [
+            "1. Vectơ là đoạn thẳng có hướng. Hai vectơ bằng nhau khi cùng hướng và cùng độ dài.",
+            "2. Quy tắc ba điểm: AB⃗ + BC⃗ = AC⃗. Quy tắc hình bình hành: AB⃗ + AD⃗ = AC⃗ (ABCD là hình bình hành).",
+            "3. Tích vô hướng: a⃗·b⃗ = |a⃗|·|b⃗|·cos(a⃗, b⃗). Hai vectơ vuông góc ⇔ tích vô hướng bằng 0.",
+            "4. Ba điểm A, B, C thẳng hàng ⇔ AB⃗ và AC⃗ cùng phương ⇔ tồn tại k để AB⃗ = k·AC⃗.",
+        ],
+        "formulas": [
+            "• Định lý cosin: a² = b² + c² − 2bc·cos A. Suy ra cos A = (b² + c² − a²)/(2bc).",
+            "• Định lý sin: a/sin A = b/sin B = c/sin C = 2R (R là bán kính đường tròn ngoại tiếp).",
+            "• Diện tích tam giác: S = ½ab·sin C = abc/(4R) = p·r = √[p(p−a)(p−b)(p−c)] với p là nửa chu vi.",
+            "• Độ dài trung tuyến: m_a² = (2b² + 2c² − a²)/4.",
+            "• Tọa độ: a⃗·b⃗ = x₁x₂ + y₁y₂; |a⃗| = √(x² + y²); I là trung điểm AB thì x_I = (x_A + x_B)/2.",
+        ],
+        "methods": [
+            "• Dạng 1: Chứng minh đẳng thức vectơ bằng quy tắc ba điểm và phép chèn điểm.",
+            "• Dạng 2: Phân tích một vectơ theo hai vectơ không cùng phương.",
+            "• Dạng 3: Giải tam giác — biết ba yếu tố, tìm các yếu tố còn lại bằng định lý sin và cosin.",
+            "• Dạng 4: Dùng tích vô hướng để chứng minh vuông góc hoặc tính góc giữa hai đường thẳng.",
+        ],
+    },
+    "toa_do_mat_phang": {
+        "title": "CHUYÊN ĐỀ: PHƯƠNG PHÁP TỌA ĐỘ TRONG MẶT PHẲNG",
+        "grade": "Lớp 10",
+        "concepts": [
+            "1. Đường thẳng có vectơ pháp tuyến n⃗ = (A; B) và vectơ chỉ phương u⃗ = (−B; A); hai vectơ này vuông góc nhau.",
+            "2. Phương trình tổng quát: Ax + By + C = 0. Phương trình tham số: x = x₀ + at, y = y₀ + bt.",
+            "3. Đường tròn tâm I(a; b) bán kính R: (x − a)² + (y − b)² = R².",
+            "4. Elip: x²/a² + y²/b² = 1 với a > b > 0, tiêu cự 2c và c² = a² − b².",
+        ],
+        "formulas": [
+            "• Khoảng cách từ điểm M(x₀; y₀) đến đường thẳng: d = |Ax₀ + By₀ + C| / √(A² + B²).",
+            "• Góc giữa hai đường thẳng: cos φ = |n₁⃗·n₂⃗| / (|n₁⃗|·|n₂⃗|), luôn lấy giá trị tuyệt đối vì 0° ≤ φ ≤ 90°.",
+            "• Dạng khai triển đường tròn: x² + y² − 2ax − 2by + c = 0 với tâm I(a; b), R = √(a² + b² − c) (cần a² + b² − c > 0).",
+            "• Đường thẳng tiếp xúc đường tròn ⇔ d(I, Δ) = R.",
+        ],
+        "methods": [
+            "• Dạng 1: Viết phương trình đường thẳng khi biết điểm và phương (hoặc song song, vuông góc với đường cho trước).",
+            "• Dạng 2: Xét vị trí tương đối và tính khoảng cách, tính góc.",
+            "• Dạng 3: Viết phương trình đường tròn đi qua ba điểm hoặc tiếp xúc đường thẳng.",
+            "• Dạng 4: Bài toán về tiếp tuyến của đường tròn — dùng điều kiện khoảng cách bằng bán kính.",
+        ],
+    },
+    # ======================= LỚP 11 =======================
+    "luong_giac": {
+        "title": "CHUYÊN ĐỀ: HÀM SỐ LƯỢNG GIÁC VÀ PHƯƠNG TRÌNH LƯỢNG GIÁC",
+        "grade": "Lớp 11",
+        "concepts": [
+            "1. Hàm y = sin x và y = cos x tuần hoàn chu kỳ 2π, tập giá trị [−1; 1]. Hàm y = tan x, y = cot x tuần hoàn chu kỳ π.",
+            "2. Điều kiện xác định: tan x cần x ≠ π/2 + kπ; cot x cần x ≠ kπ.",
+            "3. Phương trình lượng giác cơ bản luôn có vô số nghiệm, viết dưới dạng họ nghiệm kèm k ∈ ℤ.",
+            "4. Phương trình a·sin x + b·cos x = c có nghiệm ⇔ a² + b² ≥ c².",
+        ],
+        "formulas": [
+            "• sin x = sin α ⇔ x = α + k2π hoặc x = π − α + k2π.",
+            "• cos x = cos α ⇔ x = ±α + k2π.  tan x = tan α ⇔ x = α + kπ.",
+            "• Công thức cộng: sin(a ± b) = sin a·cos b ± cos a·sin b; cos(a ± b) = cos a·cos b ∓ sin a·sin b.",
+            "• Nhân đôi: sin 2a = 2sin a·cos a; cos 2a = cos²a − sin²a = 2cos²a − 1 = 1 − 2sin²a.",
+            "• Hạ bậc: sin²a = (1 − cos 2a)/2;  cos²a = (1 + cos 2a)/2.",
+            "• Biến đổi tổng thành tích: sin a + sin b = 2·sin[(a+b)/2]·cos[(a−b)/2].",
+            "• a·sin x + b·cos x = √(a² + b²)·sin(x + φ) với tan φ = b/a.",
+        ],
+        "methods": [
+            "• Dạng 1: Tìm tập xác định và tập giá trị của hàm số lượng giác.",
+            "• Dạng 2: Giải phương trình cơ bản, nhớ viết đủ HAI họ nghiệm với sin và cos.",
+            "• Dạng 3: Đưa về phương trình bậc hai theo một hàm lượng giác bằng công thức hạ bậc hoặc nhân đôi.",
+            "• Dạng 4: Phương trình bậc nhất với sin và cos — chia hai vế cho √(a² + b²).",
+            "• Dạng 5: Tìm số nghiệm trên một khoảng cho trước — thay k nguyên rồi đối chiếu điều kiện.",
+        ],
+    },
+    "day_so_cap_so": {
+        "title": "CHUYÊN ĐỀ: DÃY SỐ, CẤP SỐ CỘNG VÀ CẤP SỐ NHÂN",
+        "grade": "Lớp 11",
+        "concepts": [
+            "1. Dãy số tăng khi u_(n+1) > u_n với mọi n; giảm khi u_(n+1) < u_n. Dãy bị chặn trên, chặn dưới, hoặc bị chặn.",
+            "2. Cấp số cộng: mỗi số hạng bằng số hạng trước cộng công sai d không đổi.",
+            "3. Cấp số nhân: mỗi số hạng bằng số hạng trước nhân công bội q không đổi.",
+            "4. Ba số a, b, c lập cấp số cộng ⇔ a + c = 2b; lập cấp số nhân ⇔ a·c = b².",
+        ],
+        "formulas": [
+            "• Cấp số cộng: u_n = u₁ + (n − 1)d;  S_n = n/2·(u₁ + u_n) = n/2·[2u₁ + (n − 1)d].",
+            "• Cấp số nhân: u_n = u₁·q^(n−1);  S_n = u₁·(1 − qⁿ)/(1 − q) với q ≠ 1.",
+            "• Tổng cấp số nhân lùi vô hạn (|q| < 1): S = u₁/(1 − q).",
+            "• Chứng minh quy nạp: kiểm tra n = 1 đúng, giả sử đúng với n = k rồi chứng minh đúng với n = k + 1.",
+        ],
+        "methods": [
+            "• Dạng 1: Xét tính tăng giảm và tính bị chặn của dãy số.",
+            "• Dạng 2: Tìm u₁ và d (hoặc q) từ hệ điều kiện cho trước — đưa hết về u₁ và d rồi giải hệ.",
+            "• Dạng 3: Tính tổng n số hạng đầu; chú ý phân biệt công thức của cấp số cộng và cấp số nhân.",
+            "• Dạng 4: Bài toán thực tế về lãi kép, tăng trưởng dân số — dùng cấp số nhân.",
+        ],
+    },
+    "gioi_han_dao_ham": {
+        "title": "CHUYÊN ĐỀ: GIỚI HẠN, HÀM SỐ LIÊN TỤC VÀ ĐẠO HÀM",
+        "grade": "Lớp 11",
+        "concepts": [
+            "1. Hàm số f(x) liên tục tại x₀ ⇔ f xác định tại x₀ và lim[x→x₀] f(x) = f(x₀).",
+            "2. Nếu f liên tục trên [a; b] và f(a)·f(b) < 0 thì phương trình f(x) = 0 có ít nhất một nghiệm trong (a; b).",
+            "3. Đạo hàm tại x₀: f'(x₀) = lim[h→0] [f(x₀ + h) − f(x₀)]/h, chính là hệ số góc tiếp tuyến tại điểm đó.",
+            "4. Hàm có đạo hàm tại một điểm thì liên tục tại điểm đó; điều ngược lại KHÔNG đúng.",
+        ],
+        "formulas": [
+            "• Giới hạn đặc biệt: lim[x→0] (sin x)/x = 1;  lim[x→∞] (1 + 1/x)^x = e.",
+            "• Khử dạng 0/0: phân tích thành nhân tử rồi rút gọn, hoặc nhân liên hợp với biểu thức chứa căn.",
+            "• (xⁿ)' = n·x^(n−1);  (√x)' = 1/(2√x);  (sin x)' = cos x;  (cos x)' = −sin x;  (tan x)' = 1/cos²x.",
+            "• (u·v)' = u'v + uv';  (u/v)' = (u'v − uv')/v²;  [f(u)]' = u'·f'(u).",
+            "• Phương trình tiếp tuyến tại M(x₀; y₀): y = f'(x₀)(x − x₀) + y₀.",
+        ],
+        "methods": [
+            "• Dạng 1: Tính giới hạn dạng vô định 0/0, ∞/∞, ∞ − ∞ bằng phân tích nhân tử hoặc nhân liên hợp.",
+            "• Dạng 2: Xét tính liên tục và tìm tham số m để hàm liên tục tại một điểm.",
+            "• Dạng 3: Chứng minh phương trình có nghiệm bằng định lý giá trị trung gian.",
+            "• Dạng 4: Viết phương trình tiếp tuyến khi biết tiếp điểm, hệ số góc, hoặc điểm đi qua.",
+        ],
+    },
+    "quan_he_khong_gian": {
+        "title": "CHUYÊN ĐỀ: QUAN HỆ SONG SONG VÀ VUÔNG GÓC TRONG KHÔNG GIAN",
+        "grade": "Lớp 11",
+        "concepts": [
+            "1. Hai đường thẳng trong không gian có thể cắt nhau, song song, trùng nhau hoặc CHÉO NHAU (không đồng phẳng).",
+            "2. Đường thẳng d song song mặt phẳng (P) ⇔ d không nằm trong (P) và song song với một đường thẳng nào đó trong (P).",
+            "3. Đường thẳng d ⊥ (P) ⇔ d vuông góc với HAI đường thẳng CẮT NHAU nằm trong (P).",
+            "4. Định lý ba đường vuông góc: nếu a ⊂ (P), b không nằm trong (P) có hình chiếu b' trên (P), thì a ⊥ b ⇔ a ⊥ b'.",
+        ],
+        "formulas": [
+            "• Giao tuyến hai mặt phẳng: tìm hai điểm chung, nối lại.",
+            "• Thiết diện: xác định giao tuyến của mặt phẳng cắt với từng mặt của khối đa diện.",
+            "• Góc giữa đường thẳng và mặt phẳng là góc giữa đường thẳng đó và hình chiếu của nó, thuộc [0°; 90°].",
+            "• Khoảng cách từ điểm đến mặt phẳng: dựng hình chiếu vuông góc, hoặc dùng thể tích d = 3V/S_đáy.",
+        ],
+        "methods": [
+            "• Dạng 1: Tìm giao tuyến, giao điểm và dựng thiết diện.",
+            "• Dạng 2: Chứng minh song song hoặc vuông góc — luôn quy về điều kiện hai đường cắt nhau.",
+            "• Dạng 3: Tính góc giữa hai đường chéo nhau bằng cách tịnh tiến về cùng một điểm.",
+            "• Dạng 4: Tính khoảng cách bằng phương pháp thể tích khi dựng hình chiếu quá khó.",
+        ],
+    },
+    # ======================= LỚP 12 bổ sung =======================
+    "so_phuc": {
+        "title": "CHUYÊN ĐỀ: SỐ PHỨC",
+        "grade": "Lớp 12",
+        "concepts": [
+            "1. Số phức z = a + bi với a là phần thực, b là phần ảo, i² = −1.",
+            "2. Số phức liên hợp z̄ = a − bi. Môđun |z| = √(a² + b²) chính là khoảng cách từ điểm biểu diễn tới gốc O.",
+            "3. Điểm M(a; b) trong mặt phẳng Oxy biểu diễn số phức z = a + bi.",
+            "4. Phương trình bậc hai hệ số thực với Δ < 0 có hai nghiệm phức liên hợp nhau.",
+        ],
+        "formulas": [
+            "• (a + bi)(c + di) = (ac − bd) + (ad + bc)i.",
+            "• z/z' = (z·z̄')/|z'|² — nhân cả tử và mẫu với liên hợp của mẫu.",
+            "• |z₁·z₂| = |z₁|·|z₂|;  |z₁/z₂| = |z₁|/|z₂|;  z·z̄ = |z|².",
+            "• Tập hợp điểm |z − z₀| = R là đường tròn tâm z₀ bán kính R; |z − z₁| = |z − z₂| là trung trực đoạn nối hai điểm.",
+        ],
+        "methods": [
+            "• Dạng 1: Thực hiện phép toán và tìm phần thực, phần ảo, môđun.",
+            "• Dạng 2: Giải phương trình trên tập số phức, kể cả phương trình bậc hai có Δ âm.",
+            "• Dạng 3: Tìm tập hợp điểm biểu diễn — đưa về phương trình đường thẳng, đường tròn quen thuộc.",
+            "• Dạng 4: Bài toán cực trị môđun — dùng ý nghĩa hình học về khoảng cách.",
+        ],
+    },
+    "khoi_da_dien_tron_xoay": {
+        "title": "CHUYÊN ĐỀ: KHỐI ĐA DIỆN VÀ KHỐI TRÒN XOAY",
+        "grade": "Lớp 12",
+        "concepts": [
+            "1. Khối đa diện đều có 5 loại: tứ diện đều, lập phương, bát diện đều, mười hai mặt đều, hai mươi mặt đều.",
+            "2. Khối nón sinh bởi tam giác vuông quay quanh một cạnh góc vuông; khối trụ sinh bởi hình chữ nhật quay quanh một cạnh.",
+            "3. Mặt cầu ngoại tiếp đa diện đi qua mọi đỉnh; tâm cách đều tất cả các đỉnh.",
+            "4. Tỉ số thể tích hai khối chóp có chung đỉnh và đáy đồng dạng bằng tỉ số các kích thước tương ứng.",
+        ],
+        "formulas": [
+            "• Khối chóp: V = ⅓·S_đáy·h.  Khối lăng trụ: V = S_đáy·h.",
+            "• Khối nón: V = ⅓πr²h; diện tích xung quanh S_xq = πrl với l là đường sinh.",
+            "• Khối trụ: V = πr²h; S_xq = 2πrh.",
+            "• Khối cầu: V = (4/3)πR³; diện tích mặt cầu S = 4πR².",
+            "• Tỉ số thể tích khối chóp tam giác: V(S.A'B'C')/V(S.ABC) = (SA'/SA)·(SB'/SB)·(SC'/SC).",
+        ],
+        "methods": [
+            "• Dạng 1: Tính thể tích khi biết đường cao và diện tích đáy — khó nhất thường là xác định chân đường cao.",
+            "• Dạng 2: Dùng tỉ số thể tích cho các khối chóp chung đỉnh.",
+            "• Dạng 3: Xác định tâm và bán kính mặt cầu ngoại tiếp.",
+            "• Dạng 4: Bài toán cực trị thể tích — đưa về khảo sát hàm một biến.",
+        ],
+    },
     "dai_so_co_ban": {
         "title": "CHUYÊN ĐỀ: BẤT ĐẲNG THỨC, TỔ HỢP - XÁC SUẤT VÀ DÃY SỐ",
         "grade": "Lớp 10 - Lớp 11",
@@ -189,7 +444,37 @@ def detect_subject_and_topic(text_samples: List[str], subject: str = "toan") -> 
         "mu_logarit": ["log", "logarit", "mũ", "lũy thừa", "e^", "ln"],
         "nguyen_ham_tich_phan": ["tích phân", "nguyên hàm", "diện tích hình phẳng", "thể tích khối tròn xoay", "∫"],
         "hinh_hoc_khong_gian": ["hình chóp", "lăng trụ", "oxyz", "mặt phẳng", "thể tích", "khoảng cách", "góc giữa"],
-        "dai_so_co_ban": ["bất đẳng thức", "tổ hợp", "xác suất", "nhị thức", "cấp số cộng", "cấp số nhân", "nghiệm"],
+        "dai_so_co_ban": ["bất đẳng thức", "tổ hợp", "xác suất", "nhị thức", "chỉnh hợp",
+                          "hoán vị", "biến cố", "không gian mẫu"],
+        # --- Lớp 10 ---
+        "menh_de_tap_hop": ["mệnh đề", "tập hợp", "phủ định", "tập con", "phần bù",
+                            "giao của hai tập", "hợp của hai tập", "mệnh đề chứa biến"],
+        "ham_so_bac_hai": ["hàm số bậc hai", "parabol", "bảng biến thiên", "đỉnh của parabol",
+                           "trục đối xứng", "tam thức bậc hai"],
+        "bat_phuong_trinh": ["bất phương trình", "hệ bất phương trình", "miền nghiệm",
+                             "xét dấu", "dấu của tam thức", "bất phương trình bậc nhất hai ẩn"],
+        "he_thuc_luong_vecto": ["vectơ", "vecto", "hệ thức lượng", "định lý cosin", "định lí cosin",
+                                "định lý sin", "định lí sin", "tích vô hướng", "trung tuyến",
+                                "giải tam giác"],
+        "toa_do_mat_phang": ["tọa độ trong mặt phẳng", "phương trình đường thẳng", "đường tròn",
+                             "elip", "vectơ pháp tuyến", "vectơ chỉ phương", "tiếp tuyến của đường tròn"],
+        # --- Lớp 11 ---
+        # Không để "sin", "cos" trần: chúng khớp nhầm vào "định lý cosin" của chuyên đề
+        # hệ thức lượng, và vào "cosinus" hay "tangent" trong văn bản khác.
+        "luong_giac": ["lượng giác", "sin x", "cos x", "tan x", "cot x", "sinx", "cosx",
+                       "phương trình lượng giác", "công thức cộng", "hạ bậc", "nhân đôi",
+                       "cung liên kết", "biến đổi tổng thành tích"],
+        "day_so_cap_so": ["dãy số", "cấp số cộng", "cấp số nhân", "công sai", "công bội",
+                          "số hạng tổng quát", "quy nạp", "lãi kép"],
+        "gioi_han_dao_ham": ["giới hạn", "liên tục", "đạo hàm", "tiếp tuyến", "vô định",
+                             "lim", "hệ số góc"],
+        "quan_he_khong_gian": ["quan hệ song song", "quan hệ vuông góc", "thiết diện", "giao tuyến",
+                               "chéo nhau", "đường thẳng và mặt phẳng", "hai mặt phẳng vuông góc"],
+        # --- Lớp 12 ---
+        "so_phuc": ["số phức", "phần thực", "phần ảo", "môđun", "liên hợp", "số ảo"],
+        "khoi_da_dien_tron_xoay": ["khối đa diện", "khối nón", "khối trụ", "mặt cầu", "mặt nón",
+                                   "mặt trụ", "khối tròn xoay", "đường sinh", "thể tích khối chóp",
+                                   "mặt cầu ngoại tiếp"],
         # Vật lý
         "dao_dong_co": ["dao động", "con lắc", "biên độ", "chu kỳ", "tần số góc", "vận tốc", "gia tốc", "li độ"],
         "song_co": ["bước sóng", "sóng cơ", "giao thoa", "sóng dừng", "nguồn sóng", "cực đại", "cực tiểu"],
@@ -298,6 +583,90 @@ TOPIC_CASIO_TIPS: Dict[str, List[str]] = {
         "Độ lệch pha Δφ = 2πd/λ: bấm ra rồi chia cho π để biết ngay là bội chẵn (cùng pha) hay "
         "bội lẻ (ngược pha) của π.",
     ],
+    "menh_de_tap_hop": [
+        "Với bài toán giao và hợp các khoảng, hãy VẼ TRỤC SỐ ra nháp rồi tô đậm từng tập — "
+        "nhanh và chắc hơn nhẩm trong đầu, nhất là ở các đầu mút đóng/mở.",
+        "Kiểm tra mệnh đề chứa biến bằng CALC: nhập biểu thức rồi thử vài giá trị đặc biệt "
+        "(x = 0, x = 1, x = −1) để tìm phản ví dụ bác bỏ mệnh đề sai.",
+        "Đếm số phần tử tập hợp con: một tập có n phần tử thì có 2ⁿ tập con — bấm 2^n trên máy.",
+    ],
+    "ham_so_bac_hai": [
+        "Dùng MODE Equation (Menu A) giải phương trình bậc hai để lấy nghiệm chính xác, "
+        "nhanh hơn nhẩm Vi-ét khi hệ số lẻ.",
+        "Tính nhanh tọa độ đỉnh: nhập −b/(2a) rồi CALC vào hàm để lấy tung độ, "
+        "khỏi phải nhớ công thức −Δ/(4a).",
+        "Dùng TABLE (Menu 8) với Start/End là hai đầu đoạn để dò giá trị lớn nhất, nhỏ nhất "
+        "trên đoạn — nhìn cột kết quả là thấy ngay xu hướng.",
+    ],
+    "bat_phuong_trinh": [
+        "Giải bất phương trình bằng MODE Inequality (Menu B trên fx-580VN X): máy cho ngay "
+        "tập nghiệm, dùng để đối chiếu với kết quả tự làm.",
+        "Với bài miền nghiệm, lấy điểm thử O(0; 0) thay vào bất phương trình — đúng thì miền "
+        "chứa gốc tọa độ, sai thì lấy nửa mặt phẳng còn lại.",
+        "Bất phương trình chứa căn: sau khi giải xong, CALC thử một giá trị trong tập nghiệm "
+        "để chắc chắn không nhận nhầm nghiệm ngoại lai.",
+    ],
+    "he_thuc_luong_vecto": [
+        "Chuyển sang Menu 5 (VECTOR) để tính tích vô hướng và độ dài vectơ, tránh nhầm dấu "
+        "khi tính tay.",
+        "Giải tam giác: nhập định lý cosin cos A = (b² + c² − a²)/(2bc) rồi SHIFT cos⁻¹ ra góc ngay. "
+        "Nhớ kiểm tra máy đang ở chế độ DEG hay RAD.",
+        "Tính diện tích bằng công thức Heron S = √[p(p−a)(p−b)(p−c)] — bấm một lượt, "
+        "không cần tìm đường cao.",
+    ],
+    "toa_do_mat_phang": [
+        "Khoảng cách từ điểm đến đường thẳng: bấm thẳng |Ax₀ + By₀ + C| ÷ √(A² + B²), "
+        "nhớ dấu giá trị tuyệt đối ở tử.",
+        "Tìm tâm và bán kính đường tròn từ dạng khai triển: tâm là (a; b) với a, b lấy từ "
+        "hệ số chia đôi và ĐỔI DẤU, rồi R = √(a² + b² − c).",
+        "Góc giữa hai đường thẳng: dùng Menu 5 (VECTOR) tính tích vô hướng hai vectơ pháp tuyến "
+        "rồi lấy SHIFT cos⁻¹ của giá trị tuyệt đối thương số.",
+    ],
+    "luong_giac": [
+        "Kiểm tra nghiệm phương trình lượng giác bằng CALC: thay k = 0, 1, −1 vào họ nghiệm "
+        "rồi tính lại vế trái xem có bằng vế phải không.",
+        "Dùng SHIFT SOLVE tìm một nghiệm gần đúng, rồi chia cho π để nhận ra nghiệm đó "
+        "tương ứng với họ nghiệm nào.",
+        "Luôn kiểm tra máy đang ở chế độ RAD hay DEG trước khi bấm — sai chế độ là sai toàn bộ bài. "
+        "Phương trình lượng giác trong đề thi hầu hết dùng RAD.",
+    ],
+    "day_so_cap_so": [
+        "Dùng phím Σ (SHIFT log) tính tổng trực tiếp: nhập số hạng tổng quát theo X, "
+        "cho X chạy từ 1 đến n — không cần nhớ công thức tổng.",
+        "Kiểm tra một dãy có phải cấp số cộng không: tính u₂ − u₁ và u₃ − u₂, bằng nhau thì đúng. "
+        "Cấp số nhân thì so u₂/u₁ với u₃/u₂.",
+        "Bài lãi kép dùng cấp số nhân: số tiền sau n kỳ là A·(1 + r)ⁿ, bấm thẳng bằng phím lũy thừa.",
+    ],
+    "gioi_han_dao_ham": [
+        "Tính giới hạn bằng CALC: thay x bằng giá trị rất gần điểm cần xét (ví dụ x = 2 + 10⁻⁹) "
+        "để đoán kết quả, rồi mới biến đổi đại số cho chặt chẽ.",
+        "Dùng phím d/dx tính đạo hàm tại một điểm để lấy hệ số góc tiếp tuyến — "
+        "nhanh hơn nhiều so với đạo hàm tay rồi thế số.",
+        "Giới hạn ở vô cực: thay x = 10⁹ và x = −10⁹ để thấy ngay hàm tiến tới đâu.",
+    ],
+    "quan_he_khong_gian": [
+        "Tọa độ hóa: gắn hệ trục vào khối có sẵn góc vuông rồi dùng Menu 5 (VECTOR) — "
+        "biến bài hình không gian thành bài tính toán thuần túy.",
+        "Tính khoảng cách bằng thể tích: d = 3V/S_đáy, dùng khi việc dựng hình chiếu vuông góc "
+        "quá phức tạp.",
+        "Góc giữa hai đường chéo nhau: tịnh tiến một đường về cắt đường kia, rồi dùng định lý "
+        "cosin trong tam giác vừa tạo.",
+    ],
+    "so_phuc": [
+        "Chuyển sang Menu 2 (COMPLEX) để cộng, trừ, nhân, chia số phức trực tiếp — "
+        "máy tự xử lý i² = −1, không sợ nhầm dấu.",
+        "Lấy môđun bằng SHIFT Abs, lấy liên hợp bằng SHIFT 2 2 (Conjg) ngay trong Menu 2.",
+        "Giải phương trình bậc hai có Δ < 0: dùng MODE Equation, máy vẫn cho hai nghiệm phức "
+        "liên hợp mà không cần biến đổi tay.",
+    ],
+    "khoi_da_dien_tron_xoay": [
+        "Nhớ hệ số: khối chóp và khối nón đều có ⅓, khối lăng trụ và khối trụ thì không. "
+        "Nhầm hệ số này là sai gấp ba lần.",
+        "Bài tỉ số thể tích: dùng công thức V₁/V₂ = (SA'/SA)·(SB'/SB)·(SC'/SC), "
+        "chỉ cần nhân ba tỉ số, không phải tính từng thể tích.",
+        "Mặt cầu ngoại tiếp hình chóp có cạnh bên vuông góc đáy: R = √(R_đáy² + h²/4), "
+        "bấm một lượt trên máy.",
+    ],
     "dien_xoay_chieu": [
         "Menu 2 (COMPLEX) là vũ khí mạnh nhất cho điện xoay chiều: nhập u = U₀∠φᵤ chia cho "
         "Z = R + (Z_L − Z_C)i là ra ngay biểu thức dòng điện cả biên độ lẫn pha.",
@@ -363,6 +732,87 @@ TOPIC_TRAPS: Dict[str, List[str]] = {
         "thì ngược lại. Cũng đừng quên giá trị k = 0.",
         "⚠️ Bẫy đơn vị: v cho theo cm/s thì λ ra cm; trộn lẫn mét và centimét trong cùng một bài là "
         "nguồn sai phổ biến nhất.",
+    ],
+    "menh_de_tap_hop": [
+        "⚠️ Bẫy phủ định lượng từ: phủ định của 'với mọi' là 'tồn tại' và ngược lại. "
+        "Đồng thời phải phủ định cả phần mệnh đề bên trong, rất nhiều học sinh chỉ đổi lượng từ.",
+        "⚠️ Bẫy đầu mút đóng/mở: [a; b] khác hẳn (a; b) khi lấy giao và hợp. "
+        "Một dấu ngoặc sai là sai cả đáp án.",
+        "⚠️ Bẫy tập rỗng: tập rỗng là tập con của MỌI tập hợp, và cũng là một tập con — "
+        "đừng quên nó khi đếm số tập con.",
+    ],
+    "ham_so_bac_hai": [
+        "⚠️ Bẫy dấu của hệ số a: a > 0 thì parabol quay lên và đỉnh là điểm THẤP NHẤT (giá trị nhỏ nhất); "
+        "a < 0 thì ngược lại. Nhầm chỗ này là đảo lộn toàn bộ kết luận.",
+        "⚠️ Bẫy giá trị lớn nhất trên đoạn: nếu đỉnh nằm NGOÀI đoạn đang xét thì giá trị lớn nhất, "
+        "nhỏ nhất rơi vào hai đầu mút, không phải tại đỉnh.",
+        "⚠️ Bẫy công thức đỉnh: hoành độ đỉnh là −b/(2a), rất hay bị viết nhầm thành b/(2a) hoặc −b/a.",
+    ],
+    "bat_phuong_trinh": [
+        "⚠️ Bẫy nhân chia số âm: nhân hoặc chia hai vế bất phương trình cho số ÂM thì phải ĐỔI CHIỀU. "
+        "Khi biểu thức chứa tham số, bắt buộc xét cả hai trường hợp dấu.",
+        "⚠️ Bẫy điều kiện xác định: bất phương trình chứa căn hoặc mẫu phải đặt điều kiện TRƯỚC, "
+        "rồi mới giao với tập nghiệm tìm được.",
+        "⚠️ Bẫy bình phương hai vế: chỉ được bình phương khi cả hai vế KHÔNG ÂM, "
+        "nếu không sẽ sinh ra nghiệm ngoại lai.",
+    ],
+    "he_thuc_luong_vecto": [
+        "⚠️ Bẫy độ dài và vectơ: AB⃗ = −BA⃗ nhưng |AB⃗| = |BA⃗|. Nhầm dấu vectơ là sai cả bài.",
+        "⚠️ Bẫy chế độ máy tính: định lý cosin cho ra góc, nếu máy đang ở RAD mà đề hỏi độ "
+        "thì kết quả sai hoàn toàn.",
+        "⚠️ Bẫy tích vô hướng: a⃗·b⃗ = 0 nghĩa là hai vectơ VUÔNG GÓC, không phải bằng vectơ-không. "
+        "Hai khái niệm này hoàn toàn khác nhau.",
+    ],
+    "toa_do_mat_phang": [
+        "⚠️ Bẫy pháp tuyến và chỉ phương: đường thẳng Ax + By + C = 0 có pháp tuyến (A; B) "
+        "và chỉ phương (−B; A). Rất hay bị dùng nhầm cái nọ thành cái kia.",
+        "⚠️ Bẫy tâm đường tròn: từ dạng x² + y² − 2ax − 2by + c = 0, tâm là (a; b) — "
+        "hệ số đã mang sẵn dấu trừ nên phải ĐỔI DẤU khi lấy tọa độ tâm.",
+        "⚠️ Bẫy bán kính âm: phải kiểm tra a² + b² − c > 0, nếu không thì đó không phải đường tròn.",
+    ],
+    "luong_giac": [
+        "⚠️ Bẫy thiếu họ nghiệm: sin x = m cho HAI họ nghiệm (x = α + k2π và x = π − α + k2π). "
+        "Chỉ viết một họ là mất nửa số nghiệm.",
+        "⚠️ Bẫy điều kiện xác định: phương trình chứa tan x hoặc cot x phải loại các giá trị "
+        "làm mẫu bằng 0 trước khi kết luận.",
+        "⚠️ Bẫy chu kỳ: cos x = cos α cho x = ±α + k2π (chu kỳ 2π), còn tan x = tan α "
+        "chỉ có x = α + kπ (chu kỳ π). Dùng nhầm chu kỳ là thừa hoặc thiếu nghiệm.",
+    ],
+    "day_so_cap_so": [
+        "⚠️ Bẫy số hạng tổng quát: uₙ = u₁ + (n − 1)d, KHÔNG phải u₁ + n·d. "
+        "Sai một bước này kéo theo sai toàn bộ phần sau.",
+        "⚠️ Bẫy công bội âm: cấp số nhân có q < 0 thì các số hạng đan dấu — "
+        "đừng vội kết luận dãy tăng hay giảm.",
+        "⚠️ Bẫy tổng lùi vô hạn: công thức S = u₁/(1 − q) CHỈ dùng được khi |q| < 1.",
+    ],
+    "gioi_han_dao_ham": [
+        "⚠️ Bẫy giới hạn một bên: hàm có giới hạn tại x₀ khi và chỉ khi giới hạn trái BẰNG giới hạn phải. "
+        "Chỉ tính một bên là chưa đủ kết luận.",
+        "⚠️ Bẫy liên tục và có đạo hàm: có đạo hàm thì chắc chắn liên tục, nhưng liên tục CHƯA CHẮC "
+        "có đạo hàm (ví dụ y = |x| tại x = 0).",
+        "⚠️ Bẫy tiếp tuyến: 'tiếp tuyến TẠI điểm M' khác 'tiếp tuyến ĐI QUA điểm M'. "
+        "Trường hợp thứ hai M có thể không nằm trên đồ thị và cho nhiều tiếp tuyến.",
+    ],
+    "quan_he_khong_gian": [
+        "⚠️ Bẫy chéo nhau: hai đường thẳng không cắt nhau trong không gian CHƯA CHẮC song song — "
+        "chúng có thể chéo nhau. Phải kiểm tra có đồng phẳng hay không.",
+        "⚠️ Bẫy điều kiện vuông góc: d ⊥ (P) đòi hỏi d vuông góc với hai đường CẮT NHAU trong (P). "
+        "Vuông góc với hai đường song song thì chưa kết luận được gì.",
+        "⚠️ Bẫy góc: góc giữa đường thẳng và mặt phẳng luôn thuộc [0°; 90°]. "
+        "Tính ra góc tù thì phải lấy góc bù.",
+    ],
+    "so_phuc": [
+        "⚠️ Bẫy phần ảo: phần ảo của z = a + bi là số b, KHÔNG phải bi. Đây là lỗi kinh điển.",
+        "⚠️ Bẫy môđun: |z| = √(a² + b²) luôn là số thực không âm, không bao giờ là số phức.",
+        "⚠️ Bẫy so sánh: trên tập số phức KHÔNG có quan hệ lớn bé. "
+        "Chỉ so sánh được môđun của chúng.",
+    ],
+    "khoi_da_dien_tron_xoay": [
+        "⚠️ Bẫy hệ số ⅓: khối chóp và khối nón có ⅓, khối lăng trụ và khối trụ thì không. "
+        "Nhầm là sai gấp ba lần.",
+        "⚠️ Bẫy đường sinh và chiều cao: với khối nón, đường sinh l và chiều cao h khác nhau, "
+        "liên hệ bởi l² = h² + r². Diện tích xung quanh dùng l chứ không dùng h.",
+        "⚠️ Bẫy bán kính đáy: đề thường cho ĐƯỜNG KÍNH đáy — phải chia đôi trước khi thay vào công thức.",
     ],
     "dien_xoay_chieu": [
         "⚠️ Bẫy giá trị hiệu dụng và cực đại: u = U₀·cos(ωt) nghĩa là U = U₀/√2. Dùng nhầm U₀ vào công "

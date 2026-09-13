@@ -374,25 +374,56 @@ def do_trung_lap(ket_qua_sau: List[Dict[str, Any]], nguong: float = 0.6) -> Dict
                 khoa = (ds_tep[a], ds_tep[b])
                 chung[khoa] = chung.get(khoa, 0) + 1
 
+    bi_chua = []
+
     for (a, b), so_chung in chung.items():
         na = len(set(hop_le[a]["van_tay"]))
         nb = len(set(hop_le[b]["van_tay"]))
-        ti_le = so_chung / max(1, min(na, nb))
-        if ti_le >= nguong and so_chung >= 3:
+        if so_chung < 3:
+            continue
+
+        # Phân biệt hai tình huống rất khác nhau:
+        #
+        #   TRÙNG THẬT  — hai tệp có nội dung gần như nhau theo CẢ HAI chiều.
+        #                 Giữ một bản là đủ.
+        #
+        #   BỊ CHỨA     — tệp nhỏ nằm gọn trong một tuyển tập lớn. Đây KHÔNG phải
+        #                 trùng lặp: tuyển tập "99 đề Toán 10" đương nhiên chứa
+        #                 từng đề lẻ. Cách ly đề lẻ đi là mất khả năng dùng riêng
+        #                 từng đề. Chỉ ghi nhận để tham khảo, không đề nghị xóa.
+        ti_le_a = so_chung / max(1, na)
+        ti_le_b = so_chung / max(1, nb)
+
+        if ti_le_a >= nguong and ti_le_b >= nguong:
             cap_trung.append({
                 "tep_a": hop_le[a]["duong_dan"],
                 "tep_b": hop_le[b]["duong_dan"],
                 "so_cau_chung": so_chung,
-                "ti_le": round(ti_le, 2),
+                "ti_le": round(min(ti_le_a, ti_le_b), 2),
+                "ti_le_a": round(ti_le_a, 2),
+                "ti_le_b": round(ti_le_b, 2),
                 "cau_a": na,
                 "cau_b": nb,
             })
+        elif max(ti_le_a, ti_le_b) >= nguong:
+            nho, lon = (a, b) if ti_le_a > ti_le_b else (b, a)
+            bi_chua.append({
+                "tep_nho": hop_le[nho]["duong_dan"],
+                "tep_lon": hop_le[lon]["duong_dan"],
+                "so_cau_chung": so_chung,
+                "cau_nho": len(set(hop_le[nho]["van_tay"])),
+                "cau_lon": len(set(hop_le[lon]["van_tay"])),
+            })
 
     cap_trung.sort(key=lambda x: -x["ti_le"])
+    bi_chua.sort(key=lambda x: -x["so_cau_chung"])
     return {
         "so_cap_trung": len(cap_trung),
         "cap_trung": cap_trung,        # trả đủ, nơi gọi tự cắt nếu cần hiển thị
         "so_tep_lien_quan": len({c["tep_a"] for c in cap_trung} | {c["tep_b"] for c in cap_trung}),
+        # Tệp nhỏ nằm trong tuyển tập lớn — thông tin tham khảo, KHÔNG đề nghị xóa
+        "so_cap_bi_chua": len(bi_chua),
+        "bi_chua": bi_chua,
     }
 
 
