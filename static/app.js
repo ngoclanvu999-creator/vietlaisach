@@ -52,6 +52,20 @@ document.addEventListener("DOMContentLoaded", () => {
         return escapeHtml(str).replace(/\n/g, "<br>");
     }
 
+    // Tùy chọn hiển thị hiện tại — DÙNG CHUNG cho khung xem trước, trình đọc
+    // sách và phần gửi lên máy chủ, để ba nơi luôn khớp nhau.
+    // Trước đây mỗi nơi tự đọc một kiểu: khung xem trước bỏ qua ô "Lời giải",
+    // trình đọc bỏ qua toàn bộ tùy chọn nên tắt gì cũng vẫn hiện.
+    function layTuyChonHienThi() {
+        return {
+            solution: !checkSolution || checkSolution.checked,
+            casio: !checkCasio || checkCasio.checked,
+            traps: !checkTraps || checkTraps.checked,
+            theory: !checkTheory || checkTheory.checked,
+            cuoiSach: !!(solutionPlace && solutionPlace.value === "cuoi_sach"),
+        };
+    }
+
     // Gom 6 ô tick thành các trường gửi kèm yêu cầu biên soạn.
     // Trước đây các ô này chỉ là trang trí: tick hay không thì file Word vẫn y hệt.
     function themTuyChonBienSoan(formData) {
@@ -704,8 +718,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 optionsHtml = `<div class="preview-options-grid">${q.new_options.map(opt => `<div>${escapeHtml(opt)}</div>`).join('')}</div>`;
             }
 
+            // Chọn "lời giải dồn về cuối sách" thì phần đề phải sạch hoàn toàn,
+            // đúng như file Word sẽ xuất ra.
+            const tc = layTuyChonHienThi();
+
             let sol1Html = "";
-            if (q.solution_method1) {
+            if (q.solution_method1 && tc.solution && !tc.cuoiSach) {
                 sol1Html = `
                     <div class="preview-callout callout-sol">
                         <span class="callout-title">✎ Lời giải Tự luận chuẩn mực sư phạm:</span>
@@ -715,7 +733,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             let casioHtml = "";
-            if (checkCasio.checked && q.solution_method2) {
+            if (q.solution_method2 && tc.casio && !tc.cuoiSach) {
                 casioHtml = `
                     <div class="preview-callout callout-casio">
                         <span class="callout-title">💡 Kỹ thuật Casio fx-580VN X & Thủ thuật 15s:</span>
@@ -725,7 +743,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             let trapHtml = "";
-            if (checkTraps.checked && q.trap_warning) {
+            if (q.trap_warning && tc.traps && !tc.cuoiSach) {
                 trapHtml = `
                     <div class="preview-callout callout-trap">
                         <span class="callout-title">⚠️ Bẫy đề thi & Sai lầm thường gặp:</span>
@@ -1179,39 +1197,43 @@ document.addEventListener("DOMContentLoaded", () => {
                 }).join('')}</div>`;
             }
 
+            // Trình đọc trước đây bỏ qua TOÀN BỘ tùy chọn: tắt mẹo Casio hay
+            // cảnh báo bẫy thì file Word không có nhưng đọc online vẫn hiện.
+            const tcr = layTuyChonHienThi();
+
             let sol1Html = "";
-            if (q.solution_method1) {
+            if (q.solution_method1 && tcr.solution && !tcr.cuoiSach) {
                 sol1Html = `
                     <div class="reader-callout reader-callout-sol">
                         <strong>✎ Hướng dẫn giải chi tiết (Tự luận chuẩn mực):</strong>
-                        <div style="margin-top: 4px; white-space: pre-line;">${q.solution_method1}</div>
+                        <div style="margin-top: 4px;">${escapeMultiline(q.solution_method1)}</div>
                     </div>
                 `;
             }
 
             let casioHtml = "";
-            if (q.solution_method2) {
+            if (q.solution_method2 && tcr.casio && !tcr.cuoiSach) {
                 casioHtml = `
                     <div class="reader-callout reader-callout-casio">
                         <strong>💡 Kỹ thuật Casio fx-580VN X & Tư duy giải nhanh:</strong>
-                        <div style="margin-top: 4px; white-space: pre-line;">${q.solution_method2}</div>
+                        <div style="margin-top: 4px;">${escapeMultiline(q.solution_method2)}</div>
                     </div>
                 `;
             }
 
             let trapHtml = "";
-            if (q.trap_warning) {
+            if (q.trap_warning && tcr.traps && !tcr.cuoiSach) {
                 trapHtml = `
                     <div class="reader-callout reader-callout-trap">
                         <strong>⚠️ Bẫy đề thi & Lỗi sai học sinh hay mắc phải:</strong>
-                        <div style="margin-top: 4px; white-space: pre-line;">${q.trap_warning}</div>
+                        <div style="margin-top: 4px;">${escapeMultiline(q.trap_warning)}</div>
                     </div>
                 `;
             }
 
             card.innerHTML = `
-                <div class="reader-q-head">▶ ${q.title} [${q.level || 'Vận dụng'}]</div>
-                <div class="reader-q-text">${q.new_content}</div>
+                <div class="reader-q-head">▶ ${escapeHtml(q.title)} [${escapeHtml(q.level || 'Vận dụng')}]</div>
+                <div class="reader-q-text">${escapeHtml(q.new_content)}</div>
                 ${optsHtml}
                 ${sol1Html}
                 ${casioHtml}
@@ -1332,6 +1354,16 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
             alert("Đã xóa khóa API khỏi trình duyệt. Ứng dụng sẽ chạy bằng Bộ máy Offline.");
         }
+    });
+
+    // Đổi tùy chọn thì vẽ lại khung xem trước ngay, để thấy trước file Word sẽ
+    // ra sao mà không phải biên soạn lại. Trước đây khung xem trước chỉ vẽ một
+    // lần sau khi biên soạn xong nên bấm tắt/bật chẳng thấy gì thay đổi.
+    [checkSolution, checkCasio, checkTraps, checkTheory, solutionPlace].forEach((o) => {
+        if (!o) return;
+        o.addEventListener("change", () => {
+            if (currentCompiledBook) renderBookPreview(currentCompiledBook);
+        });
     });
 
     // ==========================================
