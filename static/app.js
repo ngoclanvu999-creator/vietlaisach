@@ -26,6 +26,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const folderPathInput = document.getElementById("folder-path-input");
     const btnScanFolder = document.getElementById("btn-scan-folder");
 
+    // Dán bản nháp soạn sẵn (từ Gemini Pro trong ứng dụng chat)
+    const togglePaste = document.getElementById("toggle-paste");
+    const pasteBox = document.getElementById("paste-box");
+    const pasteInput = document.getElementById("paste-input");
+    const btnPasteSubmit = document.getElementById("btn-paste-submit");
+    const promptKind = document.getElementById("prompt-kind");
+    const promptText = document.getElementById("prompt-text");
+    const btnCopyPrompt = document.getElementById("btn-copy-prompt");
+    const draftCheck = document.getElementById("draft-check");
+
     // Subject & Options
     const radioCards = document.querySelectorAll(".radio-card");
     const btnProcess = document.getElementById("btn-process");
@@ -312,6 +322,7 @@ document.addEventListener("DOMContentLoaded", () => {
         batchModeSelector.classList.add("hidden");
         ingestSkipped.classList.add("hidden");
         doctypeBox.classList.add("hidden");
+        if (draftCheck) draftCheck.classList.add("hidden");
         dropZone.classList.remove("hidden");
         btnProcess.disabled = true;
         previewPlaceholder.classList.remove("hidden");
@@ -454,6 +465,208 @@ document.addEventListener("DOMContentLoaded", () => {
             ".png": "🖼️", ".jpg": "🖼️", ".jpeg": "🖼️"
         };
         return map[(ext || "").toLowerCase()] || "📄";
+    }
+
+    // ==========================================
+    // DÁN BẢN NHÁP SOẠN SẴN
+    //
+    // Vì sao có luồng này: gói Gemini Pro trong ứng dụng chat không tính theo
+    // token, còn API thì tính — mà phần sinh nội dung (đầu ra) lại là phần đắt
+    // nhất. Để người dùng soạn bản nháp bên chat rồi dán vào đây thì phần tốn
+    // tiền nhất thành miễn phí, công cụ chỉ lo định dạng và soi lỗi.
+    // ==========================================
+    const MAU_CAU_LENH = {
+        de_thi_2025:
+`Bạn là giáo viên ra đề thi THPT theo chương trình GDPT 2018.
+Hãy soạn một ĐỀ THI môn {MON} lớp {LOP} theo đúng cấu trúc Bộ GD&ĐT áp dụng từ 2025:
+
+PHẦN I — 12 câu trắc nghiệm 4 phương án (mỗi câu 0,25 điểm)
+PHẦN II — 4 câu Đúng/Sai, mỗi câu có 4 ý a) b) c) d) cùng một ngữ cảnh
+PHẦN III — 6 câu trả lời ngắn, đáp số PHẢI là một con số (mỗi câu 0,5 điểm)
+
+QUY TẮC BẮT BUỘC:
+1. Bốn phương án phải khác nhau thật sự. Ba phương án sai là sai lầm điển hình
+   học sinh hay mắc, không phải số ngẫu nhiên.
+2. Mỗi câu phải có lời giải từng bước, KẾT THÚC bằng dòng "Chọn X." (X là A/B/C/D).
+   Câu trả lời ngắn thì kết thúc bằng "Đáp số: <số>".
+3. TỰ KIỂM TRA LẠI phép tính trước khi trả lời. Đây là tài liệu cho học sinh,
+   một câu sai đáp án là không chấp nhận được.
+4. Dùng ký hiệu toán Unicode (², ³, √, π, ≤, ≥, ∫, ∈, ℝ), KHÔNG dùng LaTeX.
+
+ĐỊNH DẠNG TRẢ VỀ (bám sát để công cụ bóc tách được):
+
+Câu 1. <đề bài>
+A. <phương án>
+B. <phương án>
+C. <phương án>
+D. <phương án>
+Lời giải: <các bước> Chọn B.
+
+Câu 2. ...
+
+Nội dung cần ra đề: {CHU_DE}`,
+
+        de_thi_cu:
+`Bạn là giáo viên ra đề môn {MON} lớp {LOP} theo chương trình GDPT 2018.
+Hãy soạn {SO_CAU} câu trắc nghiệm 4 phương án về: {CHU_DE}
+
+QUY TẮC:
+1. Bốn phương án khác nhau thật sự; ba phương án sai là sai lầm điển hình.
+2. Mỗi câu có lời giải từng bước, kết thúc bằng "Chọn X."
+3. Tự kiểm tra lại phép tính trước khi trả lời.
+4. Ký hiệu toán Unicode, không dùng LaTeX.
+5. Trải đều ba mức: Biết, Hiểu, Vận dụng.
+
+ĐỊNH DẠNG:
+Câu 1. <đề bài>
+A. ...
+B. ...
+C. ...
+D. ...
+Lời giải: <các bước> Chọn C.`,
+
+        chuyen_de:
+`Bạn là tác giả sách tham khảo môn {MON} lớp {LOP}.
+Hãy soạn một chuyên đề về: {CHU_DE}
+
+Bố cục:
+1. LÝ THUYẾT TRỌNG TÂM — định nghĩa, công thức cốt lõi (gạch đầu dòng, ngắn gọn)
+2. PHÂN DẠNG BÀI TẬP — nêu từng dạng kèm phương pháp giải
+3. HỆ THỐNG BÀI TẬP — {SO_CAU} câu trắc nghiệm 4 phương án, trải từ dễ tới khó
+
+Mỗi câu bài tập trình bày:
+Câu 1. <đề bài>
+A. ...
+B. ...
+C. ...
+D. ...
+Lời giải: <các bước> Chọn A.
+
+Ký hiệu toán Unicode, không dùng LaTeX. Tự kiểm tra lại mọi phép tính.`,
+
+        bo_sung_loi_giai:
+`Dưới đây là các câu hỏi môn {MON} chưa có lời giải.
+Hãy giải từng câu và viết lại theo đúng định dạng bên dưới.
+
+QUY TẮC:
+1. GIỮ NGUYÊN đề bài và bốn phương án, không sửa số liệu.
+2. Giải từng bước rõ ràng, kết thúc bằng "Chọn X."
+3. Tự kiểm tra lại phép tính. Nếu thấy đề sai hoặc không phương án nào đúng,
+   ghi rõ "LƯU Ý: <vấn đề>" thay vì chọn bừa.
+4. Ký hiệu toán Unicode, không dùng LaTeX.
+
+ĐỊNH DẠNG:
+Câu 1. <đề bài giữ nguyên>
+A. ...
+B. ...
+C. ...
+D. ...
+Lời giải: <các bước> Chọn D.
+
+Các câu cần giải:
+{DAN_CAU_HOI_VAO_DAY}`,
+    };
+
+    function veMauCauLenh() {
+        if (!promptText || !promptKind) return;
+        const mon = selectedSubject === "toan" ? "Toán" : "Vật lí";
+        promptText.textContent = (MAU_CAU_LENH[promptKind.value] || "")
+            .replace(/\{MON\}/g, mon);
+    }
+
+    if (togglePaste) {
+        togglePaste.addEventListener("click", () => {
+            pasteBox.classList.toggle("hidden");
+            if (!pasteBox.classList.contains("hidden")) veMauCauLenh();
+        });
+    }
+    if (promptKind) promptKind.addEventListener("change", veMauCauLenh);
+
+    if (btnCopyPrompt) {
+        btnCopyPrompt.addEventListener("click", async () => {
+            try {
+                await navigator.clipboard.writeText(promptText.textContent);
+                const cu = btnCopyPrompt.textContent;
+                btnCopyPrompt.textContent = "✅ Đã chép";
+                setTimeout(() => { btnCopyPrompt.textContent = cu; }, 1800);
+            } catch (e) {
+                // Trình duyệt chặn clipboard thì bôi đen sẵn cho người dùng tự chép
+                const r = document.createRange();
+                r.selectNodeContents(promptText);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(r);
+                alert("Trình duyệt chặn chép tự động. Câu lệnh đã được bôi đen, bấm Ctrl+C.");
+            }
+        });
+    }
+
+    function veKetQuaSoiLoi(sl) {
+        if (!draftCheck || !sl) return;
+        draftCheck.classList.remove("hidden", "draft-ok", "draft-warn", "draft-err");
+
+        if (sl.so_loi_nang > 0) {
+            draftCheck.classList.add("draft-err");
+            draftCheck.innerHTML =
+                `<div class="draft-head">❌ Bản nháp có ${sl.so_loi_nang} lỗi cần sửa trước khi xuất bản</div>` +
+                `<ul>${sl.loi_nang.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul>` +
+                (sl.so_canh_bao ? `<div style="margin-top:8px">⚠️ Ngoài ra có ${sl.so_canh_bao} điểm cần rà lại.</div>` : "");
+        } else if (sl.so_canh_bao > 0) {
+            draftCheck.classList.add("draft-warn");
+            draftCheck.innerHTML =
+                `<div class="draft-head">⚠️ Bóc tách ${sl.so_cau} câu, có ${sl.so_canh_bao} điểm cần rà lại</div>` +
+                `<ul>${sl.canh_bao.slice(0, 12).map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul>`;
+        } else {
+            draftCheck.classList.add("draft-ok");
+            draftCheck.innerHTML =
+                `<div class="draft-head">✅ Bản nháp sạch — ${sl.so_cau} câu, không phát hiện lỗi cấu trúc nào</div>`;
+        }
+    }
+
+    if (btnPasteSubmit) {
+        btnPasteSubmit.addEventListener("click", async () => {
+            const noiDung = (pasteInput.value || "").trim();
+            if (noiDung.length < 40) {
+                alert("Bản nháp quá ngắn. Hãy dán toàn bộ nội dung Gemini đã soạn.");
+                return;
+            }
+
+            btnPasteSubmit.disabled = true;
+            btnPasteSubmit.textContent = "⏳ Đang bóc tách và soi lỗi...";
+            try {
+                const res = await apiFetch("/api/ingest-text", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        noi_dung: noiDung,
+                        subject: selectedSubject,
+                        ten_tai_lieu: "ban_nhap_gemini",
+                    }),
+                });
+                const data = await res.json();
+                if (!res.ok || data.status !== "success") {
+                    throw new Error(data.detail || "Không nạp được bản nháp");
+                }
+
+                ingestKind = data.kind;
+                ingestFolderPath = data.folder_path;
+                singleFilePath = data.single_file_path || null;
+                currentScannedFiles = data.files || [];
+
+                dropZone.classList.add("hidden");
+                ingestResults.classList.remove("hidden");
+                renderIngestResults(data);
+                veKetQuaSoiLoi(data.soi_loi);
+                btnProcess.disabled = false;
+            } catch (err) {
+                draftCheck.classList.remove("hidden", "draft-ok", "draft-warn");
+                draftCheck.classList.add("draft-err");
+                draftCheck.innerHTML = `<div class="draft-head">❌ ${escapeHtml(err.message)}</div>`;
+            } finally {
+                btnPasteSubmit.disabled = false;
+                btnPasteSubmit.textContent = "⬆️ Nạp bản nháp & soi lỗi";
+            }
+        });
     }
 
     // ==========================================

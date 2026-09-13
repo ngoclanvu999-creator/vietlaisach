@@ -22,7 +22,7 @@ from config import (
     BASE_DIR, INPUT_DIR, OUTPUT_DIR, TEMPLATES_DIR, STATIC_DIR,
     LOCAL_MODE, ACCESS_TOKEN, load_settings, save_settings
 )
-from core.parser import parse_input_file, scan_directory, lay_dau_hieu_tai_lieu
+from core.parser import parse_input_file, scan_directory, lay_dau_hieu_tai_lieu, parse_text
 from core.doc_type import detect_document_type, trich_thong_tin_de_thi, TEN_HIEN_THI, DE_THI, SACH, CHUYEN_DE
 from core.rewriter import (
     process_rewrite_pipeline, create_master_book_from_chapters,
@@ -164,7 +164,8 @@ TEMPLATES_DIR.mkdir(exist_ok=True)
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-SUPPORTED_UPLOAD_EXTENSIONS = {".docx", ".doc", ".xlsx", ".xls", ".pdf", ".png", ".jpg", ".jpeg"}
+SUPPORTED_UPLOAD_EXTENSIONS = {".docx", ".doc", ".xlsx", ".xls", ".pdf",
+                               ".png", ".jpg", ".jpeg", ".txt", ".md"}
 
 # Giữ tối đa bao nhiêu file thành phẩm trong output/ trước khi tự dọn file cũ nhất.
 # Không có bước này thư mục output phình vô hạn; trên Render (đĩa tạm) còn gây đầy dung lượng.
@@ -1111,6 +1112,117 @@ def api_import_bank(file: UploadFile = File(...)):
         "da_them": them,
         "bo_qua": bo_qua,
         "thong_ke": thong_ke_ngan_hang(),
+    }
+
+
+# ===========================================================================
+# NHẬN BẢN NHÁP DÁN VÀO
+#
+# Luồng làm việc tiết kiệm nhất: người dùng cho Gemini Pro trong ứng dụng chat
+# soạn bản nháp (gói thuê bao, không tốn hạn mức API), rồi dán vào đây. Công cụ
+# lo phần định dạng chuẩn và kiểm chứng đáp án — cả hai đều KHÔNG tốn API.
+# ===========================================================================
+
+class DanVanBanRequest(BaseModel):
+    noi_dung: str
+    subject: str = "toan"
+    ten_tai_lieu: str = ""
+
+
+@app.post("/api/ingest-text")
+def ingest_text(req: DanVanBanRequest):
+    """Nhận bản nháp dán vào, bóc tách và soi lỗi ngay."""
+    noi_dung = (req.noi_dung or "").strip()
+    if len(noi_dung) < 40:
+        raise HTTPException(status_code=400, detail="Nội dung quá ngắn, chưa đủ để bóc tách.")
+    if len(noi_dung) > 2_000_000:
+        raise HTTPException(status_code=400, detail="Nội dung quá dài (giới hạn 2 triệu ký tự).")
+
+    import time
+    session_dir = resolve_within(INPUT_DIR, f"ingest_{int(time.time() * 1000)}")
+    session_dir.mkdir(parents=True, exist_ok=True)
+
+    ten = safe_filename((req.ten_tai_lieu or "ban_nhap").strip() or "ban_nhap")
+    if not ten.lower().endswith((".txt", ".md")):
+        ten += ".txt"
+    tep = resolve_within(session_dir, ten)
+    tep.write_text(noi_dung, encoding="utf-8")
+
+    questions = parse_text(noi_dung, subject=req.subject, ten_nguon=ten)
+    if not questions:
+        shutil.rmtree(session_dir, ignore_errors=True)
+        raise HTTPException(
+            status_code=400,
+            detail=("Không nhận ra câu hỏi nào. Bản nháp cần đánh số theo dạng "
+                    "'Câu 1.', 'Câu 2.' và các phương án 'A.', 'B.', 'C.', 'D.'")
+        )
+
+    nhan_dien = detect_document_type(questions, lay_dau_hieu_tai_lieu(), ten)
+    can_ai = sum(1 for q in questions if can_ai_xu_ly(q))
+    nhan_dien["so_cau_can_ai"] = can_ai
+    nhan_dien["so_cau_co_san"] = len(questions) - can_ai
+
+    prune_ingest_dirs()
+
+    return {
+        "status": "success",
+        "kind": "single",
+        "folder_path": str(session_dir),
+        "single_file_path": f"{session_dir.name}/{tep.name}",
+        "total_files": 1,
+        "files": [{"name": tep.name, "path": str(tep), "ext": tep.suffix,
+                   "size_kb": round(len(noi_dung.encode("utf-8")) / 1024, 1), "rel_dir": "."}],
+        "skipped": [],
+        "total_items": len(questions),
+        "preview": [q.to_dict() for q in questions[:15]],
+        "nhan_dien": nhan_dien,
+        "soi_loi": soi_loi_ban_nhap(questions),
+        "source_summary": f"bản nháp dán vào — {len(questions)} câu",
+    }
+
+
+def soi_loi_ban_nhap(questions: list) -> dict:
+    """
+    Soi lỗi bản nháp mà KHÔNG gọi API.
+
+    AI soạn đề rất trôi chảy nhưng hay sai ở những chỗ máy kiểm tra được: phương
+    án trùng nhau, thiếu phương án, đáp án không khớp phương án nào, thiếu lời
+    giải. Bắt hết ở đây rồi mới tới phần cần người xem.
+    """
+    from core.question_forge import _option_label, _option_body
+
+    loi = []
+    canh_bao = []
+    for q in questions:
+        ten = q.title or f"Câu {q.index}"
+        opts = q.options or []
+
+        if opts:
+            nhan = [_option_label(o) for o in opts]
+            than = [_option_body(o) for o in opts]
+            if len(opts) != 4:
+                loi.append(f"{ten}: có {len(opts)} phương án thay vì 4")
+            if len(set(than)) != len(than):
+                loi.append(f"{ten}: có phương án trùng nội dung nhau")
+            dap_an = (q.correct_answer or "").strip().upper()[:1]
+            if not dap_an:
+                canh_bao.append(f"{ten}: chưa ghi đáp án đúng")
+            elif dap_an not in nhan:
+                loi.append(f"{ten}: đáp án {dap_an} không khớp phương án nào")
+
+        if len((q.solution or "").strip()) < 30:
+            canh_bao.append(f"{ten}: chưa có lời giải hoặc lời giải quá sơ sài")
+
+        if len((q.content or "").strip()) < 25:
+            loi.append(f"{ten}: đề bài quá ngắn, có thể bị cắt mất")
+
+    return {
+        "so_cau": len(questions),
+        "loi_nang": loi[:60],
+        "so_loi_nang": len(loi),
+        "canh_bao": canh_bao[:60],
+        "so_canh_bao": len(canh_bao),
+        "sach_se": not loi and not canh_bao,
     }
 
 

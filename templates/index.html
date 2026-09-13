@@ -117,6 +117,47 @@
                             <input type="file" id="folder-input" webkitdirectory directory multiple
                                    style="display:none !important;">
 
+                            <!-- DÁN BẢN NHÁP TỪ GEMINI PRO -->
+                            <div class="paste-zone">
+                                <button type="button" id="toggle-paste" class="btn-link">
+                                    📋 Hoặc dán bản nháp đã soạn sẵn (từ Gemini Pro, Word, web...)
+                                </button>
+                                <div id="paste-box" class="paste-box hidden">
+                                    <div class="paste-flow">
+                                        <strong>Quy trình tiết kiệm nhất:</strong>
+                                        <span class="flow-step">1. Lấy câu lệnh mẫu bên dưới</span>
+                                        <span class="flow-arrow">→</span>
+                                        <span class="flow-step">2. Dán vào Gemini Pro, cho nó soạn</span>
+                                        <span class="flow-arrow">→</span>
+                                        <span class="flow-step">3. Dán kết quả về đây</span>
+                                        <span class="flow-arrow">→</span>
+                                        <span class="flow-step">4. Công cụ chuẩn hóa &amp; soi lỗi</span>
+                                    </div>
+
+                                    <div class="prompt-row">
+                                        <label for="prompt-kind">Câu lệnh mẫu cho Gemini Pro:</label>
+                                        <select id="prompt-kind" class="form-control">
+                                            <option value="de_thi_2025">Soạn đề thi chuẩn 2025 (3 phần I/II/III)</option>
+                                            <option value="de_thi_cu">Soạn đề trắc nghiệm truyền thống (4 phương án)</option>
+                                            <option value="chuyen_de">Soạn tài liệu chuyên đề có lý thuyết</option>
+                                            <option value="bo_sung_loi_giai">Bổ sung lời giải cho đề đã có</option>
+                                        </select>
+                                        <button type="button" id="btn-copy-prompt" class="btn btn-outline">📄 Chép câu lệnh</button>
+                                    </div>
+                                    <pre id="prompt-text" class="prompt-text"></pre>
+
+                                    <label for="paste-input" class="paste-label">Dán bản nháp vào đây:</label>
+                                    <textarea id="paste-input" class="form-control paste-input"
+                                              placeholder="Câu 1. ...&#10;A. ...  B. ...  C. ...  D. ...&#10;Lời giải: ... Chọn C.&#10;&#10;Câu 2. ..."></textarea>
+                                    <button type="button" id="btn-paste-submit" class="btn btn-primary">
+                                        ⬆️ Nạp bản nháp &amp; soi lỗi
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Kết quả soi lỗi bản nháp -->
+                            <div id="draft-check" class="draft-check hidden"></div>
+
                             <!-- Đường dẫn thư mục máy chủ (chỉ dùng khi chạy trên máy cá nhân) -->
                             <div class="server-scan-toggle">
                                 <button type="button" id="toggle-server-scan" class="btn-link">

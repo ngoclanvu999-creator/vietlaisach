@@ -229,6 +229,11 @@ def extract_questions_from_text_lines(raw_lines: List[str], subject: str = "toan
         current_item.solution = clean_paragraph_text(current_item.solution)
         items.append(current_item)
 
+    # Nếu tài liệu không ghi riêng đáp án, thử rút từ lời giải ("... Chọn C.")
+    for item in items:
+        if not (item.correct_answer or "").strip() and item.solution:
+            item.correct_answer = rut_dap_an_tu_loi_giai(item.solution, len(item.options) or 4)
+
     # Đảm bảo làm sạch toàn bộ các phương án
     for item in items:
         # Nếu phương án bị dồn vào nội dung đề bài
@@ -600,6 +605,75 @@ Hãy đọc kỹ hình ảnh tài liệu này (chứa các câu hỏi Toán ho�
         ]
 
 
+# Các cách ghi đáp án thường gặp trong lời giải tiếng Việt. Bản nháp do AI soạn
+# hầu như luôn kết thúc bằng "Chọn C." hoặc "Đáp án: C" thay vì điền vào một
+# trường riêng, nên phải rút ra từ lời giải mới biết đáp án là gì.
+_MAU_DAP_AN = [
+    # "... nên chọn C." / "chọn đáp án C"
+    re.compile(r"(?:chọn|chon)\s*(?:đáp\s*án\s*)?([A-D])(?!\w)", re.IGNORECASE),
+    # "Đáp án: B" / "đáp án đúng là A"
+    re.compile(r"đáp\s*án\s*(?:đúng\s*)?(?:là\s*)?[:\s]\s*([A-D])(?!\w)", re.IGNORECASE),
+    re.compile(r"dap\s*an\s*(?:dung\s*)?(?:la\s*)?[:\s]\s*([A-D])(?!\w)", re.IGNORECASE),
+    # "⇒ D" / "=> D" / "-> D"
+    re.compile(r"(?:⇒|=>|→|->)\s*(?:đáp\s*án\s*)?([A-D])(?!\w)", re.IGNORECASE),
+]
+
+
+def rut_dap_an_tu_loi_giai(loi_giai: str, so_phuong_an: int = 4) -> str:
+    """
+    Rút nhãn đáp án (A/B/C/D) từ lời giải.
+
+    Lấy lần khớp CUỐI CÙNG vì lời giải hay nhắc tới nhiều phương án trong quá
+    trình loại trừ ("phương án A sai vì...", "... nên chọn C"), kết luận mới là
+    cái nằm ở cuối.
+    """
+    if not loi_giai:
+        return ""
+    cho_phep = "ABCD"[:max(2, min(4, so_phuong_an))]
+    for mau in _MAU_DAP_AN:
+        tim = mau.findall(loi_giai)
+        if tim:
+            gt = tim[-1].strip().upper()
+            if gt in cho_phep:
+                return gt
+    return ""
+
+
+class TextParser:
+    """
+    Đọc văn bản thuần (.txt / .md).
+
+    Dùng cho luồng: người dùng cho AI Gemini soạn bản nháp trong ứng dụng chat
+    (gói Pro, không tốn hạn mức API), rồi dán bản nháp đó vào công cụ để chuẩn
+    hóa định dạng và kiểm chứng đáp án.
+    """
+
+    @classmethod
+    def parse(cls, file_path: Path, subject: str = "toan") -> List[QuestionItem]:
+        for ma in ("utf-8", "utf-8-sig", "cp1258", "latin-1"):
+            try:
+                noi_dung = file_path.read_text(encoding=ma)
+                break
+            except (UnicodeDecodeError, LookupError):
+                continue
+        else:
+            raise ValueError("Không đọc được tệp văn bản: mã hóa lạ")
+
+        lines = [clean_paragraph_text(l) for l in noi_dung.splitlines()]
+        lines = [l for l in lines if l]
+        return extract_questions_from_text_lines(lines, subject=subject,
+                                                 source_file=file_path.name)
+
+
+def parse_text(noi_dung: str, subject: str = "toan", ten_nguon: str = "van_ban_dan") -> List[QuestionItem]:
+    """Bóc tách thẳng từ một chuỗi văn bản, không cần qua tệp."""
+    bat_dau_thu_thap_dau_hieu()
+    _ghi_nhan_dau_hieu(ten_nguon)
+    lines = [clean_paragraph_text(l) for l in (noi_dung or "").splitlines()]
+    lines = [l for l in lines if l]
+    return extract_questions_from_text_lines(lines, subject=subject, source_file=ten_nguon)
+
+
 def parse_input_file(file_path: Path, subject: str = "toan", api_key: Optional[str] = None) -> List[QuestionItem]:
     bat_dau_thu_thap_dau_hieu()
     _ghi_nhan_dau_hieu(file_path.stem.replace("_", " ").replace("-", " "))
@@ -612,11 +686,13 @@ def parse_input_file(file_path: Path, subject: str = "toan", api_key: Optional[s
         return PdfParser.parse(file_path, subject=subject)
     elif ext in [".png", ".jpg", ".jpeg", ".bmp", ".webp"]:
         return ImageParser.parse(file_path, subject=subject, api_key=api_key)
+    elif ext in [".txt", ".md"]:
+        return TextParser.parse(file_path, subject=subject)
     else:
         raise ValueError(f"Định dạng tệp không được hỗ trợ: {ext}. Vui lòng dùng .docx, .xlsx, .pdf, .png hoặc .jpg.")
 
 
-SUPPORTED_EXTENSIONS = {".docx", ".xlsx", ".pdf", ".png", ".jpg", ".jpeg"}
+SUPPORTED_EXTENSIONS = {".docx", ".xlsx", ".pdf", ".png", ".jpg", ".jpeg", ".txt", ".md"}
 
 def scan_directory(folder_path: Path) -> List[Dict[str, Any]]:
     if not folder_path.exists() or not folder_path.is_dir():
