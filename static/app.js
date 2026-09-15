@@ -106,6 +106,10 @@ document.addEventListener("DOMContentLoaded", () => {
     // ==========================================
     const KEY_STORE = "gemini_api_key";
     const MODEL_STORE = "gemini_model";
+    // Khóa Claude nằm riêng: hai nhà cung cấp, hai khóa, không dùng lẫn của nhau.
+    const CLAUDE_KEY_STORE = "claude_api_key";
+    const CLAUDE_MODEL_STORE = "claude_model";
+    const PROVIDER_STORE = "ai_provider";
 
     function readStore(name) {
         try {
@@ -135,8 +139,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const key = readStore(KEY_STORE);
         const model = readStore(MODEL_STORE);
         const access = readStore(ACCESS_STORE);
-        if (key) headers.set("X-Gemini-Key", key);
-        if (model) headers.set("X-Gemini-Model", model);
+        const provider = readStore(PROVIDER_STORE) || "gemini";
+        headers.set("X-AI-Provider", provider);
+        if (provider === "claude") {
+            const ck = readStore(CLAUDE_KEY_STORE);
+            const cm = readStore(CLAUDE_MODEL_STORE);
+            if (ck) headers.set("X-Claude-Key", ck);
+            if (cm) headers.set("X-Claude-Model", cm);
+        } else {
+            if (key) headers.set("X-Gemini-Key", key);
+            if (model) headers.set("X-Gemini-Model", model);
+        }
         if (access) headers.set("X-Access-Token", access);
         return fetch(url, Object.assign({}, opts, { headers: headers }));
     }
@@ -185,6 +198,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const modalSettings = document.getElementById("modal-settings");
     const btnCloseModal = document.getElementById("btn-close-modal");
     const geminiApiKeyInput = document.getElementById("gemini-api-key");
+    const aiProviderSelect = document.getElementById("ai-provider");
+    const khoiGemini = document.getElementById("khoi-gemini");
+    const khoiClaude = document.getElementById("khoi-claude");
+    const claudeApiKeyInput = document.getElementById("claude-api-key");
+    const claudeModelSelect = document.getElementById("claude-model");
+    const btnToggleClaudeKey = document.getElementById("btn-toggle-claude-key");
+    const claudeKeyStatus = document.getElementById("claude-key-status");
     const btnToggleKey = document.getElementById("btn-toggle-key");
     const geminiModelSelect = document.getElementById("gemini-model");
     const btnSaveSettings = document.getElementById("btn-save-settings");
@@ -1054,7 +1074,7 @@ Các câu cần giải:
     // ==========================================
     // RENDER QA SCORECARD
     // ==========================================
-    function renderQAScorecard(report) {
+    function renderQAScorecard(report, nhaCungCap) {
         const qaCard = document.getElementById("qa-scorecard");
         const qaScore = document.getElementById("qa-total-score");
         const qaList = document.getElementById("qa-checks-list");
@@ -1066,6 +1086,21 @@ Các câu cần giải:
 
         qaCard.classList.remove("hidden");
         qaScore.textContent = `${report.total_score} / ${report.max_score || 100} ĐIỂM (${report.status_text})`;
+
+        // Ghi rõ bản này do bên nào biên soạn. Chạy cùng một tệp qua hai nhà
+        // cung cấp rồi so hai con số là biết bên nào làm tốt hơn.
+        const oNguon = document.getElementById("qa-nguon");
+        if (oNguon) {
+            if (nhaCungCap && nhaCungCap.dung_ai) {
+                oNguon.classList.remove("hidden");
+                oNguon.innerHTML = `Biên soạn bởi <strong>${escapeHtml(nhaCungCap.ten_hien_thi)}</strong> <span class="qa-nguon-model">${escapeHtml(nhaCungCap.model)}</span>`;
+            } else if (nhaCungCap) {
+                oNguon.classList.remove("hidden");
+                oNguon.innerHTML = `Biên soạn bởi <strong>Bộ máy Offline</strong> — chưa dán khóa API`;
+            } else {
+                oNguon.classList.add("hidden");
+            }
+        }
         qaList.innerHTML = report.checks.map(c => `
             <div class="qa-check-item">
                 <span class="qa-check-icon">${c.passed ? "✔" : "⚠️"}</span>
@@ -1256,7 +1291,7 @@ Các câu cần giải:
                         btnDownload.href = data.download_url;
                         resultSingleActions.classList.remove("hidden");
                         resultBatchList.classList.add("hidden");
-                        renderQAScorecard(data.validation_report);
+                        renderQAScorecard(data.validation_report, data.nha_cung_cap);
                         renderBookPreview(data.book);
                     } else {
                         resultTitle.textContent = `Đã biên soạn thành công ${data.total_books} cuốn sách riêng lẻ`;
@@ -1322,7 +1357,7 @@ Các câu cần giải:
                     btnDownload.href = data.download_url;
                     resultSingleActions.classList.remove("hidden");
                     resultBatchList.classList.add("hidden");
-                    renderQAScorecard(data.validation_report);
+                    renderQAScorecard(data.validation_report, data.nha_cung_cap);
                     renderBookPreview(data.book);
                 } else {
                     alert("Lỗi: " + (data.detail || "Không rõ"));
@@ -1562,6 +1597,10 @@ Các câu cần giải:
         // Khóa lấy từ trình duyệt, không hỏi máy chủ
         geminiApiKeyInput.value = readStore(KEY_STORE);
         geminiModelSelect.value = readStore(MODEL_STORE) || "gemini-3.6-flash";
+        if (claudeApiKeyInput) claudeApiKeyInput.value = readStore(CLAUDE_KEY_STORE);
+        if (claudeModelSelect) claudeModelSelect.value = readStore(CLAUDE_MODEL_STORE) || "claude-sonnet-5";
+        if (aiProviderSelect) aiProviderSelect.value = readStore(PROVIDER_STORE) || "gemini";
+        doiKhoiNhaCungCap();
 
         try {
             const res = await apiFetch("/api/settings");
@@ -1590,12 +1629,39 @@ Các câu cần giải:
         }
     });
 
+    // Chỉ hiện khối của nhà cung cấp đang chọn, để khỏi rối mắt khi dán khóa.
+    function doiKhoiNhaCungCap() {
+        if (!aiProviderSelect || !khoiGemini || !khoiClaude) return;
+        const la_claude = aiProviderSelect.value === "claude";
+        khoiGemini.classList.toggle("hidden", la_claude);
+        khoiClaude.classList.toggle("hidden", !la_claude);
+    }
+    if (aiProviderSelect) aiProviderSelect.addEventListener("change", doiKhoiNhaCungCap);
+
+    if (btnToggleClaudeKey) {
+        btnToggleClaudeKey.addEventListener("click", () => {
+            if (claudeApiKeyInput.type === "password") {
+                claudeApiKeyInput.type = "text";
+                btnToggleClaudeKey.textContent = "Ẩn";
+            } else {
+                claudeApiKeyInput.type = "password";
+                btnToggleClaudeKey.textContent = "Hiện";
+            }
+        });
+    }
+
     btnSaveSettings.addEventListener("click", () => {
         const key = geminiApiKeyInput.value.trim();
         const model = geminiModelSelect.value;
+        const claudeKey = claudeApiKeyInput ? claudeApiKeyInput.value.trim() : "";
+        const claudeModel = claudeModelSelect ? claudeModelSelect.value : "claude-sonnet-5";
+        const provider = aiProviderSelect ? aiProviderSelect.value : "gemini";
 
         const okKey = writeStore(KEY_STORE, key);
         const okModel = writeStore(MODEL_STORE, model);
+        writeStore(CLAUDE_KEY_STORE, claudeKey);
+        writeStore(CLAUDE_MODEL_STORE, claudeModel);
+        writeStore(PROVIDER_STORE, provider);
 
         if (!okKey || !okModel) {
             alert(
@@ -1607,10 +1673,12 @@ Các câu cần giải:
         refreshKeyStatus();
         modalSettings.classList.add("hidden");
 
-        if (key) {
-            alert("Đã lưu khóa API vào trình duyệt của bạn. Khóa này chỉ mình bạn dùng.");
+        const dangDung = provider === "claude" ? claudeKey : key;
+        const tenNha = provider === "claude" ? "Anthropic Claude" : "Google Gemini";
+        if (dangDung) {
+            alert("Đã lưu. Đang dùng " + tenNha + ". Khóa nằm trong trình duyệt của bạn, chỉ mình bạn dùng.");
         } else {
-            alert("Đã xóa khóa API khỏi trình duyệt. Ứng dụng sẽ chạy bằng Bộ máy Offline.");
+            alert("Chưa có khóa cho " + tenNha + " nên ứng dụng sẽ chạy bằng Bộ máy Offline.");
         }
     });
 

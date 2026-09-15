@@ -29,6 +29,11 @@ from core.rewriter import (
     AI_SCOPE_THIEU, AI_SCOPE_TAT_CA, AI_SCOPE_KHONG, can_ai_xu_ly
 )
 from core.ai_namer import generate_creative_titles_gemini
+from core.ai_provider import (
+    GEMINI, CLAUDE, NHA_CUNG_CAP, chuan_hoa,
+    MODEL_GEMINI_CHO_PHEP, MODEL_CLAUDE_CHO_PHEP,
+    MODEL_CLAUDE_MAC_DINH, TEN_HIEN_THI as TEN_NHA_CUNG_CAP,
+)
 from core.exporter import DocxBookExporter
 from core.validator import PreFlightValidator
 from core.question_forge import (
@@ -229,6 +234,25 @@ ALLOWED_MODELS = {
 }
 
 
+def dau_an_nha_cung_cap(provider: str, model_name: str, api_key: str) -> dict:
+    """
+    Ghi lại tài liệu này do bên nào biên soạn.
+
+    Người dùng muốn so Gemini với Claude xem bên nào làm tốt hơn. So bằng cảm
+    giác thì không kết luận được gì, nên gắn dấu vào báo cáo thẩm định: cùng một
+    tệp chạy hai bên rồi đối chiếu số câu bị bắt lỗi là ra ngay.
+
+    Không bao giờ ghi lại chính khóa API, chỉ ghi có khóa hay không.
+    """
+    co_khoa = bool((api_key or "").strip())
+    return {
+        "provider": provider,
+        "ten_hien_thi": TEN_NHA_CUNG_CAP.get(provider, provider) if co_khoa else "Bộ máy Offline",
+        "model": model_name if co_khoa else "",
+        "dung_ai": co_khoa,
+    }
+
+
 def request_credentials(request: Request) -> tuple:
     """
     Lấy khóa Gemini và model THEO TỪNG NGƯỜI DÙNG, gửi kèm mỗi yêu cầu qua header.
@@ -241,19 +265,30 @@ def request_credentials(request: Request) -> tuple:
     Riêng khi chạy trên máy cá nhân (LOCAL_MODE) thì vẫn cho phép lấy khóa đã lưu
     trong app_settings.json hoặc biến môi trường, vì đó chính là máy của bạn.
     """
-    key = (request.headers.get("X-Gemini-Key") or "").strip()
-    model = (request.headers.get("X-Gemini-Model") or "").strip()
+    provider = (request.headers.get("X-AI-Provider") or "").strip().lower()
+    if provider not in NHA_CUNG_CAP:
+        provider = GEMINI
 
-    if not key and LOCAL_MODE:
-        settings = load_settings()
-        key = (settings.get("gemini_api_key") or "").strip()
-        if not model:
-            model = (settings.get("gemini_model") or "").strip()
+    if provider == CLAUDE:
+        key = (request.headers.get("X-Claude-Key") or "").strip()
+        model = (request.headers.get("X-Claude-Model") or "").strip()
+        if not key and LOCAL_MODE:
+            settings = load_settings()
+            key = (settings.get("claude_api_key") or "").strip()
+            if not model:
+                model = (settings.get("claude_model") or "").strip()
+    else:
+        key = (request.headers.get("X-Gemini-Key") or "").strip()
+        model = (request.headers.get("X-Gemini-Model") or "").strip()
+        if not key and LOCAL_MODE:
+            settings = load_settings()
+            key = (settings.get("gemini_api_key") or "").strip()
+            if not model:
+                model = (settings.get("gemini_model") or "").strip()
 
-    if model not in ALLOWED_MODELS:
-        model = DEFAULT_MODEL
-
-    return key, model
+    # chuan_hoa tự ép model lạ về mặc định đúng của nhà cung cấp đó
+    tt = chuan_hoa(provider, key, model)
+    return tt.api_key, tt.model, tt.provider
 
 
 # Những tùy chọn KHÔNG phải bí mật, lưu chung trên máy chủ được.
@@ -489,7 +524,7 @@ def ingest_documents(
         only = Path(found[0]["path"])
         single_rel = f"{session_dir.name}/{only.name}"
         try:
-            api_key, _ = request_credentials(request)
+            api_key, _, _ = request_credentials(request)
             parsed = parse_input_file(only, subject=subject, api_key=api_key)
             total_items = len(parsed)
             preview = [item.to_dict() for item in parsed[:15]]
@@ -534,7 +569,7 @@ class SuggestTitlesRequest(BaseModel):
 
 @app.post("/api/suggest-titles")
 def api_suggest_titles(req: SuggestTitlesRequest, request: Request):
-    api_key, model_name = request_credentials(request)
+    api_key, model_name, provider = request_credentials(request)
 
     titles = generate_creative_titles_gemini(
         sample_text=req.sample_text,
@@ -567,7 +602,7 @@ def upload_file(
     with open(save_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    api_key, _ = request_credentials(request)
+    api_key, _, _ = request_credentials(request)
 
     try:
         parsed_items = parse_input_file(save_path, subject=subject, api_key=api_key)
@@ -738,7 +773,7 @@ def process_single_document(
         raise HTTPException(status_code=404, detail="Không tìm thấy file nguồn đã tải lên")
 
     settings = load_settings()
-    api_key, model_name = request_credentials(request)
+    api_key, model_name, provider = request_credentials(request)
     paper_format = settings.get("output_format", "a4")
 
     try:
@@ -763,7 +798,8 @@ def process_single_document(
             model_name=model_name,
             doc_type=loai,
             exam_info=thong_tin_de,
-            ai_scope=ai_scope if ai_scope in (AI_SCOPE_THIEU, AI_SCOPE_TAT_CA, AI_SCOPE_KHONG) else AI_SCOPE_THIEU
+            ai_scope=ai_scope if ai_scope in (AI_SCOPE_THIEU, AI_SCOPE_TAT_CA, AI_SCOPE_KHONG) else AI_SCOPE_THIEU,
+            provider=provider, options=book_options
         )
 
         if custom_title and custom_title.strip():
@@ -793,6 +829,7 @@ def process_single_document(
             "book": book.to_dict(),
             "nhan_dien": nhan_dien,
             "validation_report": val_report.to_dict(),
+            "nha_cung_cap": dau_an_nha_cung_cap(provider, model_name, api_key),
             "output_filename": out_filename,
             "download_url": f"/api/download/{out_filename}"
         }
@@ -829,7 +866,7 @@ def process_folder(
     p = resolve_user_folder(folder_path)
 
     settings = load_settings()
-    api_key, model_name = request_credentials(request)
+    api_key, model_name, provider = request_credentials(request)
     paper_format = settings.get("output_format", "a4")
 
     files = scan_directory(p)
@@ -860,7 +897,8 @@ def process_folder(
                 subject=subject,
                 master_title=master_title,
                 api_key=api_key,
-                model_name=model_name
+                model_name=model_name,
+                options=book_options, doc_type=doc_type
             )
 
             # Người dùng chọn dạng đầu ra là ĐỀ THI thì gộp mọi câu thành MỘT đề
@@ -899,6 +937,7 @@ def process_folder(
                 "mode": "merge",
                 "book": master_book.to_dict(),
                 "validation_report": val_report.to_dict(),
+                "nha_cung_cap": dau_an_nha_cung_cap(provider, model_name, api_key),
                 "output_filename": out_filename,
                 "download_url": f"/api/download/{out_filename}"
             }
@@ -927,7 +966,8 @@ def process_folder(
                         model_name=model_name,
                         doc_type=loai_f,
                         exam_info=tt_de_f,
-                        ai_scope=ai_scope if ai_scope in (AI_SCOPE_THIEU, AI_SCOPE_TAT_CA, AI_SCOPE_KHONG) else AI_SCOPE_THIEU
+                        ai_scope=ai_scope if ai_scope in (AI_SCOPE_THIEU, AI_SCOPE_TAT_CA, AI_SCOPE_KHONG) else AI_SCOPE_THIEU,
+                        provider=provider, options=book_options
                     )
 
                     clean_slug = "".join(c for c in single_book.new_title[:25] if c.isalnum() or c in (" ", "-", "_")).strip().replace(" ", "_")
@@ -951,7 +991,8 @@ def process_folder(
                         "download_url": f"/api/download/{out_name}",
                         "title": single_book.new_title,
                         "total_questions": sum(len(c.questions) for c in single_book.chapters) if single_book.chapters else len(single_book.questions),
-                        "validation_report": val_report.to_dict()
+                        "validation_report": val_report.to_dict(),
+                        "nha_cung_cap": dau_an_nha_cung_cap(provider, model_name, api_key)
                     })
                 except Exception as e:
                     print(f"Lỗi khi xử lý {f_path.name}: {e}")
@@ -1016,7 +1057,7 @@ def api_generate_questions(req: GenerateRequest, request: Request):
     Sinh câu hỏi mới bằng AI rồi chạy đủ ba lớp thẩm định.
     Chỉ câu qua được TẤT CẢ mới vào ngân hàng; câu trượt trả về kèm lý do.
     """
-    api_key, model_name = request_credentials(request)
+    api_key, model_name, provider = request_credentials(request)
     if not api_key:
         raise HTTPException(
             status_code=400,

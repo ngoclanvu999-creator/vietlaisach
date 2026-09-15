@@ -2000,3 +2000,24 @@ body {
 }
 .draft-check ul { margin: 7px 0 0; padding-left: 18px; line-height: 1.75; }
 .draft-check .draft-head { font-weight: 700; }
+
+/* ==========================================================
+   DẤU ẤN NHÀ CUNG CẤP AI TRÊN BẢNG THẨM ĐỊNH
+   Ghi rõ bản này do Gemini hay Claude biên soạn, để so được bằng số.
+   ========================================================== */
+.qa-nguon {
+    margin: 0 0 11px;
+    padding: 7px 12px;
+    border-radius: 7px;
+    font-size: 12.3px;
+    color: var(--text-muted);
+    background: rgba(139, 92, 246, 0.08);
+    border: 1px solid rgba(139, 92, 246, 0.24);
+}
+.qa-nguon strong { color: var(--text-main); }
+.qa-nguon-model {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    opacity: 0.75;
+    margin-left: 6px;
+}

@@ -12,6 +12,7 @@ from core.theory_bank import (
 )
 from core.ai_namer import synthesize_book_metadata
 from core.doc_type import DE_THI, SACH, CHUYEN_DE
+from core.ai_provider import GEMINI, CLAUDE, chuan_hoa, goi_ai, boc_json, LoiHanMuc
 
 @dataclass
 class RewrittenQuestionItem:
@@ -676,12 +677,14 @@ def rewrite_with_gemini(
     model_name: str = "gemini-3.6-flash",
     subject: str = "toan",
     add_count: int = 2,
-    ai_scope: str = AI_SCOPE_THIEU
+    ai_scope: str = AI_SCOPE_THIEU,
+    provider: str = GEMINI,
+    options: Optional[Dict[str, Any]] = None,
+    doc_type: str = ""
 ) -> RewrittenBook:
-    from google import genai
-    from google.genai import types
-
-    client = genai.Client(api_key=api_key)
+    # Tên hàm giữ nguyên cho khỏi vỡ các lệnh gọi cũ, nhưng nay nó chạy được cả
+    # Gemini lẫn Claude — chọn bên nào là do `provider`.
+    tt = chuan_hoa(provider, api_key, model_name)
     total_orig = len(questions)
     new_total = total_orig + add_count
 
@@ -714,7 +717,8 @@ def rewrite_with_gemini(
         meta = synthesize_book_metadata(
             filename=source_filename,
             sample_content="\n".join(q.content for q in questions[:6]),
-            subject=subject, api_key=api_key, model_name=model_name
+            subject=subject, api_key=api_key, model_name=model_name,
+            options=options, doc_type=doc_type
         )
         return RewrittenBook(
             original_title=source_filename,
@@ -783,16 +787,11 @@ TRẢ VỀ ĐỊNH DẠNG JSON:
 Chỉ trả về JSON thuần túy.
 """
         try:
-            response = client.models.generate_content(
-                model=model_name,
-                contents=prompt,
-                config=types.GenerateContentConfig(response_mime_type="application/json")
-            )
-            data = json.loads(response.text)
+            data = boc_json(goi_ai(tt, prompt, json_mode=True, max_tokens=32000))
         except Exception as e:
             # Một lô lỗi không được làm hỏng cả cuốn sách: rơi về bộ xử lý ngoại
             # tuyến cho riêng lô đó rồi đi tiếp.
-            print(f"Lô {batch_no} gặp lỗi Gemini ({e}), dùng bộ xử lý ngoại tuyến cho lô này.")
+            print(f"Lô {batch_no} gặp lỗi {tt.ten_hien_thi} ({e}), dùng bộ xử lý ngoại tuyến cho lô này.")
             for vi_tri, q in batch:
                 ket_qua_theo_vi_tri[vi_tri] = generate_offline_enhancement(
                     q, vi_tri + 1, new_total, subject, topic_key=topic_data.get("topic_key")
@@ -877,7 +876,8 @@ Chỉ trả về JSON thuần túy.
         sample_content="\n".join(q.content for q in questions[:6]),
         subject=subject,
         api_key=api_key,
-        model_name=model_name
+        model_name=model_name,
+        options=options, doc_type=doc_type
     )
 
     default_title = f"{new_total} Tuyệt Kỹ Chinh Phục Điểm 9+ {'Toán Học' if subject == 'toan' else 'Vật Lý'}"
@@ -902,7 +902,9 @@ def rewrite_offline(
     subject: str = "toan",
     add_count: int = 2,
     api_key: Optional[str] = None,
-    model_name: str = "gemini-3.6-flash"
+    model_name: str = "gemini-3.6-flash",
+    options: Optional[Dict[str, Any]] = None,
+    doc_type: str = ""
 ) -> RewrittenBook:
     source_filename = questions[0].source_file if questions else ""
 
@@ -921,7 +923,8 @@ def rewrite_offline(
         sample_content=sample_content,
         subject=subject,
         api_key=api_key,
-        model_name=model_name
+        model_name=model_name,
+        options=options, doc_type=doc_type
     )
     book_title = meta.get("book_title") or (Path(source_filename).stem.replace("_", " ").upper() if source_filename else "TÀI LIỆU CHUYÊN ĐỀ")
     subtitle = meta.get("subtitle", "Hệ Thống Kiến Thức Trọng Tâm & Lời Giải Chi Tiết Chuẩn BGD")
@@ -1029,7 +1032,9 @@ def create_master_book_from_chapters(
     subject: str = "toan",
     master_title: Optional[str] = None,
     api_key: Optional[str] = None,
-    model_name: str = "gemini-3.6-flash"
+    model_name: str = "gemini-3.6-flash",
+    options: Optional[Dict[str, Any]] = None,
+    doc_type: str = ""
 ) -> RewrittenBook:
     chapters: List[RewrittenChapter] = []
 
@@ -1085,7 +1090,8 @@ def create_master_book_from_chapters(
         sample_content=sample_content,
         subject=subject,
         api_key=api_key,
-        model_name=model_name
+        model_name=model_name,
+        options=options, doc_type=doc_type
     )
 
     if master_title and master_title.strip():
@@ -1123,7 +1129,9 @@ def process_rewrite_pipeline(
     model_name: str = "gemini-3.6-flash",
     doc_type: str = CHUYEN_DE,
     exam_info: Optional[Dict[str, str]] = None,
-    ai_scope: str = AI_SCOPE_THIEU
+    ai_scope: str = AI_SCOPE_THIEU,
+    provider: str = GEMINI,
+    options: Optional[Dict[str, Any]] = None
 ) -> RewrittenBook:
     """
     Đầu vào là đề thi thì KHÔNG chèn thêm câu mới: một đề thi 50 câu mà tự dưng
@@ -1140,23 +1148,27 @@ def process_rewrite_pipeline(
     # Không dùng AI thì khỏi gọi, chạy thẳng bộ ngoại tuyến
     if ai_scope == AI_SCOPE_KHONG:
         return _gan_loai(rewrite_offline(
-            questions, subject=subject, add_count=add_count, api_key=None
+            questions, subject=subject, add_count=add_count, api_key=None,
+            options=options, doc_type=doc_type
         ))
 
     if api_key and api_key.strip():
         try:
             return _gan_loai(rewrite_with_gemini(
                 questions, api_key=api_key.strip(), model_name=model_name,
-                subject=subject, add_count=add_count, ai_scope=ai_scope
+                subject=subject, add_count=add_count, ai_scope=ai_scope,
+                provider=provider, options=options, doc_type=doc_type
             ))
         except Exception as e:
-            print(f"Lỗi Gemini pipeline: {e}. Chuyển sang rewrite_offline.")
+            print(f"Lỗi đường ống AI: {e}. Chuyển sang rewrite_offline.")
             return _gan_loai(rewrite_offline(
                 questions, subject=subject, add_count=add_count,
-                api_key=api_key, model_name=model_name
+                api_key=api_key, model_name=model_name,
+                options=options, doc_type=doc_type
             ))
     else:
         return _gan_loai(rewrite_offline(
             questions, subject=subject, add_count=add_count,
-            api_key=api_key, model_name=model_name
+            api_key=api_key, model_name=model_name,
+            options=options, doc_type=doc_type
         ))

@@ -383,13 +383,28 @@ def synthesize_book_metadata(
     sample_content: str = "",
     subject: str = "toan",
     api_key: Optional[str] = None,
-    model_name: str = "gemini-3.6-flash"
+    model_name: str = "gemini-3.6-flash",
+    options: Optional[Dict[str, Any]] = None,
+    doc_type: str = ""
 ) -> Dict[str, Any]:
     """
     Đặt tên sách độc bản, ấn tượng, đúng tinh thần tài liệu, không trùng lặp giữa các cuốn.
     Tự động gọi danh sách các tựa sách thôi miên để chọn ra tựa sách hấp dẫn nhất!
+
+    Hai lượt gọi AI ở đây (đặt tựa + sáng tạo nội dung) trước kia chạy vô điều
+    kiện, kể cả khi người dùng đã bỏ tích hết các mục tương ứng — tức mỗi tài
+    liệu tiêu oan tới 2 lượt, bằng 10% hạn mức miễn phí một ngày. Nay chỉ gọi
+    khi thật sự có thứ để in ra:
+      - Tựa sách sáng tạo: đề thi không cần, vì đề thi có tiêu đề hành chính riêng.
+      - Nội dung sáng tạo: chỉ gọi khi còn ít nhất một trong lời tựa, bí kíp,
+        góc STEM được bật.
     """
     key = get_effective_api_key(api_key)
+    opts = options or {}
+    can_tua_sang_tao = str(doc_type or "").upper() != "DE_THI"
+    can_noi_dung = any(
+        opts.get(k, True) for k in ("foreword", "secrets", "stem")
+    )
     combined_info = f"File: {filename}\nRaw Title: {raw_title}\nSubtitle: {raw_subtitle}\nSeries: {series}\nChapters: {chapter_titles}\nContent Sample: {sample_content[:1000]}"
     info = extract_grade_and_subject(combined_info, default_subject=subject)
     subj_name = "Toán Học" if info["subject"] == "toan" else "Vật Lý"
@@ -402,10 +417,16 @@ def synthesize_book_metadata(
         subject=subject,
         api_key=key,
         model_name=model_name
-    )
+    ) if can_tua_sang_tao else []
 
     best_match = creative_titles[0] if creative_titles else {}
-    book_title = best_match.get("title", f"CẨM NANG TOÀN DIỆN {subj_name.upper()} {info['grade'].upper()}")
+    # Đề thi không đặt tựa kiểu sách: tiêu đề của nó là tiêu đề hành chính.
+    tua_du_phong = (
+        f"ĐỀ KIỂM TRA {subj_name.upper()} {info['grade'].upper()}"
+        if not can_tua_sang_tao
+        else f"CẨM NANG TOÀN DIỆN {subj_name.upper()} {info['grade'].upper()}"
+    )
+    book_title = best_match.get("title", tua_du_phong)
     subtitle = best_match.get("subtitle", "Hệ Thống Kiến Thức Trọng Tâm, Mẹo Casio & Lời Giải Chi Tiết Chuẩn BGD")
     final_series = series if series else f"TỦ SÁCH {subj_name.upper()} THPT — {info['grade'].upper()}"
 
@@ -415,7 +436,7 @@ def synthesize_book_metadata(
         subject=subject,
         api_key=key,
         model_name=model_name
-    )
+    ) if can_noi_dung else {}
 
     return {
         "book_title": book_title.upper(),
