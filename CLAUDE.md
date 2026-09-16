@@ -8,14 +8,57 @@ Nghị định 30/2020/NĐ-CP và chương trình GDPT 2018.
 ```
 app.py            FastAPI, mỏng — chỉ điều phối, không chứa logic biên soạn
 config.py         LOCAL_MODE, ACCESS_TOKEN, đọc/ghi app_settings.json
-core/parser.py    Bóc tách docx / xlsx / pdf / ảnh  → QuestionItem
-core/math_engine  Làm sạch ký hiệu toán, số mũ, phân số
-core/theory_bank  Ngân hàng lý thuyết theo 8 chuyên đề
-core/rewriter.py  Tái cấu trúc + gọi Gemini → RewrittenBook
-core/validator.py Thẩm định trước xuất bản (đo trên file Word thật)
-core/exporter.py  Xuất .docx chuẩn NĐ 30
-static/app.js     Toàn bộ giao diện, vanilla JS, không framework
+core/parser.py       Bóc tách docx / xlsx / pdf / ảnh  → QuestionItem
+core/math_engine     Làm sạch ký hiệu toán, số mũ, phân số
+core/theory_bank     Ngân hàng lý thuyết theo 16 chuyên đề
+core/ai_provider.py  MỘT cửa gọi AI cho cả Gemini lẫn Claude
+core/skill_loader.py Nạp chuẩn nghiệp vụ từ skills/ vào câu lệnh
+core/loai_dau_ra.py  Chín loại đầu ra + cấu trúc & thang điểm đề
+core/rewriter.py     Tái cấu trúc + gọi AI → RewrittenBook
+core/validator.py    Thẩm định trước xuất bản (đo trên file Word thật)
+core/exporter.py     Xuất .docx chuẩn NĐ 30, rẽ nhánh theo loại đầu ra
+core/exporter_de.py  Bộ đề chuẩn 2025: ma trận + đặc tả + đề 3 phần + HD chấm
+core/exporter_hsg.py Tài liệu HSG (tự luận, giấu phương án)
+core/exporter_giao_an.py  Giáo án khung Công văn 5512
+core/exporter_pptx.py     Bài giảng PowerPoint
+skills/              Chuẩn nghiệp vụ, ĐI THEO REPO để deploy được
+static/app.js        Toàn bộ giao diện, vanilla JS, không framework
 ```
+
+## Chín loại đầu ra
+
+Phân biệt hai khái niệm dễ lẫn: **nhận diện** (`doc_type.py`, đoán tài liệu đưa
+vào là gì, ba loại) và **đầu ra** (`loai_dau_ra.py`, người dùng muốn nhận lại
+dạng gì, chín loại). Nhận diện chỉ GỢI Ý, không quyết định thay người dùng.
+
+Chín loại thuộc bốn nhóm chịu bốn chuẩn khác nhau, mỗi nhóm một bộ dựng riêng.
+Với đề kiểm tra định kì, "hoàn chỉnh đúng chuẩn" là **bộ bốn phần**: ma trận đề,
+bản đặc tả, đề ba phần I/II/III, hướng dẫn chấm.
+
+**Thang điểm Phần II là chỗ dễ lập trình sai nhất**: lũy tiến 0,1 / 0,25 / 0,5 /
+1,0 theo số ý đúng, KHÔNG phải 0,25 nhân số ý. Đúng 2 trong 4 ý chỉ được 0,25.
+Mọi tổ hợp loại đề × môn đều phải cộng lại đúng 10,0 — có `kiem_tra_tong_diem()`.
+
+## Skill chính là câu lệnh
+
+Skill không phải tài liệu tham khảo, nó là phần đầu của câu lệnh gửi cho AI.
+Skill nằm trong `skills/` của repo chứ KHÔNG đọc từ `~/.claude/skills`, vì máy
+chủ triển khai không có thư mục cá nhân đó. Dùng `scripts/dong_bo_skill.py` để
+giữ hai nơi không trôi khác nhau.
+
+Khi sửa câu lệnh trong `rewriter.py`, nhớ **ví dụ trong khuôn JSON phải khớp với
+quy tắc ghi ở trên**. Mô hình bám theo ví dụ mạnh hơn bám theo lời dặn — đã từng
+để khuôn ghi "Thông hiểu" và "Mẹo Casio" trong khi luật ngay trên bảo dùng ba
+mức 2025 và cấm nhắc Casio ở tiểu học.
+
+## Cấp học quyết định giọng văn và trang trí
+
+Tiểu học: câu ngắn thân thiện, ĐƯỢC thêm biểu tượng và trang trí. THPT: trang
+trọng, không trang trí. **Giáo án mọi cấp đều không trang trí** vì là hồ sơ
+chuyên môn nộp cho tổ và trường. Xem `skill_loader.duoc_trang_tri()`.
+
+Mẫu nhận diện cấp học phải nhận cả dạng có dấu lẫn không dấu, và coi `_`, `-`,
+`.` là dấu ngăn — tên tệp trong kho viết kiểu `BT_cuoi_tuan_lop_2.docx`.
 
 Luồng: `ingest → parse → rewrite → export → validate`.
 Thẩm định chạy **sau** khi xuất file vì nó mở lại file Word để đo lề và khổ giấy.
@@ -27,8 +70,9 @@ sách cho học sinh là lỗi không thể chấp nhận. Mọi câu hỏi thê
 `VERIFIED_QUESTION_BANK` (core/rewriter.py) phải được **tính lại độc lập bằng
 Python** trước khi đưa vào, không tin vào trí nhớ.
 
-**Khóa API là của riêng từng người.** Khóa đi theo header `X-Gemini-Key` từng
-yêu cầu, máy chủ không lưu. Trên Web (`LOCAL_MODE=False`) nếu người dùng chưa
+**Khóa API là của riêng từng người.** Khóa đi theo header `X-Gemini-Key` hoặc
+`X-Claude-Key` từng yêu cầu, máy chủ không lưu. Hai nhà cung cấp KHÔNG dùng lẫn
+khóa của nhau: chọn Claude mà chỉ có khóa Gemini thì chạy ngoại tuyến, không mượn. Trên Web (`LOCAL_MODE=False`) nếu người dùng chưa
 dán khóa thì chạy offline, **tuyệt đối không mượn khóa của máy chủ** — làm vậy
 là tiêu hạn mức của người khác. Đường dễ lọt nhất là
 `core/ai_namer.get_effective_api_key()`, nó tự đọc settings và biến môi trường.
