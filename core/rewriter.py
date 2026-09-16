@@ -80,6 +80,8 @@ class RewrittenBook:
     # dung cu theo doc_type.
     loai_dau_ra: str = ""
     subject: str = "toan"
+    # Ten bai trong SGK — chi giao an dung toi
+    ten_bai: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return {

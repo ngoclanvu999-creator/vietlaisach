@@ -191,7 +191,7 @@ def prune_output_dir(max_files: int = MAX_OUTPUT_FILES) -> int:
         # loại ("Đề thi học kì 1/…"), iterdir sẽ không thấy tệp nào và thư mục
         # output phình vô hạn mà không ai biết.
         files = [f for f in OUTPUT_DIR.rglob("*")
-                 if f.is_file() and f.suffix.lower() in (".docx", ".zip")]
+                 if f.is_file() and f.suffix.lower() in (".docx", ".zip", ".pptx")]
     except Exception:
         return 0
     if len(files) <= max_files:
@@ -828,6 +828,28 @@ def process_single_document(
         clean_title_slug = "".join(c for c in book.new_title[:30] if c.isalnum() or c in (" ", "-", "_")).strip().replace(" ", "_")
         tien_to = (quy_cach(book.loai_dau_ra).ten.replace(" ", "_")
                    if quy_cach(book.loai_dau_ra) else "Sach_Bien_Soan")
+
+        # Bài giảng ra .pptx chứ không phải .docx — cả đường ống còn lại chạy
+        # trên python-docx nên phải rẽ nhánh hẳn ở đây.
+        if book.loai_dau_ra == "BAI_GIANG":
+            from core.exporter_pptx import xuat_bai_giang
+            out_filename = f"{tien_to}_{stem}_{clean_title_slug}.pptx"
+            out_path, duong_tai = duong_dan_ket_qua(book.loai_dau_ra, out_filename)
+            xuat_bai_giang(book, out_path, subject=subject,
+                           cap_hoc=getattr(book, "cap_hoc", "THPT"),
+                           ten_bai=getattr(book, "ten_bai", ""),
+                           options=book_options)
+            prune_output_dir()
+            return {
+                "status": "success",
+                "book": book.to_dict(),
+                "nhan_dien": nhan_dien,
+                "validation_report": None,
+                "nha_cung_cap": dau_an_nha_cung_cap(provider, model_name, api_key),
+                "output_filename": out_filename,
+                "download_url": f"/api/download/{duong_tai}",
+            }
+
         out_filename = f"{tien_to}_{stem}_{clean_title_slug}.docx"
         out_path, duong_tai = duong_dan_ket_qua(book.loai_dau_ra, out_filename)
         DocxBookExporter.export(book, out_path, paper_format=paper_format, options=book_options)
@@ -1246,12 +1268,70 @@ def ingest_text(req: DanVanBanRequest):
         "total_items": len(questions),
         "preview": [q.to_dict() for q in questions[:15]],
         "nhan_dien": nhan_dien,
-        "soi_loi": soi_loi_ban_nhap(questions),
+        "soi_loi": soi_loi_ban_nhap(questions, noi_dung),
         "source_summary": f"bản nháp dán vào — {len(questions)} câu",
     }
 
 
-def soi_loi_ban_nhap(questions: list) -> dict:
+def soi_thieu_cau(noi_dung: str, questions: list) -> list:
+    """
+    Phát hiện bản nháp bị cắt giữa chừng — bẫy nguy hiểm nhất của luồng dán.
+
+    Mô hình hay dừng đột ngột khi câu trả lời dài. Bộ soi cũ kiểm tra từng câu
+    một nên câu nào còn thì vẫn báo sạch, KHÔNG hề biết đã mất mười câu cuối.
+    Báo cáo xanh nhưng sách thiếu bài là kiểu lỗi tệ nhất: người dùng tin tưởng
+    rồi in ra mới phát hiện.
+
+    Ba phép soi, đều không cần biết tài liệu gốc:
+      1. Số thứ tự "Câu N" trong văn bản có bị đứt quãng không.
+      2. Số câu cao nhất xuất hiện có lớn hơn số câu bóc tách được không.
+      3. Câu cuối cùng có bị cụt giữa chừng không.
+    """
+    import re
+    canh_bao = []
+
+    so_trong_van_ban = [int(m) for m in re.findall(
+        r"^\s*(?:câu|cau|bài|bai)\s*(\d{1,3})\s*[.:)]",
+        noi_dung, re.IGNORECASE | re.MULTILINE)]
+    so_trong_van_ban = [n for n in so_trong_van_ban if 1 <= n <= 300]
+
+    if so_trong_van_ban:
+        cao_nhat = max(so_trong_van_ban)
+        co_mat = set(so_trong_van_ban)
+        thieu = [n for n in range(1, cao_nhat + 1) if n not in co_mat]
+        if thieu:
+            hien = ", ".join(str(n) for n in thieu[:12])
+            them = f" và {len(thieu) - 12} câu nữa" if len(thieu) > 12 else ""
+            canh_bao.append(
+                f"Số thứ tự đứt quãng: thiếu câu {hien}{them}. "
+                f"Bản nháp đánh số tới câu {cao_nhat} nhưng không có đủ.")
+
+        if cao_nhat > len(questions):
+            canh_bao.append(
+                f"Bản nháp đánh số tới câu {cao_nhat} nhưng chỉ bóc tách được "
+                f"{len(questions)} câu — nhiều khả năng bị cắt giữa chừng. "
+                f"Hãy bảo AI viết tiếp từ câu {len(questions) + 1}.")
+
+    # Câu cuối bị cụt: mô hình dừng ngay giữa phương án hoặc giữa lời giải
+    if questions:
+        cuoi = questions[-1]
+        ten = cuoi.title or f"Câu {cuoi.index}"
+        opts = cuoi.options or []
+        if opts and len(opts) < 4:
+            canh_bao.append(
+                f"{ten} là câu cuối và chỉ có {len(opts)} phương án — "
+                f"dấu hiệu điển hình của bản nháp bị cắt ngang.")
+        elif not (cuoi.solution or "").strip() and len(questions) > 1:
+            co_loi_giai = sum(1 for q in questions[:-1] if (q.solution or "").strip())
+            if co_loi_giai >= max(1, (len(questions) - 1) * 0.6):
+                canh_bao.append(
+                    f"{ten} là câu cuối và thiếu lời giải trong khi hầu hết câu "
+                    f"trước đều có — nhiều khả năng bị cắt ở đây.")
+
+    return canh_bao
+
+
+def soi_loi_ban_nhap(questions: list, noi_dung: str = "") -> dict:
     """
     Soi lỗi bản nháp mà KHÔNG gọi API.
 
@@ -1286,12 +1366,17 @@ def soi_loi_ban_nhap(questions: list) -> dict:
         if len((q.content or "").strip()) < 25:
             loi.append(f"{ten}: đề bài quá ngắn, có thể bị cắt mất")
 
+    # Thiếu cả câu là LỖI NẶNG chứ không phải cảnh báo: xuất ra sách là thiếu bài.
+    thieu = soi_thieu_cau(noi_dung, questions) if noi_dung else []
+    loi = thieu + loi
+
     return {
         "so_cau": len(questions),
         "loi_nang": loi[:60],
         "so_loi_nang": len(loi),
         "canh_bao": canh_bao[:60],
         "so_canh_bao": len(canh_bao),
+        "thieu_cau": thieu,
         "sach_se": not loi and not canh_bao,
     }
 
@@ -1327,7 +1412,10 @@ def download_file(filename: str):
     if not file_path.exists() or not file_path.is_file():
         raise HTTPException(status_code=404, detail="File không tồn tại hoặc đã bị xóa")
     ext = file_path.suffix.lower()
-    media_type = "application/zip" if ext == ".zip" else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    media_type = {
+        ".zip": "application/zip",
+        ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    }.get(ext, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
     return FileResponse(
         path=str(file_path),
         filename=file_path.name,

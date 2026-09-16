@@ -632,11 +632,32 @@ class DocxBookExporter:
         # Chín loại đầu ra: năm loại đề đi qua bộ dựng chuẩn 2025 (ma trận, bản
         # đặc tả, đề ba phần, hướng dẫn chấm). Các loại còn lại giữ bố cục cũ.
         loai_ra = getattr(book, "loai_dau_ra", "") or ""
+        mon = getattr(book, "subject", "") or "toan"
         if la_loai_de(loai_ra):
             from core.exporter_de import xuat_bo_de
-            mon = getattr(book, "subject", "") or "toan"
             xuat_bo_de(doc, book, loai_ra, mon,
                        kem_loi_giai=bool(opts.get("solution", True)))
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            doc.save(str(output_path))
+            return output_path
+
+        # Tài liệu HSG không dùng chung bộ dựng sách: đề HSG là tự luận, phải
+        # giấu phương án đi chứ không cho sẵn bốn lựa chọn để đoán.
+        if loai_ra == "TAI_LIEU_HSG":
+            from core.exporter_hsg import xuat_tai_lieu_hsg
+            xuat_tai_lieu_hsg(doc, book, mon, opts)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            doc.save(str(output_path))
+            return output_path
+
+        # Giao an: khung Cong van 5512. La ho so chuyen mon nen o MOI cap hoc
+        # deu giu nghiem ngat, khong bieu tuong, khong trang tri.
+        if loai_ra == "GIAO_AN":
+            from core.exporter_giao_an import xuat_giao_an
+            xuat_giao_an(doc, book, mon,
+                         cap_hoc=getattr(book, "cap_hoc", "THPT"),
+                         ten_bai=getattr(book, "ten_bai", "") or "",
+                         options=opts)
             output_path.parent.mkdir(parents=True, exist_ok=True)
             doc.save(str(output_path))
             return output_path

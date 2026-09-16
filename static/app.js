@@ -1286,7 +1286,7 @@ Các câu cần giải:
                         formData.append("doc_type", v);
                     } else {
                         formData.append("loai_dau_ra", v);
-                        formData.append("doc_type", v.startsWith("DE_") ? "DE_THI" : "CHUYEN_DE");
+                        formData.append("doc_type", v.startsWith("DE_") && v !== "DE_THI" ? "DE_THI" : "CHUYEN_DE");
                     }
                 }
                 if (capHocSelect && capHocSelect.value) {
@@ -1364,7 +1364,7 @@ Các câu cần giải:
                         formData.append("doc_type", v);
                     } else {
                         formData.append("loai_dau_ra", v);
-                        formData.append("doc_type", v.startsWith("DE_") ? "DE_THI" : "CHUYEN_DE");
+                        formData.append("doc_type", v.startsWith("DE_") && v !== "DE_THI" ? "DE_THI" : "CHUYEN_DE");
                     }
                 }
                 if (capHocSelect && capHocSelect.value) {
