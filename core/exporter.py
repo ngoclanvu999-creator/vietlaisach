@@ -7,6 +7,7 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml import parse_xml
 from docx.oxml.ns import nsdecls, qn
 from core.rewriter import RewrittenBook, RewrittenChapter, RewrittenQuestionItem
+from core.loai_dau_ra import la_de as la_loai_de
 
 # Bảng màu sắc chuẩn sư phạm & thanh lịch
 COLOR_PRIMARY = RGBColor(26, 54, 93)       # Xanh Navy Đậm #1A365D (Chuẩn sách Bộ GD)
@@ -628,6 +629,18 @@ class DocxBookExporter:
         # Đầu vào là đề thi thì đầu ra cũng phải là đề thi: học sinh làm bài
         # trước rồi mới xem đáp án. Đầu vào là sách thì giữ bố cục sách.
         # ==========================================
+        # Chín loại đầu ra: năm loại đề đi qua bộ dựng chuẩn 2025 (ma trận, bản
+        # đặc tả, đề ba phần, hướng dẫn chấm). Các loại còn lại giữ bố cục cũ.
+        loai_ra = getattr(book, "loai_dau_ra", "") or ""
+        if la_loai_de(loai_ra):
+            from core.exporter_de import xuat_bo_de
+            mon = getattr(book, "subject", "") or "toan"
+            xuat_bo_de(doc, book, loai_ra, mon,
+                       kem_loi_giai=bool(opts.get("solution", True)))
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            doc.save(str(output_path))
+            return output_path
+
         if getattr(book, "doc_type", "") == "DE_THI":
             cls.export_exam(book, doc, opts)
             output_path.parent.mkdir(parents=True, exist_ok=True)

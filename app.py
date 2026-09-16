@@ -34,6 +34,9 @@ from core.ai_provider import (
     MODEL_GEMINI_CHO_PHEP, MODEL_CLAUDE_CHO_PHEP,
     MODEL_CLAUDE_MAC_DINH, TEN_HIEN_THI as TEN_NHA_CUNG_CAP,
 )
+from core.loai_dau_ra import (
+    QUY_CACH, DANH_SACH as DS_DAU_RA, quy_cach, la_de, thu_muc_cua,
+)
 from core.skill_loader import (
     phat_hien_cap_hoc, duoc_trang_tri, TEN_CAP_HOC,
     TIEU_HOC, THCS, THPT,
@@ -184,7 +187,11 @@ MAX_OUTPUT_FILES = int(os.environ.get("MAX_OUTPUT_FILES", "200"))
 def prune_output_dir(max_files: int = MAX_OUTPUT_FILES) -> int:
     """Xóa bớt các file thành phẩm cũ nhất, giữ lại max_files file mới nhất."""
     try:
-        files = [f for f in OUTPUT_DIR.iterdir() if f.is_file() and f.suffix.lower() in (".docx", ".zip")]
+        # rglob chứ không phải iterdir: kết quả nay nằm trong thư mục con theo
+        # loại ("Đề thi học kì 1/…"), iterdir sẽ không thấy tệp nào và thư mục
+        # output phình vô hạn mà không ai biết.
+        files = [f for f in OUTPUT_DIR.rglob("*")
+                 if f.is_file() and f.suffix.lower() in (".docx", ".zip")]
     except Exception:
         return 0
     if len(files) <= max_files:
@@ -759,6 +766,7 @@ def process_single_document(
     doc_type: Optional[str] = Form(None),
     ai_scope: Optional[str] = Form(None),
     cap_hoc: Optional[str] = Form(None),
+    loai_dau_ra: Optional[str] = Form(None),
     include_theory: Optional[str] = Form(None),
     include_foreword: Optional[str] = Form(None),
     include_secrets: Optional[str] = Form(None),
@@ -808,7 +816,8 @@ def process_single_document(
             exam_info=thong_tin_de,
             ai_scope=ai_scope if ai_scope in (AI_SCOPE_THIEU, AI_SCOPE_TAT_CA, AI_SCOPE_KHONG) else AI_SCOPE_THIEU,
             provider=provider, options=book_options,
-            cap_hoc=cap_hoc if cap_hoc in (TIEU_HOC, THCS, THPT) else ""
+            cap_hoc=cap_hoc if cap_hoc in (TIEU_HOC, THCS, THPT) else "",
+            loai_dau_ra=loai_dau_ra if quy_cach(loai_dau_ra) else ""
         )
 
         if custom_title and custom_title.strip():
@@ -817,8 +826,10 @@ def process_single_document(
         # 3. Xuất Word chuẩn Nghị định 30
         stem = input_path.stem
         clean_title_slug = "".join(c for c in book.new_title[:30] if c.isalnum() or c in (" ", "-", "_")).strip().replace(" ", "_")
-        out_filename = f"Sach_Bien_Soan_{stem}_{clean_title_slug}.docx"
-        out_path = resolve_within(OUTPUT_DIR, out_filename)
+        tien_to = (quy_cach(book.loai_dau_ra).ten.replace(" ", "_")
+                   if quy_cach(book.loai_dau_ra) else "Sach_Bien_Soan")
+        out_filename = f"{tien_to}_{stem}_{clean_title_slug}.docx"
+        out_path, duong_tai = duong_dan_ket_qua(book.loai_dau_ra, out_filename)
         DocxBookExporter.export(book, out_path, paper_format=paper_format, options=book_options)
         prune_output_dir()
 
@@ -840,7 +851,7 @@ def process_single_document(
             "validation_report": val_report.to_dict(),
             "nha_cung_cap": dau_an_nha_cung_cap(provider, model_name, api_key),
             "output_filename": out_filename,
-            "download_url": f"/api/download/{out_filename}"
+            "download_url": f"/api/download/{duong_tai}"
         }
     except Exception as e:
         import traceback
@@ -858,6 +869,7 @@ def process_folder(
     doc_type: Optional[str] = Form(None),
     ai_scope: Optional[str] = Form(None),
     cap_hoc: Optional[str] = Form(None),
+    loai_dau_ra: Optional[str] = Form(None),
     include_theory: Optional[str] = Form(None),
     include_foreword: Optional[str] = Form(None),
     include_secrets: Optional[str] = Form(None),
@@ -928,7 +940,8 @@ def process_folder(
 
             clean_folder_name = p.name.replace(" ", "_")
             out_filename = f"Dai_Cam_Nang_{clean_folder_name}_Chuan_BGD.docx"
-            out_path = resolve_within(OUTPUT_DIR, out_filename)
+            out_path, duong_tai = duong_dan_ket_qua(
+                getattr(master_book, "loai_dau_ra", ""), out_filename)
             DocxBookExporter.export(master_book, out_path, paper_format=paper_format, options=book_options)
             prune_output_dir()
 
@@ -949,7 +962,7 @@ def process_folder(
                 "validation_report": val_report.to_dict(),
                 "nha_cung_cap": dau_an_nha_cung_cap(provider, model_name, api_key),
                 "output_filename": out_filename,
-                "download_url": f"/api/download/{out_filename}"
+                "download_url": f"/api/download/{duong_tai}"
             }
 
         # CHẾ ĐỘ 2: BIÊN SOẠN TỪNG TÀI LIỆU THÀNH TỪNG CUỐN SÁCH RIÊNG LẺ
@@ -978,12 +991,14 @@ def process_folder(
                         exam_info=tt_de_f,
                         ai_scope=ai_scope if ai_scope in (AI_SCOPE_THIEU, AI_SCOPE_TAT_CA, AI_SCOPE_KHONG) else AI_SCOPE_THIEU,
                         provider=provider, options=book_options,
-                        cap_hoc=cap_hoc if cap_hoc in (TIEU_HOC, THCS, THPT) else ""
+                        cap_hoc=cap_hoc if cap_hoc in (TIEU_HOC, THCS, THPT) else "",
+                        loai_dau_ra=loai_dau_ra if quy_cach(loai_dau_ra) else ""
                     )
 
                     clean_slug = "".join(c for c in single_book.new_title[:25] if c.isalnum() or c in (" ", "-", "_")).strip().replace(" ", "_")
                     out_name = f"Sach_{f_path.stem}_{clean_slug}.docx"
-                    out_path = resolve_within(OUTPUT_DIR, out_name)
+                    out_path, duong_tai = duong_dan_ket_qua(
+                        getattr(single_book, "loai_dau_ra", ""), out_name)
                     DocxBookExporter.export(single_book, out_path, paper_format=paper_format, options=book_options)
 
                     val_report = PreFlightValidator.validate(
@@ -999,7 +1014,7 @@ def process_folder(
                     processed_books.append({
                         "source": f_path.name,
                         "output_filename": out_name,
-                        "download_url": f"/api/download/{out_name}",
+                        "download_url": f"/api/download/{duong_tai}",
                         "title": single_book.new_title,
                         "total_questions": sum(len(c.questions) for c in single_book.chapters) if single_book.chapters else len(single_book.questions),
                         "validation_report": val_report.to_dict(),
@@ -1281,9 +1296,34 @@ def soi_loi_ban_nhap(questions: list) -> dict:
     }
 
 
-@app.get("/api/download/{filename}")
+def duong_dan_ket_qua(loai_dau_ra: str, ten_tep: str) -> tuple:
+    """
+    Xếp tệp kết quả vào đúng thư mục theo loại đầu ra.
+
+    Cấu trúc thư mục của người dùng chính là bảng phân loại có sẵn: "Đề thi học
+    kì 1", "Chuyên Đề Bài Tập", "Giáo Án Word"... Đổ tất cả vào một thư mục
+    output/ phẳng rồi bắt họ tự phân loại lại là bỏ phí điều đó.
+
+    Trả về (đường dẫn tuyệt đối, đường dẫn tương đối để tải về).
+    """
+    ten = safe_filename(ten_tep)
+    q = quy_cach(loai_dau_ra)
+    if not q:
+        return resolve_within(OUTPUT_DIR, ten), ten
+
+    thu_muc = q.thu_muc
+    goc = (OUTPUT_DIR / thu_muc)
+    goc.mkdir(parents=True, exist_ok=True)
+    # Vẫn kiểm tra lại phạm vi: tên thư mục là hằng trong mã, nhưng cứ soi cho chắc
+    duong_dan = resolve_within(goc, ten)
+    return duong_dan, f"{thu_muc}/{ten}"
+
+
+@app.get("/api/download/{filename:path}")
 def download_file(filename: str):
-    file_path = resolve_within(OUTPUT_DIR, filename)
+    # :path cho phep ten co thu muc con ("De thi hoc ki 1/abc.docx").
+    # resolve_subpath_within van chan moi mua toan thoat ra ngoai output/.
+    file_path = resolve_subpath_within(OUTPUT_DIR, filename)
     if not file_path.exists() or not file_path.is_file():
         raise HTTPException(status_code=404, detail="File không tồn tại hoặc đã bị xóa")
     ext = file_path.suffix.lower()

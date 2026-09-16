@@ -1279,7 +1279,15 @@ Các câu cần giải:
                     formData.append("master_title", customTitleInput.value.trim());
                 }
                 if (doctypeSelect && doctypeSelect.value) {
-                    formData.append("doc_type", doctypeSelect.value);
+                    // Ba ma cu di vao doc_type, chin ma moi di vao loai_dau_ra.
+                    // Gui ca hai cho may chu tu chon dung nhanh.
+                    const v = doctypeSelect.value;
+                    if (v === "DE_THI" || v === "SACH" || v === "CHUYEN_DE") {
+                        formData.append("doc_type", v);
+                    } else {
+                        formData.append("loai_dau_ra", v);
+                        formData.append("doc_type", v.startsWith("DE_") ? "DE_THI" : "CHUYEN_DE");
+                    }
                 }
                 if (capHocSelect && capHocSelect.value) {
                     formData.append("cap_hoc", capHocSelect.value);
@@ -1349,7 +1357,15 @@ Các câu cần giải:
                     formData.append("custom_title", customTitleInput.value.trim());
                 }
                 if (doctypeSelect && doctypeSelect.value) {
-                    formData.append("doc_type", doctypeSelect.value);
+                    // Ba ma cu di vao doc_type, chin ma moi di vao loai_dau_ra.
+                    // Gui ca hai cho may chu tu chon dung nhanh.
+                    const v = doctypeSelect.value;
+                    if (v === "DE_THI" || v === "SACH" || v === "CHUYEN_DE") {
+                        formData.append("doc_type", v);
+                    } else {
+                        formData.append("loai_dau_ra", v);
+                        formData.append("doc_type", v.startsWith("DE_") ? "DE_THI" : "CHUYEN_DE");
+                    }
                 }
                 if (capHocSelect && capHocSelect.value) {
                     formData.append("cap_hoc", capHocSelect.value);

@@ -76,12 +76,17 @@ class RewrittenBook:
     # Cap hoc quyet dinh giong van VA muc trang tri khi dung file Word.
     # Tieu hoc duoc them bieu tuong va trang tri, TRU giao an. Xem skill_loader.
     cap_hoc: str = "THPT"
+    # Loai dau ra nguoi dung chon (mot trong chin loai). Rong thi dung bo
+    # dung cu theo doc_type.
+    loai_dau_ra: str = ""
+    subject: str = "toan"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "doc_type": self.doc_type,
             "exam_info": self.exam_info,
             "cap_hoc": self.cap_hoc,
+            "loai_dau_ra": self.loai_dau_ra,
             "original_title": self.original_title,
             "new_title": self.new_title,
             "subtitle": self.subtitle,
@@ -1184,7 +1189,8 @@ def process_rewrite_pipeline(
     ai_scope: str = AI_SCOPE_THIEU,
     provider: str = GEMINI,
     options: Optional[Dict[str, Any]] = None,
-    cap_hoc: str = ""
+    cap_hoc: str = "",
+    loai_dau_ra: str = ""
 ) -> RewrittenBook:
     """
     Đầu vào là đề thi thì KHÔNG chèn thêm câu mới: một đề thi 50 câu mà tự dưng
@@ -1202,6 +1208,8 @@ def process_rewrite_pipeline(
         book.doc_type = doc_type
         book.exam_info = dict(exam_info or {})
         book.cap_hoc = cap
+        book.loai_dau_ra = loai_dau_ra or ""
+        book.subject = subject
         return book
 
     # Không dùng AI thì khỏi gọi, chạy thẳng bộ ngoại tuyến
