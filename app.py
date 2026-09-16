@@ -34,6 +34,10 @@ from core.ai_provider import (
     MODEL_GEMINI_CHO_PHEP, MODEL_CLAUDE_CHO_PHEP,
     MODEL_CLAUDE_MAC_DINH, TEN_HIEN_THI as TEN_NHA_CUNG_CAP,
 )
+from core.skill_loader import (
+    phat_hien_cap_hoc, duoc_trang_tri, TEN_CAP_HOC,
+    TIEU_HOC, THCS, THPT,
+)
 from core.exporter import DocxBookExporter
 from core.validator import PreFlightValidator
 from core.question_forge import (
@@ -529,6 +533,9 @@ def ingest_documents(
             total_items = len(parsed)
             preview = [item.to_dict() for item in parsed[:15]]
             nhan_dien = detect_document_type(parsed, lay_dau_hieu_tai_lieu(), only.name)
+            nhan_dien["cap_hoc"] = phat_hien_cap_hoc(
+                [q.content for q in parsed[:30]], only.name)
+            nhan_dien["ten_cap_hoc"] = TEN_CAP_HOC.get(nhan_dien["cap_hoc"], "")
             can_ai = sum(1 for q in parsed if can_ai_xu_ly(q))
             nhan_dien["so_cau_can_ai"] = can_ai
             nhan_dien["so_cau_co_san"] = len(parsed) - can_ai
@@ -751,6 +758,7 @@ def process_single_document(
     custom_title: Optional[str] = Form(None),
     doc_type: Optional[str] = Form(None),
     ai_scope: Optional[str] = Form(None),
+    cap_hoc: Optional[str] = Form(None),
     include_theory: Optional[str] = Form(None),
     include_foreword: Optional[str] = Form(None),
     include_secrets: Optional[str] = Form(None),
@@ -799,7 +807,8 @@ def process_single_document(
             doc_type=loai,
             exam_info=thong_tin_de,
             ai_scope=ai_scope if ai_scope in (AI_SCOPE_THIEU, AI_SCOPE_TAT_CA, AI_SCOPE_KHONG) else AI_SCOPE_THIEU,
-            provider=provider, options=book_options
+            provider=provider, options=book_options,
+            cap_hoc=cap_hoc if cap_hoc in (TIEU_HOC, THCS, THPT) else ""
         )
 
         if custom_title and custom_title.strip():
@@ -848,6 +857,7 @@ def process_folder(
     master_title: Optional[str] = Form(None),
     doc_type: Optional[str] = Form(None),
     ai_scope: Optional[str] = Form(None),
+    cap_hoc: Optional[str] = Form(None),
     include_theory: Optional[str] = Form(None),
     include_foreword: Optional[str] = Form(None),
     include_secrets: Optional[str] = Form(None),
@@ -967,7 +977,8 @@ def process_folder(
                         doc_type=loai_f,
                         exam_info=tt_de_f,
                         ai_scope=ai_scope if ai_scope in (AI_SCOPE_THIEU, AI_SCOPE_TAT_CA, AI_SCOPE_KHONG) else AI_SCOPE_THIEU,
-                        provider=provider, options=book_options
+                        provider=provider, options=book_options,
+                        cap_hoc=cap_hoc if cap_hoc in (TIEU_HOC, THCS, THPT) else ""
                     )
 
                     clean_slug = "".join(c for c in single_book.new_title[:25] if c.isalnum() or c in (" ", "-", "_")).strip().replace(" ", "_")
@@ -1199,6 +1210,9 @@ def ingest_text(req: DanVanBanRequest):
         )
 
     nhan_dien = detect_document_type(questions, lay_dau_hieu_tai_lieu(), ten)
+    nhan_dien["cap_hoc"] = phat_hien_cap_hoc(
+        [q.content for q in questions[:30]], ten)
+    nhan_dien["ten_cap_hoc"] = TEN_CAP_HOC.get(nhan_dien["cap_hoc"], "")
     can_ai = sum(1 for q in questions if can_ai_xu_ly(q))
     nhan_dien["so_cau_can_ai"] = can_ai
     nhan_dien["so_cau_co_san"] = len(questions) - can_ai

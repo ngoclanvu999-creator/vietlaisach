@@ -13,6 +13,10 @@ from core.theory_bank import (
 from core.ai_namer import synthesize_book_metadata
 from core.doc_type import DE_THI, SACH, CHUYEN_DE
 from core.ai_provider import GEMINI, CLAUDE, chuan_hoa, goi_ai, boc_json, LoiHanMuc
+from core.skill_loader import (
+    nap_van_ban_skill, huong_dan_giong_van, phat_hien_cap_hoc,
+    TIEU_HOC, THCS, THPT, TEN_CAP_HOC as TEN_CAP,
+)
 
 @dataclass
 class RewrittenQuestionItem:
@@ -69,11 +73,15 @@ class RewrittenBook:
     # ngay dưới mỗi bài. Xem core/doc_type.py.
     doc_type: str = "CHUYEN_DE"
     exam_info: Dict[str, str] = field(default_factory=dict)
+    # Cap hoc quyet dinh giong van VA muc trang tri khi dung file Word.
+    # Tieu hoc duoc them bieu tuong va trang tri, TRU giao an. Xem skill_loader.
+    cap_hoc: str = "THPT"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "doc_type": self.doc_type,
             "exam_info": self.exam_info,
+            "cap_hoc": self.cap_hoc,
             "original_title": self.original_title,
             "new_title": self.new_title,
             "subtitle": self.subtitle,
@@ -680,11 +688,20 @@ def rewrite_with_gemini(
     ai_scope: str = AI_SCOPE_THIEU,
     provider: str = GEMINI,
     options: Optional[Dict[str, Any]] = None,
-    doc_type: str = ""
+    doc_type: str = "",
+    cap_hoc: str = ""
 ) -> RewrittenBook:
     # Tên hàm giữ nguyên cho khỏi vỡ các lệnh gọi cũ, nhưng nay nó chạy được cả
     # Gemini lẫn Claude — chọn bên nào là do `provider`.
     tt = chuan_hoa(provider, api_key, model_name)
+
+    # Chuẩn nghiệp vụ nạp từ tệp skill. Trước đây câu lệnh chỉ dài ~1.800 ký tự
+    # và không hề biết đề thi từ 2025 có ba phần I/II/III.
+    if cap_hoc not in (TIEU_HOC, THCS, THPT):
+        cap_hoc = phat_hien_cap_hoc([q.content for q in questions[:30]],
+                                    questions[0].source_file if questions else "")
+    van_ban_skill = nap_van_ban_skill(cap_hoc, doc_type or "CHUYEN_DE")
+    giong_van = huong_dan_giong_van(cap_hoc)
     total_orig = len(questions)
     new_total = total_orig + add_count
 
@@ -752,12 +769,47 @@ def rewrite_with_gemini(
                 f"Đáp án: {q.correct_answer}\nGiải: {q.solution}\n"
             )
 
-        prompt = f"""
-Bạn là chuyên gia biên soạn tài liệu giảng dạy môn {subj_label} theo chuẩn chương trình GDPT 2018 của Bộ Giáo dục và Đào tạo Việt Nam.
+        khoi_chuan = ""
+        if van_ban_skill:
+            khoi_chuan = (
+                "=== CHUẨN NGHIỆP VỤ BẮT BUỘC TUÂN THỦ ===\n"
+                + van_ban_skill
+                + "\n=== HẾT PHẦN CHUẨN ===\n\n"
+            )
+
+        # Thang mức độ phải khớp với chuẩn đang áp dụng. Từ 2025 đề thi THPT chỉ
+        # còn BA mức Biết – Hiểu – Vận dụng, không còn bốn mức như trước. Để lẫn
+        # hai thang trong cùng một câu lệnh là tự mâu thuẫn với phần chuẩn ở trên.
+        if doc_type == DE_THI and cap_hoc in (THPT, THCS):
+            muc_do = "'Biết', 'Hiểu', 'Vận dụng' (đúng ba mức của chuẩn 2025)"
+        elif cap_hoc == TIEU_HOC:
+            muc_do = "'Nhận biết', 'Thông hiểu', 'Vận dụng'"
+        else:
+            muc_do = "'Nhận biết', 'Thông hiểu', 'Vận dụng', 'Vận dụng cao'"
+
+        # Máy tính cầm tay chỉ có nghĩa từ THCS trở lên. Tiểu học không được phép
+        # dùng, nên "Cách 2" ở đó phải là cách nhẩm hoặc cách hình dung khác.
+        if cap_hoc == TIEU_HOC:
+            cach_hai = ("Cách 2 (cách nhẩm nhanh hoặc mẹo hình dung phù hợp với trẻ — "
+                        "TUYỆT ĐỐI không nhắc tới máy tính cầm tay)")
+            cach_hai_vd = "Cách nhẩm nhanh cho học sinh"
+        else:
+            cach_hai = "Cách 2 (mẹo Casio fx-580VN X)"
+            cach_hai_vd = "Mẹo Casio / Giải nhanh"
+
+        # Ví dụ trong khuôn JSON phải KHỚP với quy tắc ở trên. Mô hình bám theo ví
+        # dụ mạnh hơn bám theo lời dặn, nên để mẫu ghi "Thông hiểu" trong khi luật
+        # bảo dùng ba mức 2025 là tự phá luật của chính mình.
+        muc_do_vd = "Hiểu" if (doc_type == DE_THI and cap_hoc in (THPT, THCS)) else "Thông hiểu"
+
+        prompt = f"""{khoi_chuan}Bạn là chuyên gia biên soạn tài liệu giảng dạy môn {subj_label} cấp {TEN_CAP[cap_hoc]} theo chuẩn chương trình GDPT 2018 của Bộ Giáo dục và Đào tạo Việt Nam.
+
+{giong_van}
+
 Đây là LÔ {batch_no}/{len(batches)}, gồm {len(batch)} câu hỏi. Hãy biên soạn chuẩn mực:
 1. GIỮ NGUYÊN 100% CẤU TRÚC VÀ ĐỀ BÀI GỐC: chỉ chuẩn hóa ngữ pháp và ký hiệu toán học cho liền mạch, tuyệt đối không thêm câu mở đầu lạ, không đổi số liệu.
-2. Phân cấp độ từng câu: 'Nhận biết', 'Thông hiểu', 'Vận dụng', 'Vận dụng cao'.
-3. Viết lời giải 2 cách: Cách 1 (tự luận chuẩn mực sư phạm) + Cách 2 (mẹo Casio fx-580VN X).
+2. Phân cấp độ từng câu, CHỈ dùng một trong các mức: {muc_do}.
+3. Viết lời giải 2 cách: Cách 1 (tự luận chuẩn mực sư phạm) + {cach_hai}.
 4. Chỉ ra cảnh báo bẫy sai lầm học sinh hay mắc.
 5. TUYỆT ĐỐI KHÔNG tự sinh thêm câu hỏi mới. Trả về đúng {len(batch)} câu của lô này.
 6. Trường "index" phải là SỐ THỨ TỰ TRONG LÔ như đánh dấu ở trên (0, 1, 2, ...), không phải số câu trong đề gốc.
@@ -774,12 +826,12 @@ TRẢ VỀ ĐỊNH DẠNG JSON:
   "questions": [
     {{
       "index": 0,
-      "level": "Thông hiểu",
+      "level": "{muc_do_vd}",
       "new_content": "Đề bài đã chuẩn hóa",
       "new_options": ["A. ...", "B. ...", "C. ...", "D. ..."],
       "correct_answer": "A",
       "solution_method1": "Lời giải tự luận bài bản",
-      "solution_method2": "Mẹo Casio / Giải nhanh",
+      "solution_method2": "{cach_hai_vd}",
       "trap_warning": "Bẫy sai lầm"
     }}
   ]
@@ -1131,7 +1183,8 @@ def process_rewrite_pipeline(
     exam_info: Optional[Dict[str, str]] = None,
     ai_scope: str = AI_SCOPE_THIEU,
     provider: str = GEMINI,
-    options: Optional[Dict[str, Any]] = None
+    options: Optional[Dict[str, Any]] = None,
+    cap_hoc: str = ""
 ) -> RewrittenBook:
     """
     Đầu vào là đề thi thì KHÔNG chèn thêm câu mới: một đề thi 50 câu mà tự dưng
@@ -1140,9 +1193,15 @@ def process_rewrite_pipeline(
     """
     if doc_type == DE_THI:
         add_count = 0
+    cap = cap_hoc if cap_hoc in (TIEU_HOC, THCS, THPT) else phat_hien_cap_hoc(
+        [q.content for q in questions[:30]],
+        questions[0].source_file if questions else ""
+    )
+
     def _gan_loai(book: RewrittenBook) -> RewrittenBook:
         book.doc_type = doc_type
         book.exam_info = dict(exam_info or {})
+        book.cap_hoc = cap
         return book
 
     # Không dùng AI thì khỏi gọi, chạy thẳng bộ ngoại tuyến
@@ -1157,7 +1216,8 @@ def process_rewrite_pipeline(
             return _gan_loai(rewrite_with_gemini(
                 questions, api_key=api_key.strip(), model_name=model_name,
                 subject=subject, add_count=add_count, ai_scope=ai_scope,
-                provider=provider, options=options, doc_type=doc_type
+                provider=provider, options=options, doc_type=doc_type,
+                cap_hoc=cap
             ))
         except Exception as e:
             print(f"Lỗi đường ống AI: {e}. Chuyển sang rewrite_offline.")

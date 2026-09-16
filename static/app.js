@@ -18,6 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const doctypeDetected = document.getElementById("doctype-detected");
     const doctypeSelect = document.getElementById("doctype-select");
     const aiScopeSelect = document.getElementById("ai-scope-select");
+    const capHocSelect = document.getElementById("cap-hoc-select");
     const btnClearIngest = document.getElementById("btn-clear-ingest");
 
     // Quét thư mục có sẵn trên máy (chỉ dùng khi chạy Localhost)
@@ -431,6 +432,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // thì không có cách nào yêu cầu xuất ra đề thi, tất cả đều thành sách.
         doctypeBox.classList.remove("hidden");
         doctypeSelect.value = "";
+        if (capHocSelect) capHocSelect.value = "";
 
         const nd = data.nhan_dien;
         if (isSingle && nd && nd.doc_type) {
@@ -444,7 +446,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 (nd.so_cau_can_ai !== undefined
                     ? `<div class="doctype-cost">💰 ${nd.so_cau_co_san} câu đã có sẵn lời giải (miễn phí) · ` +
                       `<strong>${nd.so_cau_can_ai} câu</strong> cần nhờ AI</div>`
+                    : "") +
+                (nd.ten_cap_hoc
+                    ? `<div class="doctype-cost">🎓 Đoán cấp học: <strong>${escapeHtml(nd.ten_cap_hoc)}</strong>` +
+                      ` — đổi ở ô bên dưới nếu chưa đúng</div>`
                     : "");
+
+            // Chọn sẵn cấp học đoán được, nhưng vẫn để người dùng đổi —
+            // nhận diện chỉ gợi ý, không quyết định thay họ.
+            if (capHocSelect && nd.cap_hoc) capHocSelect.value = nd.cap_hoc;
         } else {
             doctypeDetected.innerHTML =
                 `🔎 Đã nạp <strong>${files.length}</strong> tài liệu. ` +
@@ -1271,6 +1281,9 @@ Các câu cần giải:
                 if (doctypeSelect && doctypeSelect.value) {
                     formData.append("doc_type", doctypeSelect.value);
                 }
+                if (capHocSelect && capHocSelect.value) {
+                    formData.append("cap_hoc", capHocSelect.value);
+                }
                 if (aiScopeSelect && aiScopeSelect.value) {
                     formData.append("ai_scope", aiScopeSelect.value);
                 }
@@ -1337,6 +1350,9 @@ Các câu cần giải:
                 }
                 if (doctypeSelect && doctypeSelect.value) {
                     formData.append("doc_type", doctypeSelect.value);
+                }
+                if (capHocSelect && capHocSelect.value) {
+                    formData.append("cap_hoc", capHocSelect.value);
                 }
                 if (aiScopeSelect && aiScopeSelect.value) {
                     formData.append("ai_scope", aiScopeSelect.value);
