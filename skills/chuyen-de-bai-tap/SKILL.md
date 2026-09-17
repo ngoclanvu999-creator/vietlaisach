@@ -140,6 +140,10 @@ D. NĂM 2023–2024
 
 Gom theo **cụm 2–3 năm**, không liệt kê từng năm riêng lẻ.
 
+**Với cấp THCS:** thay nguồn câu hỏi bằng **đề thi tuyển sinh vào lớp 10**
+các tỉnh, thẻ ghi tỉnh và năm — `Câu T1. [Hà Nội 2023]`. Phần còn lại giữ
+nguyên. (Suy ra từ khuôn THPT, chưa đo từ mẫu THCS thật.)
+
 ---
 
 ## 5. PHẦN 4 — Hướng dẫn và đáp án

@@ -54,7 +54,12 @@ def _do_kho(q) -> int:
 
 
 def _nhan_do_kho(muc: int) -> str:
-    return ("Khởi động", "Cơ bản", "Vận dụng", "Vận dụng cao")[min(muc, 3)]
+    """
+    Tên ba mức độ PHẢI khớp skill `tai-lieu-hsg`, nếu không thì mô hình được
+    dặn một đằng mà tệp dựng ra một nẻo. Tài liệu HSG bỏ hẳn mức dễ: bài dễ
+    nhất cũng đã ở mức vận dụng.
+    """
+    return ("Vận dụng", "Vận dụng", "Vận dụng cao", "Olympic")[min(muc, 3)]
 
 
 def _dap_so_cua(q) -> str:
