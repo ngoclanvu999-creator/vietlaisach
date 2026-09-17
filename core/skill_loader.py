@@ -65,7 +65,8 @@ SKILL_THEO_LOAI = {
     "DE_HOC_KI_1": ("de-thi-thpt-2025", ["references/ma-tran-de.md"]),
     "DE_HOC_KI_2": ("de-thi-thpt-2025", ["references/ma-tran-de.md"]),
     "GIAO_AN": ("giao-an-5512", []),
-    # CHUYEN_DE_BT, TAI_LIEU_HSG, BAI_GIANG chưa có skill — xem ghi chú cuối tệp.
+    "CHUYEN_DE_BT": ("chuyen-de-bai-tap", []),
+    # TAI_LIEU_HSG và BAI_GIANG chưa có skill: chưa đo được mẫu đáng tin.
 }
 
 # Skill nào chỉ dùng được cho cấp học nào. Bỏ qua điều này là nạp sai chuẩn:
@@ -73,6 +74,9 @@ SKILL_THEO_LOAI = {
 # tiểu học/THCS", vì cấu trúc ba phần I/II/III là của đề tốt nghiệp THPT.
 CAP_AP_DUNG = {
     "de-thi-thpt-2025": {THCS, THPT},
+    # Khuôn chuyên đề bốn phần có "Câu hỏi từ đề thi tốt nghiệp THPT" nên chỉ
+    # hợp cấp ba. Tiểu học dùng khuôn phiếu ôn tập ở lớp phủ.
+    "chuyen-de-bai-tap": {THPT},
     "giao-an-5512": {TIEU_HOC, THCS, THPT},
 }
 
