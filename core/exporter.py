@@ -8,6 +8,7 @@ from docx.oxml import parse_xml
 from docx.oxml.ns import nsdecls, qn
 from core.rewriter import RewrittenBook, RewrittenChapter, RewrittenQuestionItem
 from core.loai_dau_ra import la_de as la_loai_de
+from core.trang_tri import cach_bay, icon as bt
 
 # Bảng màu sắc chuẩn sư phạm & thanh lịch
 COLOR_PRIMARY = RGBColor(26, 54, 93)       # Xanh Navy Đậm #1A365D (Chuẩn sách Bộ GD)
@@ -99,21 +100,26 @@ class DocxBookExporter:
         section.bottom_margin = Mm(20)
 
     @classmethod
-    def apply_default_style(cls, doc):
+    def apply_default_style(cls, doc, cb=None):
         """
         Đặt font mặc định cho toàn tài liệu. Nếu không làm bước này, mọi đoạn văn
         không được gán font tường minh sẽ rơi về Calibri 11pt của Word, sai thể thức.
+
+        Cỡ chữ và giãn dòng đổi theo cấp học: tài liệu tiểu học phải to và
+        thoáng hơn, trẻ mới đọc được.
         """
+        if cb is None:
+            cb = cach_bay()
         try:
             style = doc.styles["Normal"]
             style.font.name = FONT_MAIN
-            style.font.size = Pt(13)
+            style.font.size = Pt(cb.co_chu)
             # Word dùng thuộc tính riêng cho bảng mã Đông Á, phải đặt kèm mới ăn chắc
             rpr = style.element.get_or_add_rPr()
             rfonts = rpr.get_or_add_rFonts()
             rfonts.set(qn("w:eastAsia"), FONT_MAIN)
             rfonts.set(qn("w:cs"), FONT_MAIN)
-            style.paragraph_format.line_spacing = 1.25
+            style.paragraph_format.line_spacing = cb.gian_dong
         except Exception:
             pass
 
@@ -146,20 +152,29 @@ class DocxBookExporter:
         return merged
 
     @classmethod
-    def render_question_item(cls, doc: docx.Document, q: RewrittenQuestionItem, options: Optional[dict] = None):
-        """Trình bày từng câu hỏi theo chuẩn sư phạm Bộ GD&ĐT"""
+    def render_question_item(cls, doc: docx.Document, q: RewrittenQuestionItem,
+                             options: Optional[dict] = None, cb=None):
+        """
+        Trình bày từng câu hỏi theo chuẩn sư phạm Bộ GD&ĐT.
+
+        `cb` là bộ tham số trình bày theo cấp học (core/trang_tri.py). Tiểu học
+        chữ to hơn, thoáng hơn, có biểu tượng và chừa dòng kẻ để viết bài.
+        """
         opts = cls.merge_options(options)
+        if cb is None:
+            cb = cach_bay()
 
         # Đề mục câu hỏi
         p_qtitle = doc.add_paragraph()
-        p_qtitle.paragraph_format.space_before = Pt(12)
+        p_qtitle.paragraph_format.space_before = Pt(cb.cach_bai)
         p_qtitle.paragraph_format.space_after = Pt(3)
-        
-        r_num = p_qtitle.add_run(f"▶ {q.title}")
+
+        dau = f"{cb.dau_bai} " if cb.dau_bai else ""
+        r_num = p_qtitle.add_run(f"{dau}{q.title}")
         r_num.bold = True
         r_num.font.name = FONT_MAIN
-        r_num.font.size = Pt(13)
-        r_num.font.color.rgb = COLOR_PRIMARY if not q.is_added_new else COLOR_SUCCESS
+        r_num.font.size = Pt(cb.co_chu)
+        r_num.font.color.rgb = cb.mau if not q.is_added_new else COLOR_SUCCESS
 
         if q.is_added_new:
             r_badge = p_qtitle.add_run(" [MỚI BỔ SUNG]")
@@ -171,10 +186,10 @@ class DocxBookExporter:
         p_qcontent = doc.add_paragraph()
         p_qcontent.paragraph_format.space_before = Pt(2)
         p_qcontent.paragraph_format.space_after = Pt(5)
-        p_qcontent.paragraph_format.line_spacing = 1.25
+        p_qcontent.paragraph_format.line_spacing = cb.gian_dong
         r_qc = p_qcontent.add_run(q.new_content)
         r_qc.font.name = FONT_MAIN
-        r_qc.font.size = Pt(13)
+        r_qc.font.size = Pt(cb.co_de_bai)
         r_qc.font.color.rgb = COLOR_TEXT_MAIN
 
         # Các phương án trắc nghiệm A, B, C, D (dàn ô đều)
@@ -258,6 +273,27 @@ class DocxBookExporter:
                 border_hex="C53030",
                 title_color=COLOR_WARNING
             )
+
+        # Tiểu học: chừa dòng kẻ để trẻ viết bài giải ngay vào tài liệu in ra.
+        # Đây là thói quen của phiếu bài tập tiểu học, không dùng ở THPT.
+        if cb.dong_ke_lam_bai and not opts.get("solution", True):
+            p_bg = doc.add_paragraph()
+            p_bg.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_bg.paragraph_format.space_before = Pt(4)
+            p_bg.paragraph_format.space_after = Pt(2)
+            r_bg = p_bg.add_run("BÀI GIẢI")
+            r_bg.bold = True
+            r_bg.font.name = FONT_MAIN
+            r_bg.font.size = Pt(cb.co_chu - 1)
+            r_bg.font.color.rgb = cb.mau
+            for _ in range(cb.dong_ke_lam_bai):
+                p_ke = doc.add_paragraph()
+                p_ke.paragraph_format.space_before = Pt(0)
+                p_ke.paragraph_format.space_after = Pt(6)
+                r_ke = p_ke.add_run("." * 78)
+                r_ke.font.name = FONT_MAIN
+                r_ke.font.size = Pt(cb.co_chu)
+                r_ke.font.color.rgb = COLOR_TEXT_MUTED
 
         cls.render_separator(doc)
 
@@ -602,8 +638,11 @@ class DocxBookExporter:
         options: Optional[dict] = None
     ) -> Path:
         opts = cls.merge_options(options)
+        loai_ra_som = getattr(book, "loai_dau_ra", "") or ""
+        cb = cach_bay(getattr(book, "cap_hoc", "THPT"), loai_ra_som)
+
         doc = docx.Document()
-        cls.apply_default_style(doc)
+        cls.apply_default_style(doc, cb)
         section = doc.sections[0]
         cls.apply_standard_page_setup(section, paper_format=paper_format)
 
@@ -671,6 +710,17 @@ class DocxBookExporter:
         # ==========================================
         # TRANG TIÊU ĐỀ & LỜI TỰA
         # ==========================================
+        # Tiểu học: dòng điền tên ngay đầu tài liệu, theo đúng thói quen của
+        # phiếu bài tập — trẻ nhận phiếu là điền tên trước khi làm.
+        if cb.co_dong_ho_ten:
+            p_ht = doc.add_paragraph()
+            p_ht.paragraph_format.space_after = Pt(10)
+            r_ht = p_ht.add_run("Họ và tên: ………………………………………     Lớp: …………")
+            r_ht.bold = True
+            r_ht.font.name = FONT_MAIN
+            r_ht.font.size = Pt(cb.co_chu)
+            r_ht.font.color.rgb = COLOR_TEXT_MAIN
+
         p_sp = doc.add_paragraph()
         p_sp.paragraph_format.space_before = Pt(30)
 
@@ -787,7 +837,7 @@ class DocxBookExporter:
                 r_st.font.color.rgb = COLOR_PRIMARY
 
                 for q in ch.questions:
-                    cls.render_question_item(doc, q, options=opts)
+                    cls.render_question_item(doc, q, options=opts, cb=cb)
 
                 doc.add_page_break()
 
@@ -819,7 +869,7 @@ class DocxBookExporter:
             r_st.font.color.rgb = COLOR_PRIMARY
 
             for q in book.questions:
-                cls.render_question_item(doc, q, options=opts)
+                cls.render_question_item(doc, q, options=opts, cb=cb)
 
         if opts["vi_tri_loi_giai"] == cls.LOI_GIAI_CUOI_SACH:
             cls.render_solution_section(doc, book, opts)
