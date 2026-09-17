@@ -68,10 +68,26 @@ SKILL_THEO_LOAI = {
     # CHUYEN_DE_BT, TAI_LIEU_HSG, BAI_GIANG chưa có skill — xem ghi chú cuối tệp.
 }
 
+# Skill nào chỉ dùng được cho cấp học nào. Bỏ qua điều này là nạp sai chuẩn:
+# chính `de-thi-thpt-2025` ghi rõ trong phần mô tả "KHÔNG dùng cho tài liệu
+# tiểu học/THCS", vì cấu trúc ba phần I/II/III là của đề tốt nghiệp THPT.
+CAP_AP_DUNG = {
+    "de-thi-thpt-2025": {THCS, THPT},
+    "giao-an-5512": {TIEU_HOC, THCS, THPT},
+}
+
 # Lớp 2 — lớp phủ theo cấp học (phạm vi kiến thức, giọng văn)
 SKILL_THEO_CAP = {
     TIEU_HOC: ("toan-tieu-hoc", ["references/pham-vi-theo-lop.md"]),
     # THCS và THPT chưa cần: phạm vi đã nằm trong core/theory_bank.py
+}
+
+# Một vài loại đầu ra cần thêm tệp tham khảo riêng ở một cấp học nhất định.
+# Khuôn phiếu ôn tập cuối tuần chỉ có nghĩa với tiểu học, đo từ video mẫu
+# do chủ dự án cung cấp — xem đầu tệp tham khảo để biết nguồn.
+THAM_KHAO_THEM = {
+    (TIEU_HOC, "CHUYEN_DE_BT"): ["references/phieu-on-tap-cuoi-tuan.md"],
+    (TIEU_HOC, "DE_CHUONG_BAI"): ["references/phieu-on-tap-cuoi-tuan.md"],
 }
 
 # Giáo án là hồ sơ chuyên môn theo một khung thống nhất toàn quốc. Nạp thêm lớp
@@ -163,6 +179,8 @@ def nap_van_ban_skill(
     phan = []
 
     chon_loai = SKILL_THEO_LOAI.get(ma)
+    if chon_loai and cap_hoc not in CAP_AP_DUNG.get(chon_loai[0], CAP_HOC):
+        chon_loai = None          # skill này không dùng cho cấp học đó
     if chon_loai:
         vb = _doc_bo(chon_loai[0], chon_loai[1], gioi_han_ky_tu)
         if vb:
@@ -171,6 +189,8 @@ def nap_van_ban_skill(
     if ma not in KHONG_NAP_LOP_PHU:
         chon_cap = SKILL_THEO_CAP.get(cap_hoc)
         if chon_cap:
+            them = THAM_KHAO_THEM.get((cap_hoc, ma), [])
+            chon_cap = (chon_cap[0], list(chon_cap[1]) + them)
             # Lớp phủ để dành phần ngân sách nhỏ hơn: nó bổ sung phạm vi chứ
             # không phải phần chuẩn chính.
             con = max(2000, gioi_han_ky_tu - sum(len(x) for x in phan))
