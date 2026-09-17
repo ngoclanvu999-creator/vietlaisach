@@ -43,15 +43,46 @@ def thu_muc_skill() -> Path:
 
 
 # ---------------------------------------------------------------------------
-# Chọn skill nào cho tình huống nào
+# Chọn skill nào cho tình huống nào — HAI LỚP, không phải ma trận
 # ---------------------------------------------------------------------------
-# Mỗi mục: (tên thư mục skill, danh sách tệp tham khảo kèm theo)
-BANG_CHON = {
-    (THPT, "DE_THI"): ("de-thi-thpt-2025", ["references/ma-tran-de.md"]),
-    (THCS, "DE_THI"): ("de-thi-thpt-2025", []),
-    (TIEU_HOC, "DE_THI"): ("toan-tieu-hoc", ["references/pham-vi-theo-lop.md"]),
-    (TIEU_HOC, "SACH"): ("toan-tieu-hoc", ["references/pham-vi-theo-lop.md"]),
-    (TIEU_HOC, "CHUYEN_DE"): ("toan-tieu-hoc", ["references/pham-vi-theo-lop.md"]),
+# Có hai trục độc lập nhau, trước đây bị trộn làm một nên sinh lỗi:
+#
+#   LOẠI TÀI LIỆU  quyết định tài liệu phải có những phần nào, khuôn ra sao
+#   CẤP HỌC        quyết định phạm vi kiến thức và giọng văn
+#
+# Khoá theo cặp (cấp học × loại) là 3 × 9 = 27 ô, không quản nổi, và đã gây lỗi
+# thật: giáo án tiểu học bị nạp skill phiếu bài tập cuối tuần, trong đó không có
+# một chữ nào về khung Công văn 5512.
+#
+# Nay nạp hai lớp chồng lên nhau: skill theo LOẠI là chính, skill theo CẤP là
+# lớp phủ bổ sung phạm vi.
+
+# Lớp 1 — theo loại đầu ra (mã trong core/loai_dau_ra.py)
+SKILL_THEO_LOAI = {
+    "DE_CHUONG_BAI": ("de-thi-thpt-2025", ["references/ma-tran-de.md"]),
+    "DE_GIUA_KI_1": ("de-thi-thpt-2025", ["references/ma-tran-de.md"]),
+    "DE_GIUA_KI_2": ("de-thi-thpt-2025", ["references/ma-tran-de.md"]),
+    "DE_HOC_KI_1": ("de-thi-thpt-2025", ["references/ma-tran-de.md"]),
+    "DE_HOC_KI_2": ("de-thi-thpt-2025", ["references/ma-tran-de.md"]),
+    "GIAO_AN": ("giao-an-5512", []),
+    # CHUYEN_DE_BT, TAI_LIEU_HSG, BAI_GIANG chưa có skill — xem ghi chú cuối tệp.
+}
+
+# Lớp 2 — lớp phủ theo cấp học (phạm vi kiến thức, giọng văn)
+SKILL_THEO_CAP = {
+    TIEU_HOC: ("toan-tieu-hoc", ["references/pham-vi-theo-lop.md"]),
+    # THCS và THPT chưa cần: phạm vi đã nằm trong core/theory_bank.py
+}
+
+# Giáo án là hồ sơ chuyên môn theo một khung thống nhất toàn quốc. Nạp thêm lớp
+# phủ tiểu học vào đây chỉ làm loãng, vì khung 5512 không đổi theo cấp.
+KHONG_NAP_LOP_PHU = {"GIAO_AN"}
+
+# Tương thích ngược: gọi bằng ba mã cũ (DE_THI/SACH/CHUYEN_DE) vẫn chạy
+MA_CU = {
+    "DE_THI": "DE_HOC_KI_1",
+    "SACH": "",
+    "CHUYEN_DE": "",
 }
 
 # Những mục viết cho lập trình viên, không phải cho người soạn nội dung.
@@ -90,29 +121,9 @@ def _doc_sach_se(duong_dan: Path) -> str:
     return "\n".join(ket_qua).strip()
 
 
-def nap_van_ban_skill(
-    cap_hoc: str = THPT,
-    doc_type: str = "CHUYEN_DE",
-    gioi_han_ky_tu: int = 14000,
-) -> str:
-    """
-    Trả về phần chuẩn nghiệp vụ để chèn vào đầu câu lệnh.
-
-    Chuỗi rỗng nghĩa là không có skill nào khớp — khi đó câu lệnh vẫn chạy với
-    phần hướng dẫn chung, không được vì thiếu skill mà hỏng cả luồng.
-    """
-    khoa = (cap_hoc, doc_type, gioi_han_ky_tu)
-    if khoa in _bo_nho:
-        return _bo_nho[khoa]
-
-    chon = BANG_CHON.get((cap_hoc, doc_type))
-    if not chon:
-        _bo_nho[khoa] = ""
-        return ""
-
-    ten_skill, ds_tham_khao = chon
+def _doc_bo(ten_skill, ds_tham_khao, gioi_han):
+    """Đọc một skill (tệp chính + các tệp tham khảo), cắt bớt nếu quá dài."""
     goc = thu_muc_skill() / ten_skill
-
     phan = []
     chinh = _doc_sach_se(goc / "SKILL.md")
     if chinh:
@@ -121,15 +132,55 @@ def nap_van_ban_skill(
         them = _doc_sach_se(goc / rel)
         if them:
             phan.append(them)
+    vb = "\n\n".join(phan).strip()
+    if len(vb) > gioi_han:
+        vb = (vb[:gioi_han].rsplit("\n", 1)[0]
+              + "\n\n(Phần chuẩn còn dài, đã lược bớt phần cuối.)")
+    return vb
 
-    van_ban = "\n\n".join(phan).strip()
-    if len(van_ban) > gioi_han_ky_tu:
-        # Cắt ở ranh giới dòng để không đứt giữa một bảng hay một câu
-        van_ban = van_ban[:gioi_han_ky_tu].rsplit("\n", 1)[0]
-        van_ban += "\n\n(Phần chuẩn còn dài, đã lược bớt phần cuối.)"
 
-    _bo_nho[khoa] = van_ban
-    return van_ban
+def nap_van_ban_skill(
+    cap_hoc: str = THPT,
+    doc_type: str = "CHUYEN_DE",
+    gioi_han_ky_tu: int = 14000,
+) -> str:
+    """
+    Trả về phần chuẩn nghiệp vụ để chèn vào đầu câu lệnh.
+
+    Nạp hai lớp: skill theo LOẠI TÀI LIỆU (chính) cộng skill theo CẤP HỌC (lớp
+    phủ phạm vi). Chuỗi rỗng nghĩa là chưa có skill nào khớp — khi đó câu lệnh
+    vẫn chạy với phần hướng dẫn chung, không được vì thiếu skill mà hỏng luồng.
+
+    `doc_type` nhận cả mã loại đầu ra mới (DE_HOC_KI_1, GIAO_AN…) lẫn ba mã cũ.
+    """
+    ma = str(doc_type or "").upper()
+    ma = MA_CU.get(ma, ma)
+
+    khoa = (cap_hoc, ma, gioi_han_ky_tu)
+    if khoa in _bo_nho:
+        return _bo_nho[khoa]
+
+    phan = []
+
+    chon_loai = SKILL_THEO_LOAI.get(ma)
+    if chon_loai:
+        vb = _doc_bo(chon_loai[0], chon_loai[1], gioi_han_ky_tu)
+        if vb:
+            phan.append(vb)
+
+    if ma not in KHONG_NAP_LOP_PHU:
+        chon_cap = SKILL_THEO_CAP.get(cap_hoc)
+        if chon_cap:
+            # Lớp phủ để dành phần ngân sách nhỏ hơn: nó bổ sung phạm vi chứ
+            # không phải phần chuẩn chính.
+            con = max(2000, gioi_han_ky_tu - sum(len(x) for x in phan))
+            vb = _doc_bo(chon_cap[0], chon_cap[1], con)
+            if vb:
+                phan.append(vb)
+
+    ket_qua = "\n\n".join(phan).strip()
+    _bo_nho[khoa] = ket_qua
+    return ket_qua
 
 
 # ---------------------------------------------------------------------------
