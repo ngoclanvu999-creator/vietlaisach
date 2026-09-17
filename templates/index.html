@@ -180,77 +180,6 @@
                                 <div id="ingest-file-list" class="folder-file-list"></div>
                                 <div id="ingest-skipped" class="ingest-skipped hidden"></div>
 
-                                <!-- BẠN MUỐN NHẬN LẠI DẠNG NÀO -->
-                                <div id="doctype-box" class="doctype-box hidden">
-                                    <div id="doctype-detected" class="doctype-detected"></div>
-
-                                    <label for="doctype-select" class="doctype-label doctype-label-main">
-                                        📄 Bạn muốn nhận lại tài liệu dạng nào?
-                                    </label>
-                                    <select id="doctype-select" class="form-control doctype-main-select">
-                                        <option value="" selected>Giữ nguyên dạng như tài liệu gốc (tự nhận diện)</option>
-                                        <optgroup label="Đề kiểm tra, đề thi — chuẩn 2025, kèm ma trận &amp; bản đặc tả">
-                                            <option value="DE_CHUONG_BAI">Đề kiểm tra theo chương bài — 45 phút</option>
-                                            <option value="DE_GIUA_KI_1">Đề kiểm tra giữa học kì 1 — 60 phút</option>
-                                            <option value="DE_GIUA_KI_2">Đề kiểm tra giữa học kì 2 — 60 phút</option>
-                                            <option value="DE_HOC_KI_1">Đề thi học kì 1 — 90 phút, cấu trúc đầy đủ</option>
-                                            <option value="DE_HOC_KI_2">Đề thi học kì 2 — 90 phút, cấu trúc đầy đủ</option>
-                                        </optgroup>
-                                        <optgroup label="Tài liệu ôn luyện">
-                                            <option value="CHUYEN_DE_BT">Chuyên đề bài tập — lý thuyết rồi tới hệ thống bài tập</option>
-                                            <option value="TAI_LIEU_HSG">Tài liệu học sinh giỏi — chuyên sâu, chủ yếu tự luận</option>
-                                        </optgroup>
-                                        <optgroup label="Giáo án &amp; bài giảng">
-                                            <option value="GIAO_AN">Giáo án Word — khung Công văn 5512, bốn hoạt động</option>
-                                            <option value="BAI_GIANG">Bài giảng PowerPoint — mỗi bài một slide đề + một slide đáp án</option>
-                                        </optgroup>
-                                        <optgroup label="Dạng cũ (vẫn dùng được)">
-                                            <option value="DE_THI">Đề thi một phần — trắc nghiệm thuần, dạng trước 2025</option>
-                                            <option value="CHUYEN_DE">Tài liệu chuyên đề</option>
-                                            <option value="SACH">Sách nhiều chương — có mục lục</option>
-                                        </optgroup>
-                                    </select>
-                                    <p class="field-hint">
-                                        Chọn một trong <strong>năm loại đề</strong> thì nhận lại trọn bộ bốn phần theo
-                                        chuẩn Bộ: <strong>ma trận đề</strong>, <strong>bản đặc tả</strong>,
-                                        <strong>đề ba phần I/II/III</strong> và <strong>hướng dẫn chấm</strong>.
-                                        Phần II tính điểm lũy tiến 0,1 – 0,25 – 0,5 – 1,0 theo số ý đúng,
-                                        không phải nhân đều.
-                                    </p>
-                                    <p class="field-hint">
-                                        <strong>Giáo án</strong> chỉ dựng được trọn vẹn phần Luyện tập và Vận dụng
-                                        từ tệp bài tập; hai hoạt động Mở đầu và Hình thành kiến thức mới bám vào bài
-                                        trong sách giáo khoa nên để dạng khung có đánh dấu, giáo viên điền nốt.
-                                    </p>
-                                    <p class="field-hint">
-                                        Tệp kết quả được xếp thẳng vào thư mục đúng loại
-                                        (<em>Đề thi học kì 1</em>, <em>Chuyên Đề Bài Tập</em>…),
-                                        không đổ chung một chỗ nữa.
-                                    </p>
-
-                                    <label for="cap-hoc-select" class="doctype-label">
-                                        🎓 Cấp học — quyết định giọng văn và cách trình bày:
-                                    </label>
-                                    <select id="cap-hoc-select" class="form-control">
-                                        <option value="" selected>Tự nhận diện từ tài liệu</option>
-                                        <option value="TIEU_HOC">TIỂU HỌC — câu ngắn dễ hiểu, có biểu tượng và trang trí bắt mắt</option>
-                                        <option value="THCS">TRUNG HỌC CƠ SỞ — trung tính, thuật ngữ chuẩn</option>
-                                        <option value="THPT">TRUNG HỌC PHỔ THÔNG — trang trọng, học thuật</option>
-                                    </select>
-                                    <p class="field-hint">
-                                        Tiểu học được thêm biểu tượng và khung trang trí cho bắt mắt.
-                                        Riêng <strong>giáo án</strong> thì mọi cấp đều giữ nghiêm ngặt theo khung
-                                        Công văn 5512, không trang trí — vì đó là hồ sơ chuyên môn.
-                                    </p>
-
-                                    <label for="ai-scope-select" class="doctype-label">Mức dùng AI (ảnh hưởng trực tiếp tới chi phí):</label>
-                                    <select id="ai-scope-select" class="form-control">
-                                        <option value="thieu" selected>Tiết kiệm — chỉ nhờ AI những câu còn thiếu lời giải</option>
-                                        <option value="tat_ca">Toàn bộ — AI viết lại mọi câu (tốn nhất)</option>
-                                        <option value="khong">Không dùng AI — miễn phí hoàn toàn</option>
-                                    </select>
-                                </div>
-
                                 <!-- Chỉ hiện khi có từ 2 tài liệu trở lên -->
                                 <div id="batch-mode-selector" class="merge-mode-selector hidden">
                                     <label class="merge-option">
@@ -272,10 +201,97 @@
                         </div>
                     </div>
 
-                    <!-- Step 2: Customization Options -->
+                    <!-- Bước chọn đầu ra: LUÔN hiện, không đợi nạp tài liệu.
+                         Trước đây khối này nằm trong khung kết quả nên chỉ xuất
+                         hiện sau khi nạp xong — người dùng báo "không thấy phần
+                         chọn đầu ra ở đâu". Cho chọn trước cũng đúng thói quen
+                         hơn: biết mình cần gì rồi mới đưa tài liệu vào. -->
                     <div class="card card-step">
                         <div class="step-header">
                             <span class="step-badge">2</span>
+                            <h3>Bạn Muốn Nhận Lại Tài Liệu Dạng Nào?</h3>
+                        </div>
+                        <p class="step-intro">
+                            Chọn dạng đầu ra bạn cần. Công cụ sẽ dựa vào nội dung tài liệu gốc
+                            để soạn ra đúng dạng đó — cùng một tài liệu có thể ra đề kiểm tra,
+                            ra bài giảng hay ra tài liệu ôn luyện, tuỳ bạn chọn.
+                        </p>
+                            <!-- BẠN MUỐN NHẬN LẠI DẠNG NÀO -->
+                            <div id="doctype-box" class="doctype-box">
+                                <div id="doctype-detected" class="doctype-detected"></div>
+
+                                <label for="doctype-select" class="doctype-label doctype-label-main">
+                                    📄 Dạng đầu ra:
+                                </label>
+                                <select id="doctype-select" class="form-control doctype-main-select">
+                                    <option value="" selected>Giữ nguyên dạng như tài liệu gốc (tự nhận diện)</option>
+                                    <optgroup label="Đề kiểm tra, đề thi — chuẩn 2025, kèm ma trận &amp; bản đặc tả">
+                                        <option value="DE_CHUONG_BAI">Đề kiểm tra theo chương bài — 45 phút</option>
+                                        <option value="DE_GIUA_KI_1">Đề kiểm tra giữa học kì 1 — 60 phút</option>
+                                        <option value="DE_GIUA_KI_2">Đề kiểm tra giữa học kì 2 — 60 phút</option>
+                                        <option value="DE_HOC_KI_1">Đề thi học kì 1 — 90 phút, cấu trúc đầy đủ</option>
+                                        <option value="DE_HOC_KI_2">Đề thi học kì 2 — 90 phút, cấu trúc đầy đủ</option>
+                                    </optgroup>
+                                    <optgroup label="Tài liệu ôn luyện">
+                                        <option value="CHUYEN_DE_BT">Chuyên đề bài tập — lý thuyết rồi tới hệ thống bài tập</option>
+                                        <option value="TAI_LIEU_HSG">Tài liệu học sinh giỏi — chuyên sâu, chủ yếu tự luận</option>
+                                    </optgroup>
+                                    <optgroup label="Giáo án &amp; bài giảng">
+                                        <option value="GIAO_AN">Giáo án Word — khung Công văn 5512, bốn hoạt động</option>
+                                        <option value="BAI_GIANG">Bài giảng PowerPoint — mỗi bài một slide đề + một slide đáp án</option>
+                                    </optgroup>
+                                    <optgroup label="Dạng cũ (vẫn dùng được)">
+                                        <option value="DE_THI">Đề thi một phần — trắc nghiệm thuần, dạng trước 2025</option>
+                                        <option value="CHUYEN_DE">Tài liệu chuyên đề</option>
+                                        <option value="SACH">Sách nhiều chương — có mục lục</option>
+                                    </optgroup>
+                                </select>
+                                <p class="field-hint">
+                                    Chọn một trong <strong>năm loại đề</strong> thì nhận lại trọn bộ bốn phần theo
+                                    chuẩn Bộ: <strong>ma trận đề</strong>, <strong>bản đặc tả</strong>,
+                                    <strong>đề ba phần I/II/III</strong> và <strong>hướng dẫn chấm</strong>.
+                                    Phần II tính điểm lũy tiến 0,1 – 0,25 – 0,5 – 1,0 theo số ý đúng,
+                                    không phải nhân đều.
+                                </p>
+                                <p class="field-hint">
+                                    <strong>Giáo án</strong> chỉ dựng được trọn vẹn phần Luyện tập và Vận dụng
+                                    từ tệp bài tập; hai hoạt động Mở đầu và Hình thành kiến thức mới bám vào bài
+                                    trong sách giáo khoa nên để dạng khung có đánh dấu, giáo viên điền nốt.
+                                </p>
+                                <p class="field-hint">
+                                    Tệp kết quả được xếp thẳng vào thư mục đúng loại
+                                    (<em>Đề thi học kì 1</em>, <em>Chuyên Đề Bài Tập</em>…),
+                                    không đổ chung một chỗ nữa.
+                                </p>
+
+                                <label for="cap-hoc-select" class="doctype-label">
+                                    🎓 Cấp học — quyết định giọng văn và cách trình bày:
+                                </label>
+                                <select id="cap-hoc-select" class="form-control">
+                                    <option value="" selected>Tự nhận diện từ tài liệu</option>
+                                    <option value="TIEU_HOC">TIỂU HỌC — câu ngắn dễ hiểu, có biểu tượng và trang trí bắt mắt</option>
+                                    <option value="THCS">TRUNG HỌC CƠ SỞ — trung tính, thuật ngữ chuẩn</option>
+                                    <option value="THPT">TRUNG HỌC PHỔ THÔNG — trang trọng, học thuật</option>
+                                </select>
+                                <p class="field-hint">
+                                    Tiểu học được thêm biểu tượng và khung trang trí cho bắt mắt.
+                                    Riêng <strong>giáo án</strong> thì mọi cấp đều giữ nghiêm ngặt theo khung
+                                    Công văn 5512, không trang trí — vì đó là hồ sơ chuyên môn.
+                                </p>
+
+                                <label for="ai-scope-select" class="doctype-label">Mức dùng AI (ảnh hưởng trực tiếp tới chi phí):</label>
+                                <select id="ai-scope-select" class="form-control">
+                                    <option value="thieu" selected>Tiết kiệm — chỉ nhờ AI những câu còn thiếu lời giải</option>
+                                    <option value="tat_ca">Toàn bộ — AI viết lại mọi câu (tốn nhất)</option>
+                                    <option value="khong">Không dùng AI — miễn phí hoàn toàn</option>
+                                </select>
+                            </div>
+                    </div>
+
+                    <!-- Step 2: Customization Options -->
+                    <div class="card card-step">
+                        <div class="step-header">
+                            <span class="step-badge">3</span>
                             <h3>Tùy Chọn Biên Soạn & Quy Chuẩn Sư Phạm</h3>
                         </div>
 

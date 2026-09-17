@@ -2021,3 +2021,11 @@ body {
     opacity: 0.75;
     margin-left: 6px;
 }
+
+/* Lời dẫn của một bước, nằm giữa tiêu đề bước và phần điều khiển */
+.step-intro {
+    margin: -2px 0 14px;
+    font-size: 12.8px;
+    line-height: 1.7;
+    color: var(--text-muted);
+}

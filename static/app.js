@@ -427,12 +427,10 @@ document.addEventListener("DOMContentLoaded", () => {
         // Chỉ hỏi gộp/tách khi thực sự có nhiều tài liệu
         batchModeSelector.classList.toggle("hidden", isSingle);
 
-        // Ô chọn dạng đầu ra LUÔN hiện — kể cả khi nạp nhiều tài liệu.
-        // Trước đây chỉ hiện khi nạp đúng một tệp, nên thả cả thư mục đề thi vào
-        // thì không có cách nào yêu cầu xuất ra đề thi, tất cả đều thành sách.
+        // Ô chọn dạng đầu ra nay là một bước riêng, luôn hiện từ đầu.
+        // TUYỆT ĐỐI KHÔNG đặt lại lựa chọn ở đây: người dùng có thể đã chọn
+        // "Bài giảng" TRƯỚC khi nạp tài liệu, xoá đi là âm thầm làm hỏng ý họ.
         doctypeBox.classList.remove("hidden");
-        doctypeSelect.value = "";
-        if (capHocSelect) capHocSelect.value = "";
 
         const nd = data.nhan_dien;
         if (isSingle && nd && nd.doc_type) {
@@ -452,9 +450,11 @@ document.addEventListener("DOMContentLoaded", () => {
                       ` — đổi ở ô bên dưới nếu chưa đúng</div>`
                     : "");
 
-            // Chọn sẵn cấp học đoán được, nhưng vẫn để người dùng đổi —
-            // nhận diện chỉ gợi ý, không quyết định thay họ.
-            if (capHocSelect && nd.cap_hoc) capHocSelect.value = nd.cap_hoc;
+            // Chọn sẵn cấp học đoán được, nhưng CHỈ khi người dùng chưa tự chọn.
+            // Nhận diện là để đỡ việc, không phải để đè lên ý người dùng.
+            if (capHocSelect && nd.cap_hoc && !capHocSelect.value) {
+                capHocSelect.value = nd.cap_hoc;
+            }
         } else {
             doctypeDetected.innerHTML =
                 `🔎 Đã nạp <strong>${files.length}</strong> tài liệu. ` +
