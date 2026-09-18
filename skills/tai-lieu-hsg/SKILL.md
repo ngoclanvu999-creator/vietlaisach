@@ -1,24 +1,80 @@
 ---
 name: tai-lieu-hsg
 description: >-
-  Khuôn tài liệu BỒI DƯỠNG HỌC SINH GIỎI: kế thừa khuôn bốn phần của chuyên đề
-  bài tập nhưng nâng hẳn độ khó — lý thuyết là kỹ thuật giải chứ không phải định
-  nghĩa, bài tập dồn về vận dụng cao, câu hỏi lấy từ đề HSG tỉnh và Olympic,
-  lời giải trình bày đầy đủ như bài thi. Dùng khi soạn TÀI LIỆU HSG / BỒI DƯỠNG
-  ĐỘI TUYỂN / NÂNG CAO. KHÔNG dùng cho tài liệu ôn thi tốt nghiệp thường.
+  Khuôn tài liệu BỒI DƯỠNG HỌC SINH GIỎI, chia theo 13 chuyên đề đo từ đề HSG
+  thật: kế thừa khuôn bốn phần của chuyên đề bài tập nhưng nâng hẳn độ khó —
+  lý thuyết là kỹ thuật giải chứ không phải định nghĩa, bài tập dồn về vận dụng
+  cao, câu hỏi lấy từ đề HSG tỉnh và Olympic, lời giải trình bày đầy đủ như bài
+  thi, chấm thang 20. Dùng khi soạn TÀI LIỆU HSG / BỒI DƯỠNG ĐỘI TUYỂN / NÂNG
+  CAO. KHÔNG dùng cho tài liệu ôn thi tốt nghiệp thường.
 ---
 
 # Tài liệu bồi dưỡng học sinh giỏi
 
-**Nguồn:** chủ dự án chỉ định ngày 17/09/2026 — *"tài liệu học sinh giỏi thì cấu
-trúc như dạng chuyên đề nhưng mức độ khó cao hơn"*. Khuôn bốn phần vì thế kế
-thừa nguyên từ `chuyen-de-bai-tap` (đo từ video mẫu thật). Phần mô tả **độ khó
-nâng lên cụ thể như thế nào** là đề xuất chuyên môn của trợ lý, chưa đo từ mẫu —
-đánh dấu rõ ở mục 6 để chủ dự án soát lại.
+**Nguồn — hai phần, mức tin cậy khác nhau, ghi rõ để không lẫn:**
+
+- **Khuôn bốn phần** kế thừa từ `chuyen-de-bai-tap` (đo từ video mẫu thật), theo
+  chỉ định của chủ dự án ngày 17/09/2026: *"tài liệu học sinh giỏi thì cấu trúc
+  như dạng chuyên đề nhưng mức độ khó cao hơn"*.
+- **Danh mục chuyên đề và tỉ trọng** đo từ **13 đề HSG Toán 11 thật** chủ dự án
+  chỉ định ngày 18/09/2026 — 108 ý hỏi, đọc từng ý. Số liệu đầy đủ ở
+  `references/chuyen-de-do-tu-de.md`.
 
 ---
 
-## 1. Giữ nguyên khuôn bốn phần
+## 1. Chia tài liệu theo chuyên đề
+
+Chủ dự án chỉ định: *"tài liệu học sinh giỏi bạn sẽ chia và làm theo các chuyên
+đề, các chuyên đề này bám theo đề HSG các năm"*.
+
+**Mỗi chuyên đề là một tài liệu riêng**, đủ bốn phần. Không gộp nhiều chuyên đề
+vào một tập — học sinh ôn theo chuyên đề chứ không đọc tuần tự.
+
+Danh mục dưới đây **không phải do trợ lý nghĩ ra**, mà là thống kê 108 ý hỏi của
+13 đề. Cột "số đề" là số đề trong 13 đề có chủ đề đó.
+
+### Nhóm A — Cốt lõi (85,5 % điểm). Soạn đủ cả bảy, soạn kỹ nhất.
+
+| # | Chuyên đề | Số đề | % điểm |
+|---|---|---|---|
+| 1 | Hình học không gian | 12/13 | 19,8 % |
+| 2 | Phương trình lượng giác | 12/13 | 12,4 % |
+| 3 | Dãy số – cấp số – giới hạn dãy | 12/13 | 11,8 % |
+| 4 | Tổ hợp – xác suất | 11/13 | 11,1 % |
+| 5 | Bất đẳng thức, GTLN – GTNN | 11/13 | 10,7 % |
+| 6 | Phương trình, hệ phương trình, bất phương trình | 9/13 | 12,1 % |
+| 7 | Hình học phẳng và tọa độ *Oxy* | 9/13 | 7,6 % |
+
+### Nhóm B — Bổ trợ (10,2 % điểm). Thường là một ý nhỏ trong câu lớn.
+
+| # | Chuyên đề | Số đề | % điểm |
+|---|---|---|---|
+| 8 | Giới hạn hàm số – hàm số liên tục | 8/13 | 6,5 % |
+| 9 | Nhị thức Newton | 4/13 | 3,7 % |
+
+### Nhóm C — Nâng cao (4,3 % điểm). Chỗ phân loại giải nhất – giải nhì.
+
+| # | Chuyên đề | Số đề | % điểm |
+|---|---|---|---|
+| 10 | Số học | 2/13 | 1,3 % |
+| 11 | Đạo hàm – tiếp tuyến | 1/13 | 1,5 % |
+| 12 | Phương trình hàm | 1/13 | 0,8 % |
+| 13 | Phép biến hình | 1/13 | 0,7 % |
+
+**Cách dùng ba nhóm:**
+
+- Ôn **vòng trường**: soạn đủ nhóm A. Bảy tập là đủ dùng.
+- Ôn **vòng tỉnh**: thêm nhóm B, và chọn trong nhóm C những chuyên đề tỉnh mình
+  hay ra.
+- Bồi dưỡng **đội tuyển quốc gia**: nhóm C là trọng tâm, vì nhóm A lúc này học
+  sinh đã thạo.
+
+Danh mục này đo trên **Toán 11**. Với Toán 10, Toán 12 hay Vật lí thì giữ cách
+làm (đo từ đề thật) chứ đừng bê nguyên bảng sang.
+
+---
+
+## 2. Giữ nguyên khuôn bốn phần
 
 Đọc `chuyen-de-bai-tap` để lấy khuôn gốc. Bốn phần giữ y nguyên:
 
@@ -37,7 +93,7 @@ dồn hết về Phần 4.
 
 ---
 
-## 2. Đổi ở Phần 1 — lý thuyết là KỸ THUẬT, không phải định nghĩa
+## 3. Đổi ở Phần 1 — lý thuyết là KỸ THUẬT, không phải định nghĩa
 
 Học sinh giỏi đã thuộc định nghĩa. Phần lý thuyết ở đây phải dạy **cách nghĩ**:
 
@@ -64,7 +120,7 @@ lại nghĩ tới hướng đó, đã thử hướng nào mà hỏng.
 
 ---
 
-## 3. Đổi ở Phần 2 — thang độ khó dịch lên
+## 4. Đổi ở Phần 2 — thang độ khó dịch lên
 
 Chuyên đề thường dùng **Dễ – Trung bình – Khó**. Tài liệu HSG bỏ hẳn mức dễ:
 
@@ -79,13 +135,14 @@ Vẫn ghi theo **dải câu** như chuyên đề, không ghi trên từng câu.
 Tỉ lệ đề xuất: 8 – 8 – 4 trên mỗi 20 câu. Mức Olympic để cuối, ít câu, là những
 bài mà học sinh khá cũng phải nghĩ lâu.
 
-**Phần lớn bài ở dạng tự luận.** Bài trắc nghiệm chỉ dùng cho mức Vận dụng để
-khởi động; từ Vận dụng cao trở lên phải bắt trình bày lập luận, vì đề HSG thật
-chấm theo bước.
+**Ra bài tự luận, đừng ra trắc nghiệm.** Đây là điều đo được chứ không phải cảm
+tính: **12/13 đề trong mẫu không có một câu trắc nghiệm nào**. Ngoại lệ duy nhất
+là đề cụm Tân Yên – Bắc Giang, và đó là đề sàng lọc chọn đội tuyển chứ không
+phải đề thi chính thức. Trắc nghiệm chỉ nên dùng ở mức Vận dụng để khởi động.
 
 ---
 
-## 4. Đổi ở Phần 3 — nguồn câu hỏi khác hẳn
+## 5. Đổi ở Phần 3 — nguồn câu hỏi khác hẳn
 
 Chuyên đề thường lấy câu từ **đề thi tốt nghiệp THPT**. Tài liệu HSG lấy từ:
 
@@ -93,8 +150,8 @@ Chuyên đề thường lấy câu từ **đề thi tốt nghiệp THPT**. Tài 
 PHẦN 3. CÂU HỎI TỪ ĐỀ THI HỌC SINH GIỎI
 
 A. ĐỀ HSG CẤP TỈNH
-   Câu H1. [Bắc Giang 2023] ...
-   Câu H2. [Hải Phòng 2024] ...
+   Câu H1. [Nghệ An 2019] ...
+   Câu H2. [Thanh Hóa 2019] ...
 
 B. ĐỀ HSG QUỐC GIA (VMO)
    Câu H9. [VMO 2022] ...
@@ -104,13 +161,17 @@ C. ĐỀ OLYMPIC KHU VỰC VÀ QUỐC TẾ
 ```
 
 - Tiền tố **`H`** thay cho `T` của chuyên đề: `Câu H1.` — để không lẫn.
-- Thẻ trong ngoặc vuông ghi **nơi ra đề và năm**: `[Bắc Giang 2023]`, không phải
-  chỉ mỗi năm.
+- Thẻ trong ngoặc vuông ghi **nơi ra đề và năm**: `[Nghệ An 2019]`, không phải
+  chỉ mỗi năm. Nếu tỉnh chia bảng thì ghi cả bảng: `[Nghệ An 2019, Bảng A]`.
 - Gom theo **cấp độ kỳ thi** (tỉnh → quốc gia → quốc tế), không gom theo cụm năm.
+
+Mười ba đề trong `references/chuyen-de-do-tu-de.md` là nguồn sẵn có cho mục A.
+Mục B và C hiện **chưa có đề nào trong kho** — nếu chưa có nguồn thật thì bỏ
+trống mục đó, tuyệt đối không bịa ra câu rồi gán thẻ `[VMO 2022]`.
 
 ---
 
-## 5. Đổi ở Phần 4 — lời giải không nhét vừa bảng
+## 6. Đổi ở Phần 4 — lời giải không nhét vừa bảng
 
 Chuyên đề thường dùng bảng ba cột, mỗi ô hướng dẫn giải một tới ba dòng. **Lời
 giải HSG không làm thế được** — một bài chứng minh bất đẳng thức dài cả trang.
@@ -131,33 +192,61 @@ phần lời giải chi tiết.
 
 ---
 
-## 6. Phần chưa đo được — cần chủ dự án soát
+## 7. Nếu soạn ĐỀ THI THỬ HSG — dựng theo mẫu đo được
 
-Những điểm sau là **đề xuất chuyên môn của trợ lý**, chưa đối chiếu với mẫu thật
-do chủ dự án cung cấp. Nếu thực tế khác, sửa thẳng vào tệp này:
+Khác hẳn đề kiểm tra định kỳ. Số liệu từ 13 đề thật:
 
-- Tên ba mức độ (Vận dụng / Vận dụng cao / Olympic) và tỉ lệ 8–8–4
-- Cách gom Phần 3 theo cấp kỳ thi
-- Mục "Phân tích" đặt trước "Giải"
-- Bỏ hẳn mức Dễ
+| | Đề HSG |
+|---|---|
+| Thang điểm | **20**, không phải 10 (11/13 đề) |
+| Số câu lớn | **5–6 câu**, phần lớn chia hai ý a) b) |
+| Điểm mỗi câu | 2–5 điểm; mỗi ý 1–4 điểm |
+| Thời gian | Cấp tỉnh **180′**; cấp trường và cụm **120′** |
+| Dạng câu | Tự luận toàn bộ |
 
-Hai câu cần chủ dự án trả lời để chốt:
+**Thứ tự câu** — hai chỗ đủ ổn định để coi là quy ước (đếm trên 12 đề tự luận,
+bỏ đề trắc nghiệm Bắc Giang ra vì thứ tự câu không so sánh được):
 
-1. Tài liệu này dành cho **học sinh tự học** hay **giáo viên dạy đội tuyển**?
-   Nếu là giáo viên thì phần "Phân tích" nên viết kỹ hơn nữa, kèm gợi ý cách dẫn
-   dắt trên lớp.
-2. Có cần **phân theo vòng thi** không (vòng trường → vòng tỉnh → vòng quốc gia),
-   hay chỉ cần phân theo độ khó như trên?
+- **Mở đầu bằng phương trình lượng giác hoặc phương trình / hệ phương trình:
+  10/12 đề.** Hai ngoại lệ mở bằng tiếp tuyến (Bắc Ninh) và giới hạn (Quảng Trị).
+- **Chốt bằng bất đẳng thức / GTLN – GTNN: 7/12 đề.** Đây là câu phân loại.
+  Đừng đặt bất đẳng thức lên đầu đề.
+
+Giữa hai đầu đó, thứ tự **không** ổn định — mỗi tỉnh xếp một kiểu, nên đừng đặt
+ra quy tắc cứng. Mạch hay gặp: tổ hợp – xác suất, rồi hình học không gian (câu
+nặng nhất, 4–5 điểm), rồi tọa độ *Oxy* hoặc giới hạn, rồi dãy số.
 
 ---
 
-## 7. Giữ nguyên từ chuyên đề — không đổi
+## 8. Phần chưa đo được — cần chủ dự án soát
+
+Đã đo xong: danh mục chuyên đề, tỉ trọng, thang điểm, thời gian, tỉ lệ tự luận,
+thứ tự câu. Những điểm còn lại vẫn là **đề xuất chuyên môn của trợ lý**:
+
+- Tên ba mức độ (Vận dụng / Vận dụng cao / Olympic) và tỉ lệ 8–8–4 trong Phần 2
+- Mục "Phân tích" đặt trước "Giải"
+- Cách chia ba nhóm A / B / C ứng với ba vòng thi
+
+Một câu cần chủ dự án trả lời để chốt:
+
+> Tài liệu này dành cho **học sinh tự học** hay **giáo viên dạy đội tuyển**?
+> Nếu là giáo viên thì phần "Phân tích" nên viết kỹ hơn nữa, kèm gợi ý cách dẫn
+> dắt trên lớp.
+
+*(Câu hỏi thứ hai — có cần phân theo vòng thi không — đã tự trả lời qua số liệu:
+ba nhóm A/B/C ứng đúng ba vòng trường / tỉnh / quốc gia.)*
+
+---
+
+## 9. Giữ nguyên từ chuyên đề — không đổi
 
 Để tránh hiểu nhầm rằng tài liệu HSG thì được bay bổng hơn:
 
 - **Không trang trí**: không biểu tượng, không khung màu, không hình minh họa
 - **Không lời tựa truyền cảm hứng**, không bí kíp thủ khoa, không góc STEM
-- **Không mẹo Casio** — HSG thi tự luận, máy tính không giải thay được
+- **Không mẹo Casio** — 4/13 đề ghi thẳng *"không được sử dụng tài liệu và máy
+  tính cầm tay"*, số còn lại không in dòng quy định này trên đề. Không đề nào
+  cho phép; dạy mẹo bấm máy ở đây là dạy sai.
 - Chỉ dùng màu chữ để phân cấp tiêu đề
 
 Tài liệu HSG càng phải gọn và học thuật, vì người đọc là người đã giỏi.

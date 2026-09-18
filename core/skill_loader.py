@@ -66,7 +66,9 @@ SKILL_THEO_LOAI = {
     "DE_HOC_KI_2": ("de-thi-thpt-2025", ["references/ma-tran-de.md"]),
     "GIAO_AN": ("giao-an-5512", []),
     "CHUYEN_DE_BT": ("chuyen-de-bai-tap", []),
-    "TAI_LIEU_HSG": ("tai-lieu-hsg", []),
+    # Kèm bảng chuyên đề đo từ 13 đề HSG thật: không có nó thì mô hình tự nghĩ
+    # ra danh mục chuyên đề, mà chủ dự án yêu cầu chuyên đề phải bám đề các năm.
+    "TAI_LIEU_HSG": ("tai-lieu-hsg", ["references/chuyen-de-do-tu-de.md"]),
     "BAI_GIANG": ("bai-giang-slide", []),
 }
 
