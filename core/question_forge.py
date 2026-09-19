@@ -258,30 +258,33 @@ class LoiHanMuc(RuntimeError):
     """Hết hạn mức gọi API — khác hẳn lỗi hệ thống, cần báo cho người dùng rõ."""
 
 
-def _goi_json(client, model_name: str, prompt: str) -> Dict[str, Any]:
-    from google.genai import types
+def _goi_json(tt, model_name: str, prompt: str) -> Dict[str, Any]:
+    """
+    Đi qua cổng chung `core/ai_provider.py` chứ KHÔNG gọi thẳng SDK của Google.
+
+    Gọi thẳng SDK là chỗ khóa đi lạc: hàm này nhận khóa nào cũng đưa sang máy
+    chủ Google, nên chọn Claude là khóa Anthropic bay sang Google. Đã xảy ra
+    thật ở `ai_namer` ngày 19/09/2026; luật KL13 nay canh chỗ này.
+    """
+    from core.ai_provider import boc_json, goi_ai
     try:
-        res = client.models.generate_content(
-            model=model_name,
-            contents=prompt,
-            config=types.GenerateContentConfig(response_mime_type="application/json"),
-        )
+        res = goi_ai(tt, prompt, json_mode=True, max_tokens=8000)
     except Exception as e:
         loi = str(e)
         if "RESOURCE_EXHAUSTED" in loi or "429" in loi:
             raise LoiHanMuc(
                 f"Đã hết hạn mức gọi API trong ngày của khóa này (model {model_name}). "
-                "Gói miễn phí chỉ cho 20 lượt/ngày. Hãy thử lại vào ngày mai, "
-                "đổi sang khóa khác, hoặc nâng cấp gói Gemini API."
+                "Gói Gemini miễn phí chỉ cho 20 lượt/ngày. Hãy thử lại vào ngày "
+                "mai, đổi sang khóa khác, hoặc nâng cấp gói."
             ) from e
         if "API_KEY_INVALID" in loi or "API key not valid" in loi:
             raise RuntimeError("Khóa API không hợp lệ. Kiểm tra lại trong phần Cài Đặt AI.") from e
         raise RuntimeError(f"Gọi AI thất bại: {loi[:200]}") from e
 
-    try:
-        return json.loads(res.text)
-    except (json.JSONDecodeError, TypeError) as e:
-        raise RuntimeError(f"AI trả về dữ liệu không đúng định dạng JSON: {e}") from e
+    data = boc_json(res)
+    if not isinstance(data, dict):
+        raise RuntimeError("AI trả về dữ liệu không đúng định dạng JSON.")
+    return data
 
 
 def sinh_cau_hoi(
@@ -292,14 +295,15 @@ def sinh_cau_hoi(
     so_luong: int = 4,
     api_key: str = "",
     model_name: str = "gemini-3.6-flash",
+    provider: str = "gemini",
 ) -> List[ForgedQuestion]:
     """Gọi AI sinh một lô câu hỏi thô. Chưa kiểm chứng gì ở bước này."""
     if not api_key.strip():
-        raise ValueError("Cần API key Gemini để sinh câu hỏi mới")
+        raise ValueError("Cần API key để sinh câu hỏi mới")
 
     so_luong = max(1, min(int(so_luong), MAX_PER_BATCH))
-    from google import genai
-    client = genai.Client(api_key=api_key.strip())
+    from core.ai_provider import chuan_hoa
+    tt = chuan_hoa(provider, api_key.strip(), model_name)
 
     chu_de = _mo_ta_chuyen_de(topic_key, subject)
     mon = "Toán học" if subject == "toan" else "Vật lý"
@@ -345,7 +349,7 @@ TRẢ VỀ JSON THUẦN:
   ]
 }}
 """
-    data = _goi_json(client, model_name, prompt)
+    data = _goi_json(tt, model_name, prompt)
     now = datetime.now().isoformat(timespec="seconds")
 
     ket_qua: List[ForgedQuestion] = []
@@ -371,6 +375,7 @@ def giai_lai_doc_lap(
     ds: List[ForgedQuestion],
     api_key: str,
     model_name: str = "gemini-3.6-flash",
+    provider: str = "gemini",
 ) -> Dict[int, str]:
     """
     Đưa lại đề cho mô hình nhưng GIẤU đáp án và lời giải, bắt nó giải từ đầu.
@@ -381,8 +386,8 @@ def giai_lai_doc_lap(
     if not ds:
         return {}
 
-    from google import genai
-    client = genai.Client(api_key=api_key.strip())
+    from core.ai_provider import chuan_hoa
+    tt = chuan_hoa(provider, api_key.strip(), model_name)
 
     khoi = []
     for i, q in enumerate(ds):
@@ -407,7 +412,7 @@ TRẢ VỀ JSON THUẦN:
 }}
 """
     try:
-        data = _goi_json(client, model_name, prompt)
+        data = _goi_json(tt, model_name, prompt)
     except Exception as e:
         raise RuntimeError(f"Không giải lại được để đối chiếu: {e}")
 
@@ -435,9 +440,11 @@ def sinh_va_tham_dinh(
     so_luong: int = 4,
     api_key: str = "",
     model_name: str = "gemini-3.6-flash",
+    provider: str = "gemini",
 ) -> Dict[str, Any]:
     """Sinh một lô câu hỏi rồi chạy đủ ba lớp kiểm chứng."""
-    tho = sinh_cau_hoi(topic_key, subject, grade, level, so_luong, api_key, model_name)
+    tho = sinh_cau_hoi(topic_key, subject, grade, level, so_luong, api_key,
+                       model_name, provider)
     if not tho:
         return {"dat": [], "truot": [], "tong": 0, "so_luot_goi_api": 1}
 
@@ -457,7 +464,7 @@ def sinh_va_tham_dinh(
         so_luot += 1
         try:
             ds_giai = [q for _, q in qua_cau_truc]
-            ket = giai_lai_doc_lap(ds_giai, api_key, model_name)
+            ket = giai_lai_doc_lap(ds_giai, api_key, model_name, provider)
             for vi_tri, (_, q) in enumerate(qua_cau_truc):
                 tra_loi = ket.get(vi_tri, "")
                 q.resolve_answer = tra_loi

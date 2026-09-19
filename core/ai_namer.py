@@ -40,7 +40,8 @@ def _cache_put(key: str, value):
     return value
 
 
-def get_effective_api_key(explicit_key: Optional[str] = None) -> str:
+def get_effective_api_key(explicit_key: Optional[str] = None,
+                          provider: str = "gemini") -> str:
     """
     Khóa dùng cho lần gọi này.
 
@@ -50,6 +51,12 @@ def get_effective_api_key(explicit_key: Optional[str] = None) -> str:
     người khác mà họ không hề biết.
 
     Khi chạy trên máy cá nhân thì mới lấy tiếp khóa đã lưu hoặc biến môi trường.
+
+    PHẢI BIẾT NHÀ CUNG CẤP. Trước đây hàm này luôn trả về khóa GEMINI khi không
+    có khóa tường minh, kể cả lúc đang gọi Claude — và khóa Gemini đó bị gửi
+    thẳng sang Anthropic. Chiều ngược lại còn tệ hơn: khóa Claude từng bị đưa
+    sang máy chủ Google vì `ai_namer` mặc định chỉ biết Gemini. Rò rỉ bí mật
+    sang bên thứ ba, phát hiện ngày 19/09/2026 khi chạy thử cả dây chuyền.
     """
     explicit = (explicit_key or "").strip()
     if explicit:
@@ -59,6 +66,11 @@ def get_effective_api_key(explicit_key: Optional[str] = None) -> str:
         return ""
 
     settings = load_settings()
+    if (provider or "").strip().lower() == "claude":
+        return (
+            settings.get("claude_api_key", "").strip()
+            or os.environ.get("ANTHROPIC_API_KEY", "").strip()
+        )
     return (
         settings.get("gemini_api_key", "").strip()
         or os.environ.get("GEMINI_API_KEY", "").strip()
@@ -139,7 +151,8 @@ def generate_creative_titles_gemini(
     api_key: Optional[str] = None,
     model_name: str = "gemini-3.6-flash",
     exclude_titles: Optional[List[str]] = None,
-    doc_type: str = ""
+    doc_type: str = "",
+    provider: str = "gemini"
 ) -> List[Dict[str, Any]]:
     """
     Sáng tạo 5 tựa NGẮN GỌN kèm hook đủ mạnh để người đọc muốn xem từ đầu đến cuối.
@@ -151,7 +164,7 @@ def generate_creative_titles_gemini(
     exclude_titles: các tựa đã đề xuất lần trước, để nút "Đổi 5 tựa khác" cho ra
     phương án thực sự mới chứ không lặp lại.
     """
-    key = get_effective_api_key(api_key)
+    key = get_effective_api_key(api_key, provider)
     info = extract_grade_and_subject(f"{filename} {sample_text}", default_subject=subject)
     subj_name = "Toán Học" if info["subject"] == "toan" else "Vật Lý"
     loai_tl = "đề thi" if doc_type == "DE_THI" else "cuốn sách"
@@ -166,10 +179,8 @@ def generate_creative_titles_gemini(
 
     if key:
         try:
-            from google import genai
-            from google.genai import types
+            from core.ai_provider import chuan_hoa, goi_ai, boc_json
 
-            client = genai.Client(api_key=key)
             phan_tranh = ""
             if tranh:
                 phan_tranh = (
@@ -218,18 +229,14 @@ TRẢ VỀ JSON DUY NHẤT:
   ]
 }}
 """
-            response = client.models.generate_content(
-                model=model_name,
-                contents=prompt,
-                config=types.GenerateContentConfig(response_mime_type="application/json")
-            )
-            data = json.loads(response.text)
+            tt = chuan_hoa(provider, key, model_name)
+            data = boc_json(goi_ai(tt, prompt, json_mode=True, max_tokens=4000)) or {}
             titles = data.get("titles", [])
             if titles and len(titles) >= 3:
                 titles = [_gon_tua(t) for t in titles]
                 return titles if tranh else _cache_put(cache_key, titles)
         except Exception as e:
-            print(f"Lỗi Gemini creative titles: {e}. Sử dụng bộ sáng tạo chuyên gia mặc định.")
+            print(f"Lỗi {provider} khi đặt tựa sách: {e}. Dùng bộ sáng tạo mặc định.")
 
     # BỘ DỰ PHÒNG NGOẠI TUYẾN — cũng phải ngắn gọn và có hook thật.
     # Có nhiều bộ khác nhau để nút "Đổi 5 tựa khác" vẫn cho ra phương án mới
@@ -301,15 +308,16 @@ def generate_creative_enrichment_gemini(
     subject: str = "toan",
     sample_questions: Optional[List[str]] = None,
     api_key: Optional[str] = None,
-    model_name: str = "gemini-3.6-flash"
+    model_name: str = "gemini-3.6-flash",
+    provider: str = "gemini"
 ) -> Dict[str, Any]:
     """
-    Dùng Gemini API để sáng tạo thêm các nội dung giá trị gia tăng cực cao cho cuốn sách:
+    Sáng tạo thêm các nội dung giá trị gia tăng cho cuốn sách:
     1. Lời tựa truyền cảm hứng 'thôi miên' người đọc.
     2. Hộp bí kíp thủ khoa & phân tích tâm lý làm bài thi.
     3. Kết nối toán học với thế giới thực (STEM & Công nghệ tương lai).
     """
-    key = get_effective_api_key(api_key)
+    key = get_effective_api_key(api_key, provider)
     subj_name = "Toán Học" if subject == "toan" else "Vật Lý"
 
     cache_key = f"enrich|{book_title}|{subject}"
@@ -319,10 +327,8 @@ def generate_creative_enrichment_gemini(
 
     if key:
         try:
-            from google import genai
-            from google.genai import types
+            from core.ai_provider import chuan_hoa, goi_ai, boc_json
 
-            client = genai.Client(api_key=key)
             prompt = f"""
 Bạn là Nhà Giáo Ưu Tú kiêm Chuyên Gia Viết Sách Sư Phạm Hàng Đầu.
 Hãy sáng tạo NỘI DUNG MỞ RỘNG ĐẶC SẮC cho cuốn sách:
@@ -342,14 +348,11 @@ TRẢ VỀ ĐỊNH DẠNG JSON:
   "stem_connection": "..."
 }}
 """
-            response = client.models.generate_content(
-                model=model_name,
-                contents=prompt,
-                config=types.GenerateContentConfig(response_mime_type="application/json")
-            )
-            return _cache_put(cache_key, json.loads(response.text))
+            tt = chuan_hoa(provider, key, model_name)
+            return _cache_put(cache_key,
+                              boc_json(goi_ai(tt, prompt, json_mode=True, max_tokens=4000)) or {})
         except Exception as e:
-            print(f"Lỗi Gemini enrichment: {e}. Dùng nội dung chuyên gia mặc định.")
+            print(f"Lỗi {provider} khi soạn nội dung mở rộng: {e}. Dùng nội dung mặc định.")
 
     # OFFLINE ENRICHMENT FALLBACK
     return {
@@ -385,7 +388,8 @@ def synthesize_book_metadata(
     api_key: Optional[str] = None,
     model_name: str = "gemini-3.6-flash",
     options: Optional[Dict[str, Any]] = None,
-    doc_type: str = ""
+    doc_type: str = "",
+    provider: str = "gemini"
 ) -> Dict[str, Any]:
     """
     Đặt tên sách độc bản, ấn tượng, đúng tinh thần tài liệu, không trùng lặp giữa các cuốn.
@@ -399,7 +403,7 @@ def synthesize_book_metadata(
       - Nội dung sáng tạo: chỉ gọi khi còn ít nhất một trong lời tựa, bí kíp,
         góc STEM được bật.
     """
-    key = get_effective_api_key(api_key)
+    key = get_effective_api_key(api_key, provider)
     opts = options or {}
     can_tua_sang_tao = str(doc_type or "").upper() != "DE_THI"
     can_noi_dung = any(
@@ -416,7 +420,8 @@ def synthesize_book_metadata(
         chapter_titles=chapter_titles,
         subject=subject,
         api_key=key,
-        model_name=model_name
+        model_name=model_name,
+        provider=provider
     ) if can_tua_sang_tao else []
 
     best_match = creative_titles[0] if creative_titles else {}
@@ -435,7 +440,8 @@ def synthesize_book_metadata(
         book_title=book_title,
         subject=subject,
         api_key=key,
-        model_name=model_name
+        model_name=model_name,
+        provider=provider
     ) if can_noi_dung else {}
 
     return {

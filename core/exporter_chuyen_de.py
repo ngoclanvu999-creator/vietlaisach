@@ -285,9 +285,13 @@ def xuat_chuyen_de(doc, book, subject: str = "toan", options: Dict[str, Any] = N
     _tieu_de_phan(doc, "PHẦN 4. HƯỚNG DẪN VÀ ĐÁP ÁN")
 
     if tu_luyen:
+        # Xếp theo ĐÚNG thứ tự đã in ở Phần 2, không theo thứ tự tài liệu gốc:
+        # số hiệu được đánh theo nhóm mức độ nên hai thứ tự này khác nhau, để
+        # nguyên thì bảng đáp án chạy Câu 1, Câu 3, Câu 2.
+        theo_thu_tu = sorted(tu_luyen, key=lambda q: int(so_hieu[id(q)][4:-1]))
         dong = [(so_hieu[id(q)].rstrip("."),
                  (getattr(q, "correct_answer", "") or "").strip().upper()[:1] or "—",
-                 _tom_huong_dan(q)) for q in tu_luyen]
+                 _tom_huong_dan(q)) for q in theo_thu_tu]
         _bang_dap_an(doc, f"A. ĐÁP ÁN PHẦN BÀI TẬP TỰ LUYỆN (Câu 1–{len(tu_luyen)})", dong)
 
     if tu_de_thi:

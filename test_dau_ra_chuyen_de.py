@@ -138,6 +138,17 @@ def main() -> int:
                  if f"Câu {i}" not in trong_bang]
         ktra("Bảng đáp án đủ mọi câu tự luyện", not thieu, "thiếu: " + str(thieu[:5]))
 
+    # 8. Bảng đáp án phải chạy đúng thứ tự đã in ở Phần 2.
+    # Số hiệu đánh theo nhóm mức độ nên khác thứ tự tài liệu gốc — để nguyên thì
+    # bảng chạy Câu 1, Câu 3, Câu 2, người dùng dò đáp án rất khó chịu.
+    if bang3:
+        so = []
+        for r in bang3[0].rows[1:]:
+            t = r.cells[0].text.strip()
+            if t.startswith("Câu ") and t[4:].isdigit():
+                so.append(int(t[4:]))
+        ktra("Bảng đáp án chạy đúng thứ tự tăng dần", so == sorted(so), str(so))
+
     print()
     print("Tệp đã dựng:", RA)
     print("KẾT QUẢ:", "ĐẠT" if loi == 0 else "%d LỖI" % loi)

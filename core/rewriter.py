@@ -742,7 +742,7 @@ def rewrite_with_gemini(
             filename=source_filename,
             sample_content="\n".join(q.content for q in questions[:6]),
             subject=subject, api_key=api_key, model_name=model_name,
-            options=options, doc_type=doc_type
+            options=options, doc_type=doc_type, provider=provider
         )
         return RewrittenBook(
             original_title=source_filename,
@@ -936,7 +936,7 @@ Chỉ trả về JSON thuần túy.
         subject=subject,
         api_key=api_key,
         model_name=model_name,
-        options=options, doc_type=doc_type
+        options=options, doc_type=doc_type, provider=provider
     )
 
     default_title = f"{new_total} Tuyệt Kỹ Chinh Phục Điểm 9+ {'Toán Học' if subject == 'toan' else 'Vật Lý'}"
@@ -963,7 +963,8 @@ def rewrite_offline(
     api_key: Optional[str] = None,
     model_name: str = "gemini-3.6-flash",
     options: Optional[Dict[str, Any]] = None,
-    doc_type: str = ""
+    doc_type: str = "",
+    provider: str = GEMINI
 ) -> RewrittenBook:
     source_filename = questions[0].source_file if questions else ""
 
@@ -983,7 +984,7 @@ def rewrite_offline(
         subject=subject,
         api_key=api_key,
         model_name=model_name,
-        options=options, doc_type=doc_type
+        options=options, doc_type=doc_type, provider=provider
     )
     book_title = meta.get("book_title") or (Path(source_filename).stem.replace("_", " ").upper() if source_filename else "TÀI LIỆU CHUYÊN ĐỀ")
     subtitle = meta.get("subtitle", "Hệ Thống Kiến Thức Trọng Tâm & Lời Giải Chi Tiết Chuẩn BGD")
@@ -1093,7 +1094,8 @@ def create_master_book_from_chapters(
     api_key: Optional[str] = None,
     model_name: str = "gemini-3.6-flash",
     options: Optional[Dict[str, Any]] = None,
-    doc_type: str = ""
+    doc_type: str = "",
+    provider: str = GEMINI
 ) -> RewrittenBook:
     chapters: List[RewrittenChapter] = []
 
@@ -1150,7 +1152,7 @@ def create_master_book_from_chapters(
         subject=subject,
         api_key=api_key,
         model_name=model_name,
-        options=options, doc_type=doc_type
+        options=options, doc_type=doc_type, provider=provider
     )
 
     if master_title and master_title.strip():
@@ -1218,7 +1220,7 @@ def process_rewrite_pipeline(
     if ai_scope == AI_SCOPE_KHONG:
         return _gan_loai(rewrite_offline(
             questions, subject=subject, add_count=add_count, api_key=None,
-            options=options, doc_type=doc_type
+            options=options, doc_type=doc_type, provider=provider
         ))
 
     if api_key and api_key.strip():
@@ -1234,11 +1236,11 @@ def process_rewrite_pipeline(
             return _gan_loai(rewrite_offline(
                 questions, subject=subject, add_count=add_count,
                 api_key=api_key, model_name=model_name,
-                options=options, doc_type=doc_type
+                options=options, doc_type=doc_type, provider=provider
             ))
     else:
         return _gan_loai(rewrite_offline(
             questions, subject=subject, add_count=add_count,
             api_key=api_key, model_name=model_name,
-            options=options, doc_type=doc_type
+            options=options, doc_type=doc_type, provider=provider
         ))

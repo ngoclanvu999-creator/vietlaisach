@@ -313,6 +313,54 @@ def kl10(kq: KetQua):
            "Thử 3 tình huống trên bản Web: đều trả về khóa rỗng, chạy ngoại tuyến")
 
 
+def kl13(kq: KetQua):
+    """
+    Khóa của nhà cung cấp này KHÔNG được gửi sang nhà cung cấp kia.
+
+    Đã rò rỉ thật ngày 19/09/2026: `ai_namer` chỉ biết Gemini nhưng nhận bất kỳ
+    khóa nào được truyền vào, nên khi chạy cả dây chuyền bằng Claude thì khóa
+    Anthropic bị gửi thẳng sang máy chủ Google. Chiều ngược lại cũng hỏng:
+    `get_effective_api_key()` luôn trả khóa Gemini đã lưu, kể cả lúc đang gọi
+    Claude. Đây là rò rỉ bí mật sang bên thứ ba, không chỉ là tiêu nhầm hạn mức.
+
+    KL10 canh cửa vào (header từ người dùng); luật này canh cửa trong.
+    """
+    try:
+        import core.ai_namer as an
+    except Exception as e:                      # pragma: no cover
+        kq.ghi("KL13 · Khóa không đi lạc sang nhà cung cấp khác", False,
+               "Không nạp được ai_namer: %s" % e)
+        return
+
+    hong = []
+    kg = an.get_effective_api_key(None, "gemini")
+    kc = an.get_effective_api_key(None, "claude")
+    if kg.startswith("sk-ant"):
+        hong.append("Chọn Gemini mà lấy phải khóa Anthropic")
+    if kc and not kc.startswith("sk-ant"):
+        hong.append("Chọn Claude mà lấy phải khóa không phải Anthropic")
+
+    goc = an.LOCAL_MODE
+    try:
+        an.LOCAL_MODE = False
+        for nha in ("gemini", "claude"):
+            if an.get_effective_api_key(None, nha):
+                hong.append("Bản Web vẫn mượn được khóa máy chủ cho %s" % nha)
+    finally:
+        an.LOCAL_MODE = goc
+
+    # Không mô-đun nào được gọi thẳng SDK của một nhà cung cấp ngoài ai_provider
+    for tep in ("core/ai_namer.py", "core/rewriter.py", "core/question_forge.py"):
+        nd = doc(tep)
+        if "genai.Client(" in nd or "anthropic.Anthropic(" in nd:
+            hong.append("%s gọi thẳng SDK, phải đi qua core/ai_provider.py" % tep)
+
+    kq.ghi("KL13 · Khóa không đi lạc sang nhà cung cấp khác",
+           not hong,
+           "\n".join(hong) if hong else
+           "Thử 4 tình huống lấy khóa + soát 3 mô-đun: không chỗ nào gọi tắt SDK")
+
+
 # ---------------------------------------------------------------------------
 # NHÓM 6 — Chống lưu đệm và an toàn
 # ---------------------------------------------------------------------------
@@ -372,7 +420,7 @@ LUAT: List[Tuple[str, Callable]] = [
     ("NHÓM 4 — Thẩm định đo trên dữ liệu thật", None),
     ("", kl9),
     ("NHÓM 5 — Khóa API là của riêng từng người", None),
-    ("", kl10),
+    ("", kl10), ("", kl13),
     ("NHÓM 6 — Chống lưu đệm và an toàn", None),
     ("", kl11), ("", kl12),
 ]

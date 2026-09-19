@@ -1176,7 +1176,7 @@ def api_generate_questions(req: GenerateRequest, request: Request):
     if not api_key:
         raise HTTPException(
             status_code=400,
-            detail="Cần có Gemini API Key để sinh câu hỏi mới. Vào ⚙️ Cài Đặt AI để dán khóa của bạn."
+            detail="Cần có API Key để sinh câu hỏi mới. Vào ⚙️ Cài Đặt AI để dán khóa của bạn."
         )
 
     try:
@@ -1188,6 +1188,7 @@ def api_generate_questions(req: GenerateRequest, request: Request):
             so_luong=req.so_luong,
             api_key=api_key,
             model_name=model_name,
+            provider=provider,
         )
     except LoiHanMuc as e:
         raise HTTPException(status_code=429, detail=str(e))
