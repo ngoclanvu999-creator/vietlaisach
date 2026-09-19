@@ -17,7 +17,7 @@ if %errorlevel% neq 0 (
 
 "%PYTHON_EXE%" create_shortcut.py
 echo.
-echo Tu nay ban chi can ra man hinh Desktop va nhap dup vao "Bien_Soan_Sach_Pro" la ung dung se tu mo!
+echo Tu nay ban chi can ra man hinh Desktop va nhap dup vao "Bien Soan Sach Pro" la ung dung se tu mo!
 echo.
 echo Nhan phim bat ky de thoat...
 pause >nul
