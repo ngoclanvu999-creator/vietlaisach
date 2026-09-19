@@ -1704,6 +1704,22 @@ body {
     color: #60A5FA;
 }
 
+/* Kết quả bấm nút "Thử khóa". Giữ xuống dòng vì phần chi tiết lỗi do máy chủ
+   trả về thường dài và cần đọc nguyên văn. */
+.key-ok {
+    background: rgba(34, 197, 94, 0.10);
+    border-color: rgba(34, 197, 94, 0.30);
+    color: #4ADE80;
+    white-space: pre-wrap;
+}
+
+.key-loi {
+    background: rgba(239, 68, 68, 0.10);
+    border-color: rgba(239, 68, 68, 0.32);
+    color: #FCA5A5;
+    white-space: pre-wrap;
+}
+
 /* ==========================================================
    MÀN HÌNH KHÓA TRUY CẬP NỘI BỘ
    ========================================================== */

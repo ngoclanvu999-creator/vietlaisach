@@ -689,6 +689,16 @@ class DocxBookExporter:
             doc.save(str(output_path))
             return output_path
 
+        # Chuyên đề bài tập: khuôn BỐN PHẦN, đáp án dồn hết về Phần 4. Trước đây
+        # loại này không có nhánh riêng nên rơi xuống bộ dựng sách bên dưới, mà
+        # bộ đó in lời giải ngay dưới mỗi bài — trái hẳn skill chuyen-de-bai-tap.
+        if loai_ra == "CHUYEN_DE_BT":
+            from core.exporter_chuyen_de import xuat_chuyen_de
+            xuat_chuyen_de(doc, book, mon, opts)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            doc.save(str(output_path))
+            return output_path
+
         # Giao an: khung Cong van 5512. La ho so chuyen mon nen o MOI cap hoc
         # deu giu nghiem ngat, khong bieu tuong, khong trang tri.
         if loai_ra == "GIAO_AN":

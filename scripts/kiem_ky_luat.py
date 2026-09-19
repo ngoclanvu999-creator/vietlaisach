@@ -148,8 +148,11 @@ def kl5(kq: KetQua):
     from core.loai_dau_ra import DANH_SACH, QUY_CACH
 
     cac_test = "\n".join(doc(p.name) for p in GOC.glob("test_*.py"))
+    # Nhận cả hai cách viết: chuỗi "CHUYEN_DE_BT" lẫn hằng số nhập từ
+    # core.loai_dau_ra. Nhập hằng số là cách ĐÚNG HƠN — gõ tay chuỗi thì đổi tên
+    # mã là kiểm thử lặng lẽ trượt — nên luật không được chỉ tính cách kém hơn.
     thieu = [ma for ma in DANH_SACH
-             if not re.search(r"[\"']%s[\"']" % re.escape(ma), cac_test)]
+             if not re.search(r"\b%s\b" % re.escape(ma), cac_test)]
     co = len(DANH_SACH) - len(thieu)
     kq.ghi("KL5 · Mỗi loại đầu ra có kiểm thử riêng",
            not thieu,

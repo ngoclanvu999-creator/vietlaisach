@@ -517,8 +517,10 @@
                         <div class="input-with-button">
                             <input type="password" id="gemini-api-key" class="form-control" placeholder="Dán khóa API của bạn (AIzaSy...)">
                             <button id="btn-toggle-key" class="btn-small" type="button">Hiện</button>
+                            <button id="btn-thu-khoa-gemini" class="btn-small" type="button">Thử khóa</button>
                         </div>
                         <div id="key-status" class="key-status">Chưa có khóa — đang dùng Bộ máy Offline</div>
+                        <div id="ket-qua-thu-gemini" class="key-status hidden"></div>
                         <p class="field-hint">
                             🔒 <strong>Khóa chỉ được lưu trên trình duyệt của chính bạn</strong> và gửi kèm từng lượt biên soạn.
                             Máy chủ không lưu lại và không dùng chung với ai. Người khác vào trang này phải dán khóa của họ,
@@ -549,8 +551,10 @@
                         <div class="input-with-button">
                             <input type="password" id="claude-api-key" class="form-control" placeholder="Dán khóa API của bạn (sk-ant-...)">
                             <button id="btn-toggle-claude-key" class="btn-small" type="button">Hiện</button>
+                            <button id="btn-thu-khoa-claude" class="btn-small" type="button">Thử khóa</button>
                         </div>
                         <div id="claude-key-status" class="key-status">Chưa có khóa — đang dùng Bộ máy Offline</div>
+                        <div id="ket-qua-thu-claude" class="key-status hidden"></div>
                         <p class="field-hint">
                             🔒 <strong>Khóa chỉ được lưu trên trình duyệt của chính bạn</strong> và gửi kèm từng lượt biên soạn,
                             y như khóa Gemini. Máy chủ không lưu lại và không dùng chung với ai.
@@ -697,26 +701,28 @@
         <div id="modal-deploy" class="modal-overlay hidden">
             <div class="modal-box">
                 <div class="modal-header">
-                    <h3>🚀 Hướng Dẫn Triển Khai Web (Cloud Deployment)</h3>
+                    <h3>💻 Chạy Phần Mềm Trên Máy Của Bạn</h3>
                     <button id="btn-close-deploy" class="btn-close">✕</button>
                 </div>
                 <div class="modal-body deploy-modal-content">
-                    <p class="deploy-intro">Ứng dụng đã được tích hợp sẵn <strong>Dockerfile, requirements.txt và host binding 0.0.0.0</strong>, sẵn sàng triển khai 1-click lên bất kỳ dịch vụ Cloud nào:</p>
-                    
+                    <p class="deploy-intro">Phần mềm này được thiết kế để <strong>chạy ngay trên máy bạn</strong>. Chạy ở máy thì mở thẳng được kho tài liệu trong ổ đĩa, khởi động trong một giây, ngân hàng câu hỏi không bị mất, và khóa API đã lưu sẵn nên không phải dán lại.</p>
+
                     <div class="deploy-card">
-                        <h4>1. Triển khai qua Docker</h4>
-                        <code>docker build -t bien-soan-sach .<br>docker run -p 8501:8501 bien-soan-sach</code>
+                        <h4>1. Cách chạy hằng ngày</h4>
+                        <p>Bấm đúp vào <code>Chay_Ung_Dung.bat</code> trong thư mục phần mềm. Trình duyệt tự mở ở <code>http://127.0.0.1:8501</code>.</p>
+                        <p>Muốn tiện hơn, chạy <code>Tao_Shortcut_Desktop.bat</code> một lần để có lối tắt ngoài màn hình.</p>
                     </div>
 
                     <div class="deploy-card">
-                        <h4>2. Triển khai Render.com / Railway / Cloud Run</h4>
-                        <p><strong>Build Command:</strong> <code>pip install -r requirements.txt</code></p>
-                        <p><strong>Start Command:</strong> <code>python app.py</code> hoặc <code>uvicorn app:app --host 0.0.0.0 --port $PORT</code></p>
+                        <h4>2. Khi cài trên một máy mới</h4>
+                        <p>Cài Python 3.10 trở lên, rồi mở thư mục phần mềm và chạy:</p>
+                        <code>pip install -r requirements.txt</code>
+                        <p>Sau đó bấm đúp <code>Chay_Ung_Dung.bat</code> như bình thường.</p>
                     </div>
 
                     <div class="deploy-card">
-                        <h4>3. Triển khai VPS Linux (Ubuntu / Debian)</h4>
-                        <code>git clone &lt;repo&gt;<br>pip install -r requirements.txt<br>nohup python app.py &</code>
+                        <h4>3. Nếu muốn người khác truy cập được</h4>
+                        <p>Phần mềm chạy ở máy bạn nên mặc định chỉ mình bạn dùng. Nếu cần mở cho đồng nghiệp, <strong>bắt buộc</strong> đặt biến môi trường <code>APP_ACCESS_TOKEN</code> trước — không có nó thì bất kỳ ai vào được địa chỉ đều đọc được ổ đĩa và tiêu được khóa API của bạn.</p>
                     </div>
                 </div>
                 <div class="modal-footer">

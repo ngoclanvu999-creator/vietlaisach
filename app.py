@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 import secrets
 import hashlib
 from pathlib import Path
@@ -33,6 +34,7 @@ from core.ai_provider import (
     GEMINI, CLAUDE, NHA_CUNG_CAP, chuan_hoa,
     MODEL_GEMINI_CHO_PHEP, MODEL_CLAUDE_CHO_PHEP,
     MODEL_CLAUDE_MAC_DINH, TEN_HIEN_THI as TEN_NHA_CUNG_CAP,
+    goi_ai, LoiHanMuc, LoiDauRaThieu,
 )
 from core.loai_dau_ra import (
     QUY_CACH, DANH_SACH as DS_DAU_RA, quy_cach, la_de, thu_muc_cua,
@@ -370,6 +372,71 @@ def verify_access():
     trả hợp lệ.
     """
     return {"status": "success", "valid": True, "auth_required": bool(ACCESS_TOKEN)}
+
+@app.post("/api/thu-khoa")
+def api_thu_khoa(request: Request):
+    """
+    Gọi thật một lượt rất ngắn để người dùng biết khóa của mình có dùng được không.
+
+    Vì sao cần: khóa hỏng có nhiều kiểu rất khác nhau mà thông báo lại giống nhau
+    ở phía người dùng — sai ký tự, hết tín dụng, hoặc khóa cấp tổ chức chưa gắn
+    workspace (chuyện đã gặp thật). Không có nút này thì người dùng chỉ thấy tài
+    liệu ra bằng bộ máy ngoại tuyến mà không hiểu vì sao.
+
+    Lượt gọi cố ý cực ngắn nên gần như không tốn tiền. Dùng đúng đường
+    `goi_ai()` mà bản thân phần biên soạn dùng, để cái gì chạy được ở đây thì
+    chắc chắn chạy được ở đó.
+    """
+    api_key, model_name, provider = request_credentials(request)
+    ten_nha = TEN_NHA_CUNG_CAP.get(provider, provider)
+
+    if not api_key:
+        return {
+            "status": "error", "dung_duoc": False, "provider": provider,
+            "thong_bao": f"Chưa dán khóa {ten_nha}. Ứng dụng sẽ chạy bằng bộ máy ngoại tuyến.",
+        }
+
+    tt = chuan_hoa(provider, api_key, model_name)
+    t0 = time.time()
+    try:
+        # 1500 token là dư cho câu này, nhưng vẫn cần rộng: model có suy luận
+        # thích ứng sẽ tiêu token cho phần nghĩ trước khi viết được chữ nào.
+        tra_loi = goi_ai(tt, "Trả lời đúng một số, không thêm gì khác: 12 x 12 bằng mấy?",
+                         max_tokens=1500)
+    except LoiHanMuc as e:
+        return {"status": "error", "dung_duoc": False, "provider": provider,
+                "thong_bao": f"Khóa {ten_nha} đúng nhưng đã hết hạn mức hoặc hết tín dụng.",
+                "chi_tiet": str(e)[:300]}
+    except LoiDauRaThieu as e:
+        return {"status": "error", "dung_duoc": False, "provider": provider,
+                "thong_bao": f"Khóa {ten_nha} gọi được nhưng đầu ra không dùng được.",
+                "chi_tiet": str(e)[:300]}
+    except Exception as e:
+        ma = getattr(e, "status_code", None)
+        goi_y = ""
+        tin = str(e)
+        if ma == 401 or "authentication_error" in tin:
+            goi_y = "Khóa sai hoặc đã bị thu hồi. Hãy tạo khóa mới."
+        elif "not scoped to a workspace" in tin:
+            goi_y = ("Khóa này ở cấp tổ chức, chưa gắn workspace nào. Vào console "
+                     "tạo lại khóa và chọn một Workspace cụ thể.")
+        elif ma == 429:
+            goi_y = "Bị chặn vì gọi quá nhanh hoặc hết hạn mức. Thử lại sau ít phút."
+        return {"status": "error", "dung_duoc": False, "provider": provider,
+                "thong_bao": goi_y or f"Không gọi được {ten_nha}.",
+                "chi_tiet": tin[:300]}
+
+    # Bài nhân này có đáp số cố định, kiểm luôn xem mô hình trả lời có đúng không
+    dung_dap_so = "144" in (tra_loi or "")
+    return {
+        "status": "success", "dung_duoc": True, "provider": provider,
+        "model": tt.model,
+        "giay": round(time.time() - t0, 2),
+        "dap_so_dung": dung_dap_so,
+        "thong_bao": f"Khóa {ten_nha} dùng được — {tt.model} trả lời trong "
+                     f"{round(time.time() - t0, 2)} giây.",
+    }
+
 
 @app.post("/api/scan-folder")
 def api_scan_folder(req: ScanFolderRequest):

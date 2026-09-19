@@ -115,20 +115,37 @@ mới, gây `TypeError` và chết cả trang.
 
 `/api/health` trả `asset_version` để biết máy chủ đang phục vụ bản nào.
 
-## Deploy
+## Chạy ở máy — KHÔNG deploy lên đâu cả
 
-Nhánh `main` → Render (`vietlaisach-pro.onrender.com`).
+Phần mềm chạy trên máy người dùng: bấm đúp `Chay_Ung_Dung.bat`, mở
+`http://127.0.0.1:8501`.
 
-`autoDeploy: true` trong `render.yaml` **không có tác dụng** vì service được tạo
-thủ công trên dashboard chứ không qua Blueprint. Deploy đi qua
-`.github/workflows/deploy.yml`, cần secret `RENDER_DEPLOY_HOOK` trong GitHub.
+**Đã bỏ hẳn Render ngày 19/09/2026**, cùng `render.yaml`,
+`.github/workflows/deploy.yml` và `keep_alive.yml`. Đừng dựng lại chúng.
 
-Kiểm tra bản đã lên chưa:
+Lý do bỏ, để sau này không ai vô tình làm lại:
+
+- **Kho tài liệu nằm ở máy người dùng.** Bản Web chặn duyệt thư mục
+  (`if not LOCAL_MODE: raise HTTPException(403, ...)`) nên chức năng trỏ vào một
+  thư mục rồi gộp cả thư mục — thứ được dùng nhiều nhất — không chạy được.
+- **Đĩa trên máy chủ miễn phí là tạm**, mỗi lần deploy là mất sạch ngân hàng câu
+  hỏi đã qua ba lớp thẩm định.
+- **Gói miễn phí ngủ đông** sau 15 phút; có lần chờ 3 phút không hồi đáp, trong
+  khi chạy ở máy khởi động hết 1 giây.
+- Người dùng nói rõ chỉ mình và vài người nội bộ dùng, nên URL công khai là gánh
+  nặng chứ không phải tiện ích.
+
+Kiểm tra máy chạy được:
 
 ```bash
-curl -s https://vietlaisach-pro.onrender.com/api/health
-# so asset_version với _asset_version() ở máy
+python -m uvicorn app:app --host 127.0.0.1 --port 8899
+curl -s http://127.0.0.1:8899/api/health
 ```
+
+Nếu sau này thật sự cần cho người ngoài dùng: chạy ở máy rồi mở đường hầm
+(Cloudflare Tunnel), và **bắt buộc đặt `APP_ACCESS_TOKEN` trước** — mở đường hầm
+vào bản `LOCAL_MODE` mà không có token nghĩa là ai có địa chỉ cũng duyệt được ổ
+đĩa và tiêu được khóa API đã lưu.
 
 ## Hạn mức Gemini
 

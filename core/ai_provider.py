@@ -48,6 +48,25 @@ class LoiHanMuc(Exception):
     """Hết hạn mức hoặc hết tín dụng — khác hẳn lỗi mạng, cần báo người dùng rõ."""
 
 
+class LoiDauRaThieu(Exception):
+    """
+    Gọi thành công nhưng đầu ra không dùng được: rỗng hẳn, hoặc bị cắt giữa chừng.
+
+    Đây là kiểu hỏng NGUY HIỂM NHẤT vì nó không tự báo — không ngoại lệ, không mã
+    lỗi, chỉ là một chuỗi rỗng hoặc một đoạn JSON cụt đi tiếp xuống dưới rồi biến
+    thành tài liệu thiếu bài mà không ai biết vì sao.
+
+    Cả hai đều đã gặp thật ngày 18–19/09/2026 khi thử khóa Claude: cùng một câu
+    lệnh với max_tokens hẹp, lần thì trả rỗng với stop_reason "max_tokens" (suy
+    luận thích ứng ăn hết ngân sách), lần thì trả về nửa câu rồi dừng. Không lần
+    nào sinh ra lỗi.
+
+    Nơi gọi duy nhất (`rewriter`) luôn yêu cầu JSON trọn vẹn, nên đầu ra cụt là
+    vô dụng hoàn toàn. Nay biến nó thành ngoại lệ có nêu lý do, để hệ thống rơi
+    về ngoại tuyến một cách CÓ Ý THỨC thay vì âm thầm nuốt mất nội dung.
+    """
+
+
 @dataclass
 class ThongTinAI:
     """Thông tin đăng nhập cho đúng một lượt gọi."""
@@ -165,7 +184,25 @@ def _goi_gemini(tt: ThongTinAI, prompt: str, json_mode: bool) -> str:
     response = client.models.generate_content(
         model=tt.model, contents=prompt, config=cau_hinh
     )
-    return response.text or ""
+    van_ban = response.text or ""
+    ly_do = ""
+    try:
+        ly_do = str(response.candidates[0].finish_reason or "")
+    except Exception:
+        pass
+
+    if not van_ban.strip():
+        raise LoiDauRaThieu(
+            "Gemini trả về rỗng"
+            + (f" (dừng vì: {ly_do})" if ly_do else "")
+            + ". Lô này không dùng được."
+        )
+    if "MAX_TOKENS" in ly_do.upper():
+        raise LoiDauRaThieu(
+            f"Gemini bị cắt giữa chừng ở {len(van_ban)} ký tự vì chạm trần token. "
+            f"JSON cụt không bóc được, phải chia lô nhỏ hơn."
+        )
+    return van_ban
 
 
 def _goi_claude(tt: ThongTinAI, prompt: str, max_tokens: int) -> str:
@@ -201,4 +238,22 @@ def _goi_claude(tt: ThongTinAI, prompt: str, max_tokens: int) -> str:
             f"{f' ({chi_tiet.category})' if chi_tiet else ''}"
         )
 
-    return "".join(b.text for b in tin.content if getattr(b, "type", "") == "text")
+    van_ban = "".join(b.text for b in tin.content if getattr(b, "type", "") == "text")
+    ly_do = getattr(tin, "stop_reason", "") or "không rõ"
+
+    if not van_ban.strip():
+        if ly_do == "max_tokens":
+            raise LoiDauRaThieu(
+                f"Claude dùng hết {max_tokens} token mà chưa viết được chữ nào. "
+                f"Model {tt.model} bật suy luận thích ứng nên phần suy luận đã ăn "
+                f"hết ngân sách. Cần tăng max_tokens, hoặc chia lô nhỏ hơn."
+            )
+        raise LoiDauRaThieu(f"Claude trả về rỗng (dừng vì: {ly_do}).")
+
+    if ly_do == "max_tokens":
+        raise LoiDauRaThieu(
+            f"Claude bị cắt giữa chừng ở {len(van_ban)} ký tự vì chạm trần "
+            f"{max_tokens} token. JSON cụt không bóc được, phải chia lô nhỏ hơn."
+        )
+
+    return van_ban

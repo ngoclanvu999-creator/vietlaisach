@@ -1661,6 +1661,73 @@ Các câu cần giải:
         }
     });
 
+    // ----- Thử khóa API -----
+    // Gửi thẳng khóa đang GÕ TRONG Ô, không lấy khóa đã lưu: người dùng phải thử
+    // được trước khi bấm lưu, nếu không thì nút này vô dụng đúng lúc cần nhất.
+    async function thuKhoa(nhaCungCap, oNhap, oKetQua, nut) {
+        const khoa = (oNhap.value || "").trim();
+        oKetQua.classList.remove("hidden", "key-ok", "key-loi");
+        if (!khoa) {
+            oKetQua.textContent = "Chưa dán khóa vào ô bên trên.";
+            oKetQua.classList.add("key-loi");
+            return;
+        }
+
+        const chuCu = nut.textContent;
+        nut.disabled = true;
+        nut.textContent = "Đang thử…";
+        oKetQua.textContent = "Đang gọi thử một lượt rất ngắn…";
+
+        try {
+            const headers = new Headers({ "X-AI-Provider": nhaCungCap });
+            if (nhaCungCap === "claude") {
+                headers.set("X-Claude-Key", khoa);
+                if (claudeModelSelect && claudeModelSelect.value) {
+                    headers.set("X-Claude-Model", claudeModelSelect.value);
+                }
+            } else {
+                headers.set("X-Gemini-Key", khoa);
+                if (geminiModelSelect && geminiModelSelect.value) {
+                    headers.set("X-Gemini-Model", geminiModelSelect.value);
+                }
+            }
+            const access = readStore(ACCESS_STORE);
+            if (access) headers.set("X-Access-Token", access);
+
+            const res = await fetch("/api/thu-khoa", { method: "POST", headers });
+            const data = await res.json();
+
+            if (data.dung_duoc) {
+                oKetQua.textContent = "✅ " + data.thong_bao
+                    + (data.dap_so_dung ? "" : " (lưu ý: mô hình trả lời sai phép nhân thử)");
+                oKetQua.classList.add("key-ok");
+            } else {
+                oKetQua.textContent = "❌ " + (data.thong_bao || "Khóa không dùng được.")
+                    + (data.chi_tiet ? "\n" + data.chi_tiet : "");
+                oKetQua.classList.add("key-loi");
+            }
+        } catch (err) {
+            oKetQua.textContent = "❌ Không gọi được máy chủ: " + err.message;
+            oKetQua.classList.add("key-loi");
+        } finally {
+            nut.disabled = false;
+            nut.textContent = chuCu;
+        }
+    }
+
+    const btnThuKhoaGemini = document.getElementById("btn-thu-khoa-gemini");
+    if (btnThuKhoaGemini) {
+        btnThuKhoaGemini.addEventListener("click", () => thuKhoa(
+            "gemini", geminiApiKeyInput,
+            document.getElementById("ket-qua-thu-gemini"), btnThuKhoaGemini));
+    }
+    const btnThuKhoaClaude = document.getElementById("btn-thu-khoa-claude");
+    if (btnThuKhoaClaude) {
+        btnThuKhoaClaude.addEventListener("click", () => thuKhoa(
+            "claude", claudeApiKeyInput,
+            document.getElementById("ket-qua-thu-claude"), btnThuKhoaClaude));
+    }
+
     // Chỉ hiện khối của nhà cung cấp đang chọn, để khỏi rối mắt khi dán khóa.
     function doiKhoiNhaCungCap() {
         if (!aiProviderSelect || !khoiGemini || !khoiClaude) return;
