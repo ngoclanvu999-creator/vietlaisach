@@ -2,6 +2,7 @@ import os
 import re
 import time
 import json
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from dataclasses import dataclass, field, asdict
 from typing import List, Dict, Any, Optional
@@ -761,7 +762,11 @@ def rewrite_with_gemini(
 
     # Mỗi lần gọi chỉ gửi một lô để không vượt giới hạn ngữ cảnh
     BATCH_SIZE = 25
-    MAX_BATCHES = 12
+    # Trần số lô là để chặn một tài liệu khổng lồ ăn hết hạn mức (hoặc hết tiền)
+    # trong một lượt. Câu vượt trần KHÔNG bị mất — chúng chạy bằng bộ ngoại
+    # tuyến ở cuối hàm — nhưng chất lượng khác hẳn, nên chỗ này in cảnh báo rõ.
+    # Đổi bằng biến môi trường SO_LO_TOI_DA khi muốn cả cuốn đều qua AI.
+    MAX_BATCHES = max(1, int(os.environ.get("SO_LO_TOI_DA", "12")))
     tat_ca_lo = [can_ai[i:i + BATCH_SIZE] for i in range(0, len(can_ai), BATCH_SIZE)]
     batches = tat_ca_lo[:MAX_BATCHES]
 
@@ -782,6 +787,7 @@ def rewrite_with_gemini(
     rewritten_items: List[RewrittenQuestionItem] = []
     ai_processed = 0
     meta_from_ai: Dict[str, Any] = {}
+    cau_lenh_theo_lo: Dict[int, str] = {}
 
     for batch_no, batch in enumerate(batches, 1):
         # batch là danh sách cặp (vị trí trong tài liệu gốc, câu hỏi)
@@ -862,29 +868,51 @@ TRẢ VỀ ĐỊNH DẠNG JSON:
 }}
 Chỉ trả về JSON thuần túy.
 """
-        tien_do.dat_viec(f"Đang gọi {tt.ten_hien_thi} cho lô {batch_no}/{tong_lo} "
-                         f"({len(batch)} câu)")
-        t_lo = time.time()
+        cau_lenh_theo_lo[batch_no] = prompt
+
+    # ---- Gọi AI cho các lô SONG SONG ----
+    # Chạy tuần tự thì tài liệu 348 câu mất 12 lô nhân một tới hai phút, tức nửa
+    # tiếng ngồi nhìn. Các lô độc lập hoàn toàn với nhau — mỗi lô một nhóm câu
+    # riêng — nên gọi song song được. Giữ mức vừa phải để không chạm trần tốc độ
+    # của nhà cung cấp; đổi được bằng biến môi trường khi cần.
+    so_song_song = max(1, min(8, int(os.environ.get("SO_LO_SONG_SONG", "4"))))
+    ket_lo: Dict[int, Any] = {}
+
+    def _goi_mot_lo(so: int):
+        t0 = time.time()
         try:
-            data = boc_json(goi_ai(tt, prompt, json_mode=True, max_tokens=32000))
+            return so, boc_json(goi_ai(tt, cau_lenh_theo_lo[so], json_mode=True,
+                                       max_tokens=32000)), time.time() - t0, None
         except Exception as e:
-            # Một lô lỗi không được làm hỏng cả cuốn sách: rơi về bộ xử lý ngoại
-            # tuyến cho riêng lô đó rồi đi tiếp.
-            giay = time.time() - t_lo
-            print(f"[!] Lô {batch_no}/{tong_lo} lỗi {tt.ten_hien_thi} sau {giay:.0f}s "
-                  f"({e}) — dùng bộ xử lý ngoại tuyến cho lô này.")
-            tien_do.ghi_loi(f"Lô {batch_no}: {e}")
-            tien_do.xong_mot_lo(batch_no, tong_lo, len(batch), giay,
-                                f"Lô {batch_no}/{tong_lo} lỗi, đã chuyển ngoại tuyến")
+            return so, None, time.time() - t0, e
+
+    print(f"[*] Gọi {tong_lo} lô, {so_song_song} lô chạy song song.")
+    tien_do.dat_viec(f"Đang gọi {tt.ten_hien_thi} — {tong_lo} lô, "
+                     f"{so_song_song} lô song song")
+
+    with ThreadPoolExecutor(max_workers=so_song_song) as bo_chay:
+        for so, data, giay, loi in bo_chay.map(_goi_mot_lo, range(1, tong_lo + 1)):
+            so_cau_lo = len(batches[so - 1])
+            if loi is not None:
+                print(f"[!] Lô {so}/{tong_lo} lỗi {tt.ten_hien_thi} sau {giay:.0f}s "
+                      f"({loi}) — dùng bộ xử lý ngoại tuyến cho lô này.")
+                tien_do.ghi_loi(f"Lô {so}: {loi}")
+                tien_do.xong_mot_lo(so, tong_lo, so_cau_lo, giay,
+                                    f"Lô {so}/{tong_lo} lỗi, đã chuyển ngoại tuyến")
+            else:
+                ket_lo[so] = data
+                tien_do.xong_mot_lo(so, tong_lo, so_cau_lo, giay)
+                print(f"[*] Xong lô {so}/{tong_lo} ({so_cau_lo} câu) sau {giay:.0f}s")
+
+    # ---- Ghép kết quả theo ĐÚNG thứ tự lô ----
+    for batch_no, batch in enumerate(batches, 1):
+        data = ket_lo.get(batch_no)
+        if data is None:
             for vi_tri, q in batch:
                 ket_qua_theo_vi_tri[vi_tri] = generate_offline_enhancement(
                     q, vi_tri + 1, new_total, subject, topic_key=topic_data.get("topic_key")
                 )
             continue
-
-        giay = time.time() - t_lo
-        tien_do.xong_mot_lo(batch_no, tong_lo, len(batch), giay)
-        print(f"[*] Xong lô {batch_no}/{tong_lo} ({len(batch)} câu) sau {giay:.0f}s")
 
         if batch_no == 1:
             meta_from_ai = {
