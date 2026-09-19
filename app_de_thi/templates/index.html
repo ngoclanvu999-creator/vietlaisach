@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soạn Đề Thi | Bộ đề chuẩn 2025</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <!-- Kiểu dáng dùng chung cho cả ba app, nằm ở gốc dự án -->
+    <link rel="stylesheet" href="/chung/style.css?v=__ASSET_VERSION__">
+</head>
+<body>
+<div class="app-container">
+
+    <header class="navbar">
+        <div class="brand">
+            <div class="brand-icon">📝</div>
+            <div class="brand-text">
+                <div class="brand-title-wrap">
+                    <h1>Soạn Đề Thi</h1>
+                    <span class="badge-status"><span class="dot-online"></span> Sẵn sàng</span>
+                </div>
+                <span class="badge-tag">Ma trận · Bản đặc tả · Đề ba phần · Hướng dẫn chấm</span>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button id="btn-thu-muc" class="btn btn-outline" title="Mở thư mục kết quả trên máy">
+                <span class="icon">📂</span> Thư Mục Kết Quả
+            </button>
+            <button id="btn-cai-dat" class="btn btn-outline" title="Dán khóa Claude">
+                <span class="icon">⚙️</span> Cài Đặt AI
+            </button>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="grid-layout">
+
+            <!-- ============ CỘT TRÁI: NẠP LIỆU & TÙY CHỌN ============ -->
+            <div class="control-column">
+
+                <div class="card card-step">
+                    <div class="step-header">
+                        <span class="step-badge">1</span>
+                        <h3>Nạp Tài Liệu Gốc</h3>
+                    </div>
+
+                    <div class="subject-selector">
+                        <div class="radio-card active" data-subject="toan">
+                            <input type="radio" name="mon" id="mon-toan" value="toan" checked>
+                            <span class="radio-icon">📐</span>
+                            <div class="radio-text">
+                                <span class="radio-label">Toán Học</span>
+                                <span class="radio-sub">Đại số, Giải tích, Hình học</span>
+                            </div>
+                        </div>
+                        <div class="radio-card" data-subject="vatly">
+                            <input type="radio" name="mon" id="mon-vatly" value="vatly">
+                            <span class="radio-icon">⚛️</span>
+                            <div class="radio-text">
+                                <span class="radio-label">Vật Lý</span>
+                                <span class="radio-sub">Cơ học, Sóng, Điện từ</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="vung-tha" class="drop-zone">
+                        <div class="drop-content">
+                            <div class="upload-icon">📥</div>
+                            <p class="drop-title">Kéo thả <span>tài liệu gốc</span> vào đây</p>
+                            <p class="drop-hint">
+                                Tệp lẻ, nhiều tệp, cả thư mục hay file nén .ZIP — thả lẫn lộn cũng được.
+                            </p>
+                            <div class="browse-actions">
+                                <button type="button" class="btn-browse-action" id="btn-chon-tep">📄 Chọn Tệp</button>
+                                <button type="button" class="btn-browse-action" id="btn-chon-thu-muc">📁 Chọn Thư Mục</button>
+                            </div>
+                            <p class="drop-formats">Word (.docx) • Excel (.xlsx) • PDF • Ảnh chụp đề • Nén (.zip)</p>
+                        </div>
+                    </div>
+
+                    <input type="file" id="o-tep" multiple
+                           accept=".docx,.doc,.xlsx,.xls,.pdf,.png,.jpg,.jpeg,.zip"
+                           style="display:none !important;">
+                    <input type="file" id="o-thu-muc" webkitdirectory directory multiple
+                           style="display:none !important;">
+
+                    <div id="ket-qua-nap" class="hidden"></div>
+                </div>
+
+                <div class="card card-step">
+                    <div class="step-header">
+                        <span class="step-badge">2</span>
+                        <h3>Loại Đề Cần Soạn</h3>
+                    </div>
+
+                    <div class="form-group">
+                        <select id="loai-dau-ra" class="form-control doctype-main-select">
+                            <option value="DE_CHUONG_BAI">Đề kiểm tra theo chương bài — 45 phút</option>
+                            <option value="DE_GIUA_KI_1">Đề kiểm tra giữa học kì 1 — 60 phút</option>
+                            <option value="DE_GIUA_KI_2">Đề kiểm tra giữa học kì 2 — 60 phút</option>
+                            <option value="DE_HOC_KI_1" selected>Đề thi học kì 1 — 90 phút</option>
+                            <option value="DE_HOC_KI_2">Đề thi học kì 2 — 90 phút</option>
+                        </select>
+                        <p class="field-hint">
+                            Đầu ra luôn là <strong>bộ bốn phần</strong>: ma trận đề · bản đặc tả ·
+                            đề ba phần I/II/III · hướng dẫn chấm.
+                        </p>
+                    </div>
+
+                    <div id="hop-cau-truc" class="doctype-box">
+                        <div class="doctype-label">Cấu trúc đề sẽ dựng</div>
+                        <div id="bang-cau-truc" class="doctype-cost">Đang tính…</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="cap-hoc">Cấp học (quyết định giọng văn và độ khó):</label>
+                        <select id="cap-hoc" class="form-control">
+                            <option value="">Tự nhận diện từ tài liệu</option>
+                            <option value="TIEU_HOC">Tiểu học</option>
+                            <option value="THCS">Trung học cơ sở</option>
+                            <option value="THPT">Trung học phổ thông</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="pham-vi-ai">Dùng AI tới đâu:</label>
+                        <select id="pham-vi-ai" class="form-control">
+                            <option value="THIEU" selected>Chỉ câu còn thiếu lời giải — tiết kiệm nhất</option>
+                            <option value="TAT_CA">Tất cả các câu — chất lượng đều nhất, tốn tiền nhất</option>
+                            <option value="KHONG">Không dùng AI — chạy hoàn toàn ngoại tuyến</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tieu-de">Tên đề (để trống thì AI tự đặt):</label>
+                        <input type="text" id="tieu-de" class="form-control"
+                               placeholder="Ví dụ: Đề thi học kì 1 — Toán 12">
+                    </div>
+
+                    <div class="checkbox-row">
+                        <label><input type="checkbox" id="co-loi-giai" checked> Lời giải trong hướng dẫn chấm</label>
+                        <label><input type="checkbox" id="co-bang-dap-an" checked> Bảng đáp án tra nhanh</label>
+                    </div>
+                    <p class="field-hint">
+                        Đề thi cố ý KHÔNG chen mẹo Casio và cảnh báo bẫy vào giữa đề —
+                        học sinh nhìn xuống là thấy gợi ý, mất hẳn tác dụng kiểm tra.
+                    </p>
+
+                    <div class="form-group">
+                        <label for="kho-giay">Khổ giấy:</label>
+                        <select id="kho-giay" class="form-control">
+                            <option value="a4" selected>A4 — lề trái 30mm để đóng gáy</option>
+                            <option value="b5">B5 — khổ sách nhỏ</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============ CỘT PHẢI: BIÊN SOẠN & KẾT QUẢ ============ -->
+            <div class="preview-column">
+
+                <div class="card">
+                    <div class="step-header">
+                        <span class="step-badge">3</span>
+                        <h3>Dựng Bộ Đề</h3>
+                    </div>
+                    <button id="btn-bien-soan" class="btn btn-primary btn-large btn-glow" disabled>
+                        Nạp tài liệu trước đã
+                    </button>
+                </div>
+
+                <div id="the-tien-do" class="card hidden">
+                    <div class="card-header-bar">
+                        <h3>Tiến Trình Biên Soạn</h3>
+                    </div>
+                    <div class="progress-wrap">
+                        <div class="progress-bar-bg">
+                            <div id="thanh-tien-do" class="progress-bar-fill" style="width:0%"></div>
+                        </div>
+                    </div>
+                    <p id="chu-tien-do" class="step-intro">Đang chuẩn bị…</p>
+                </div>
+
+                <div id="the-ket-qua" class="card result-card hidden">
+                    <div class="result-header">
+                        <h3 id="ten-ket-qua"></h3>
+                        <p id="phu-de-ket-qua" class="subtitle-text"></p>
+                    </div>
+                    <div id="dau-an-ai" class="key-status"></div>
+                    <div class="download-action-box">
+                        <a id="lien-ket-tai" class="btn btn-success btn-large" href="#" download>
+                            ⬇️ Tải tệp Word về
+                        </a>
+                        <button id="btn-mo-thu-muc-ra" class="btn btn-outline">📂 Mở thư mục chứa tệp</button>
+                    </div>
+                    <div id="bao-cao-tham-dinh"></div>
+                </div>
+
+                <div id="the-xem-truoc" class="card hidden">
+                    <div class="card-header-bar">
+                        <h3>Xem Trước Câu Đã Bóc Tách</h3>
+                        <span id="huy-hieu-xem-truoc" class="preview-badge"></span>
+                    </div>
+                    <div id="danh-sach-xem-truoc"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- ============ HỘP CÀI ĐẶT KHÓA ============ -->
+<div id="hop-cai-dat" class="modal-overlay hidden">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3>⚙️ Khóa Claude</h3>
+            <button id="btn-dong-cai-dat" class="btn-close">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="o-khoa">Claude API Key của riêng bạn:</label>
+                <div class="input-with-button">
+                    <input type="password" id="o-khoa" class="form-control"
+                           placeholder="Dán khóa API của bạn (sk-ant-...)">
+                    <button id="btn-hien-khoa" class="btn-small" type="button">Hiện</button>
+                    <button id="btn-thu-khoa" class="btn-small" type="button">Thử khóa</button>
+                </div>
+                <div id="trang-thai-khoa" class="key-status">Chưa có khóa — đang dùng Bộ máy Offline</div>
+                <div id="ket-qua-thu-khoa" class="key-status hidden"></div>
+                <p class="field-hint">
+                    🔒 <strong>Khóa chỉ lưu trên trình duyệt của bạn</strong> và gửi kèm từng lượt
+                    biên soạn. Máy chủ không lưu lại và không dùng chung với ai.
+                </p>
+                <p class="field-hint">
+                    Lấy khóa tại
+                    <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.
+                    Khi tạo khóa nhớ chọn một <strong>Workspace</strong> cụ thể — khóa cấp tổ chức
+                    sẽ bị từ chối.
+                </p>
+            </div>
+
+            <div class="form-group">
+                <label for="o-model">Mô hình:</label>
+                <select id="o-model" class="form-control">
+                    <option value="claude-sonnet-5" selected>Claude Sonnet 5 — cân bằng giá và chất lượng</option>
+                    <option value="claude-haiku-4-5">Claude Haiku 4.5 — rẻ nhất</option>
+                    <option value="claude-opus-5">Claude Opus 5 — mạnh nhất, đắt hơn Sonnet hơn hai lần</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="btn-luu-cai-dat" class="btn btn-primary">Lưu</button>
+        </div>
+    </div>
+</div>
+
+<script src="/static/app.js?v=__ASSET_VERSION__"></script>
+</body>
+</html>

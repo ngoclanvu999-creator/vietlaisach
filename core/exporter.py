@@ -394,7 +394,7 @@ class DocxBookExporter(NenWord):
         loai_ra = getattr(book, "loai_dau_ra", "") or ""
         mon = getattr(book, "subject", "") or "toan"
         if la_loai_de(loai_ra):
-            from core.exporter_de import xuat_bo_de
+            from app_de_thi.bo_dung.exporter_de import xuat_bo_de
             xuat_bo_de(doc, book, loai_ra, mon,
                        kem_loi_giai=bool(opts.get("solution", True)))
             output_path.parent.mkdir(parents=True, exist_ok=True)

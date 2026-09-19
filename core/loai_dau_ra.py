@@ -184,6 +184,11 @@ def _lam_tron(x: float) -> float:
     return round(x + 1e-9, 3)
 
 
+def _boi_so(x: float, buoc: float) -> float:
+    """Ép về bội số gần nhất của `buoc`, để điểm mỗi câu chấm được bằng tay."""
+    return round(round(x / buoc) * buoc, 4)
+
+
 def tinh_cau_truc(ma_loai: str, subject: str = "toan") -> CauTrucDe:
     """
     Suy ra số câu và thang điểm cho một loại đề.
@@ -223,11 +228,57 @@ def tinh_cau_truc(ma_loai: str, subject: str = "toan") -> CauTrucDe:
     phan_p1 = con_lai * (t1 / tong_t13)
     phan_p3 = con_lai - phan_p1
 
+    # ĐIỂM MỖI CÂU PHẢI CHẤM ĐƯỢC BẰNG TAY. Chia thẳng `phan_p1 / c1` cho ra
+    # những con số như 0,429 hay 1,333 điểm một câu — đúng về số học nhưng không
+    # giáo viên nào chấm nổi, và cộng lại còn lệch 0,003 so với 10,0.
+    #
+    # Tính bằng SỐ NGUYÊN đơn vị 0,05 điểm (mốc nhỏ nhất thực sự dùng khi chấm)
+    # để không còn sai số dấu phẩy động, rồi tìm cặp (số câu Phần I, điểm mỗi
+    # câu) chia hết đúng phần còn lại. Giáo viên chấp nhận được đề 11 câu thay
+    # vì 12; không ai chấp nhận được câu 0,429 điểm.
+    DV = 0.05
+    tong_dv = 200                                   # 10,0 điểm
+    p2_dv = int(round(diem_p2 / DV)) * c2
+    c1_dich = max(4, c1)
+
+    # Dò cả điểm Phần III lẫn số câu Phần I, chọn phương án SÁT SỐ CÂU MONG MUỐN
+    # nhất. Chỉ dò mỗi số câu thì đề theo chương Vật lí từng nhảy lên 23 câu
+    # Phần I — bằng cả đề học kì, trong khi chỉ có 45 phút.
+    d3_goc = max(5, int(round(_boi_so(phan_p3 / c3, 0.25) / DV)))
+    chon = None
+    for d3_dv in sorted({d3_goc, 5, 10, 15, 20}, key=lambda v: abs(v - d3_goc)):
+        con_dv = tong_dv - p2_dv - d3_dv * c3
+        if con_dv <= 0:
+            continue
+        for lech in range(0, 7):                    # tối đa lệch 6 câu so với mong muốn
+            for ung in sorted({c1_dich - lech, c1_dich + lech}):
+                if ung < 4 or con_dv % ung:
+                    continue
+                d1_dv = con_dv // ung
+                if 2 <= d1_dv <= 20:                # 0,10 đến 1,00 điểm một câu
+                    if chon is None or lech < chon[2]:
+                        chon = (ung, d1_dv, lech, d3_dv)
+            if chon and chon[2] == 0:
+                break
+        if chon and chon[2] == 0:
+            break
+
+    if chon:
+        c1, d1_dv, _, d3_dv = chon
+    else:
+        # Không tìm được cặp chia hết thì thà lệch số câu còn hơn lệch tổng điểm
+        d3_dv = d3_goc
+        con_dv = tong_dv - p2_dv - d3_dv * c3
+        d1_dv = max(1, int(round(con_dv / max(1, c1_dich))))
+        c1 = max(4, con_dv // d1_dv)
+
+    d1, d3 = d1_dv * DV, d3_dv * DV
+
     ct = CauTrucDe(
         so_cau_p1=c1, so_cau_p2=c2, so_cau_p3=c3,
-        diem_moi_cau_p1=_lam_tron(phan_p1 / c1),
+        diem_moi_cau_p1=_lam_tron(d1),
         diem_toi_da_p2=_lam_tron(diem_p2),
-        diem_moi_cau_p3=_lam_tron(phan_p3 / c3),
+        diem_moi_cau_p3=_lam_tron(d3),
         thoi_gian=(q.thoi_gian if q and q.thoi_gian else chuan["thoi_gian"]),
     )
     # Thang lũy tiến co giãn theo điểm tối đa một câu Phần II
