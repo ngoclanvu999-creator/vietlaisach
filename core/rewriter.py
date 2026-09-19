@@ -15,7 +15,8 @@ from core.theory_bank import (
 from core.ai_namer import synthesize_book_metadata
 from core import tien_do
 from core.doc_type import DE_THI, SACH, CHUYEN_DE
-from core.ai_provider import GEMINI, CLAUDE, chuan_hoa, goi_ai, boc_json, LoiHanMuc
+from core.ai_provider import (MODEL_CLAUDE_MAC_DINH, chuan_hoa, goi_ai,
+                              boc_json, LoiHanMuc)
 from core.skill_loader import (
     nap_van_ban_skill, huong_dan_giong_van, phat_hien_cap_hoc,
     TIEU_HOC, THCS, THPT, TEN_CAP_HOC as TEN_CAP,
@@ -68,7 +69,7 @@ class RewrittenBook:
     theory_section: str = ""    # PHẦN I: KIẾN THỨC TRỌNG TÂM & LÝ THUYẾT NỀN TẢNG
     valedictorian_secrets: List[str] = field(default_factory=list) # Lời khuyên vàng từ Thủ khoa
     stem_connection: str = ""   # Góc kết nối thực tiễn STEM GDPT 2018
-    creative_options: List[Dict[str, Any]] = field(default_factory=list) # Danh sách 5 tựa sách thôi miên từ Gemini
+    creative_options: List[Dict[str, Any]] = field(default_factory=list) # Danh sách 5 tựa sách do AI đề xuất
     chapters: List[RewrittenChapter] = field(default_factory=list)
     questions: List[RewrittenQuestionItem] = field(default_factory=list)
     # Loại tài liệu quyết định cách trình bày đầu ra: DE_THI xuất ra đề sạch với
@@ -646,7 +647,7 @@ def create_added_question(
 
 
 # ==========================================
-# CƠ CHẾ GOOGLE GEMINI AI REWRITER
+# BIÊN SOẠN BẰNG AI (CLAUDE)
 # ==========================================
 
 # ============================================================
@@ -689,21 +690,18 @@ def phan_loai_theo_nhu_cau(questions: List[QuestionItem], scope: str):
     return can, khong_can
 
 
-def rewrite_with_gemini(
+def bien_soan_bang_ai(
     questions: List[QuestionItem],
     api_key: str,
-    model_name: str = "gemini-3.6-flash",
+    model_name: str = MODEL_CLAUDE_MAC_DINH,
     subject: str = "toan",
     add_count: int = 2,
     ai_scope: str = AI_SCOPE_THIEU,
-    provider: str = GEMINI,
     options: Optional[Dict[str, Any]] = None,
     doc_type: str = "",
     cap_hoc: str = ""
 ) -> RewrittenBook:
-    # Tên hàm giữ nguyên cho khỏi vỡ các lệnh gọi cũ, nhưng nay nó chạy được cả
-    # Gemini lẫn Claude — chọn bên nào là do `provider`.
-    tt = chuan_hoa(provider, api_key, model_name)
+    tt = chuan_hoa(api_key, model_name)
 
     # Chuẩn nghiệp vụ nạp từ tệp skill. Trước đây câu lệnh chỉ dài ~1.800 ký tự
     # và không hề biết đề thi từ 2025 có ba phần I/II/III.
@@ -745,7 +743,7 @@ def rewrite_with_gemini(
             filename=source_filename,
             sample_content="\n".join(q.content for q in questions[:6]),
             subject=subject, api_key=api_key, model_name=model_name,
-            options=options, doc_type=doc_type, provider=provider
+            options=options, doc_type=doc_type
         )
         return RewrittenBook(
             original_title=source_filename,
@@ -993,7 +991,7 @@ Chỉ trả về JSON thuần túy.
         subject=subject,
         api_key=api_key,
         model_name=model_name,
-        options=options, doc_type=doc_type, provider=provider
+        options=options, doc_type=doc_type
     )
 
     default_title = f"{new_total} Tuyệt Kỹ Chinh Phục Điểm 9+ {'Toán Học' if subject == 'toan' else 'Vật Lý'}"
@@ -1018,10 +1016,9 @@ def rewrite_offline(
     subject: str = "toan",
     add_count: int = 2,
     api_key: Optional[str] = None,
-    model_name: str = "gemini-3.6-flash",
+    model_name: str = MODEL_CLAUDE_MAC_DINH,
     options: Optional[Dict[str, Any]] = None,
     doc_type: str = "",
-    provider: str = GEMINI
 ) -> RewrittenBook:
     source_filename = questions[0].source_file if questions else ""
 
@@ -1041,7 +1038,7 @@ def rewrite_offline(
         subject=subject,
         api_key=api_key,
         model_name=model_name,
-        options=options, doc_type=doc_type, provider=provider
+        options=options, doc_type=doc_type
     )
     book_title = meta.get("book_title") or (Path(source_filename).stem.replace("_", " ").upper() if source_filename else "TÀI LIỆU CHUYÊN ĐỀ")
     subtitle = meta.get("subtitle", "Hệ Thống Kiến Thức Trọng Tâm & Lời Giải Chi Tiết Chuẩn BGD")
@@ -1149,10 +1146,9 @@ def create_master_book_from_chapters(
     subject: str = "toan",
     master_title: Optional[str] = None,
     api_key: Optional[str] = None,
-    model_name: str = "gemini-3.6-flash",
+    model_name: str = MODEL_CLAUDE_MAC_DINH,
     options: Optional[Dict[str, Any]] = None,
     doc_type: str = "",
-    provider: str = GEMINI
 ) -> RewrittenBook:
     chapters: List[RewrittenChapter] = []
 
@@ -1209,7 +1205,7 @@ def create_master_book_from_chapters(
         subject=subject,
         api_key=api_key,
         model_name=model_name,
-        options=options, doc_type=doc_type, provider=provider
+        options=options, doc_type=doc_type
     )
 
     if master_title and master_title.strip():
@@ -1244,11 +1240,10 @@ def process_rewrite_pipeline(
     subject: str = "toan",
     add_count: int = 2,
     api_key: Optional[str] = None,
-    model_name: str = "gemini-3.6-flash",
+    model_name: str = MODEL_CLAUDE_MAC_DINH,
     doc_type: str = CHUYEN_DE,
     exam_info: Optional[Dict[str, str]] = None,
     ai_scope: str = AI_SCOPE_THIEU,
-    provider: str = GEMINI,
     options: Optional[Dict[str, Any]] = None,
     cap_hoc: str = "",
     loai_dau_ra: str = ""
@@ -1277,15 +1272,15 @@ def process_rewrite_pipeline(
     if ai_scope == AI_SCOPE_KHONG:
         return _gan_loai(rewrite_offline(
             questions, subject=subject, add_count=add_count, api_key=None,
-            options=options, doc_type=doc_type, provider=provider
+            options=options, doc_type=doc_type
         ))
 
     if api_key and api_key.strip():
         try:
-            return _gan_loai(rewrite_with_gemini(
+            return _gan_loai(bien_soan_bang_ai(
                 questions, api_key=api_key.strip(), model_name=model_name,
                 subject=subject, add_count=add_count, ai_scope=ai_scope,
-                provider=provider, options=options, doc_type=doc_type,
+                options=options, doc_type=doc_type,
                 cap_hoc=cap
             ))
         except Exception as e:
@@ -1293,11 +1288,11 @@ def process_rewrite_pipeline(
             return _gan_loai(rewrite_offline(
                 questions, subject=subject, add_count=add_count,
                 api_key=api_key, model_name=model_name,
-                options=options, doc_type=doc_type, provider=provider
+                options=options, doc_type=doc_type
             ))
     else:
         return _gan_loai(rewrite_offline(
             questions, subject=subject, add_count=add_count,
             api_key=api_key, model_name=model_name,
-            options=options, doc_type=doc_type, provider=provider
+            options=options, doc_type=doc_type
         ))

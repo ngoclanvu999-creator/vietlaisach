@@ -1,37 +1,29 @@
 # -*- coding: utf-8 -*-
 """
-Đấu nối AI: một cửa duy nhất cho cả Gemini lẫn Claude.
+Đấu nối AI: một cửa duy nhất để gọi Claude.
 
-Vì sao có mô-đun này: trước đây mã gọi thẳng `genai.Client` rải rác trong
-rewriter và ai_namer, nên muốn thêm nhà cung cấp thứ hai là phải sửa từng chỗ.
-Gom về một hàm `goi_ai()` thì phần còn lại của hệ thống không cần biết đang nói
-chuyện với ai.
+Vì sao có mô-đun này: trước đây mã gọi thẳng SDK rải rác trong rewriter,
+ai_namer và question_forge, nên khóa đi lạc sang nhà cung cấp khác mà không ai
+biết — khóa Anthropic từng bị gửi thẳng sang máy chủ Google. Gom về một hàm
+`goi_ai()` thì phần còn lại của hệ thống không cần biết cách gọi, và chỉ có một
+chỗ duy nhất phải canh.
 
-Nguyên tắc giữ nguyên như cũ: khóa là tài sản riêng của từng người, đi theo
-từng lượt gọi, mô-đun này không lưu và không đọc khóa của ai khác.
+Ngày 19/09/2026 chủ dự án chốt **bỏ hẳn Gemini**, chỉ dùng Claude. Vì vậy mô-đun
+này không còn khái niệm "nhà cung cấp" nữa. Đừng thêm lại nhánh thứ hai nếu chưa
+có yêu cầu rõ: chính việc đỡ hai nhà cung cấp cùng lúc đã sinh ra ba chỗ rò rỉ
+khóa.
+
+Nguyên tắc giữ nguyên: khóa là tài sản riêng của từng người, đi theo từng lượt
+gọi, mô-đun này không lưu và không đọc khóa của ai khác.
 """
 
 import json
 import re
 from dataclasses import dataclass
-from typing import Optional
 
-GEMINI = "gemini"
-CLAUDE = "claude"
-NHA_CUNG_CAP = (GEMINI, CLAUDE)
+TEN_HIEN_THI = "Anthropic Claude"
 
-TEN_HIEN_THI = {
-    GEMINI: "Google Gemini",
-    CLAUDE: "Anthropic Claude",
-}
-
-MODEL_GEMINI_MAC_DINH = "gemini-3.6-flash"
 MODEL_CLAUDE_MAC_DINH = "claude-sonnet-5"
-
-MODEL_GEMINI_CHO_PHEP = {
-    "gemini-3.6-flash", "gemini-3.6-pro",
-    "gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash",
-}
 
 MODEL_CLAUDE_CHO_PHEP = {
     "claude-sonnet-5",    # cân bằng giá và chất lượng, khuyên dùng
@@ -70,33 +62,23 @@ class LoiDauRaThieu(Exception):
 @dataclass
 class ThongTinAI:
     """Thông tin đăng nhập cho đúng một lượt gọi."""
-    provider: str = GEMINI
     api_key: str = ""
-    model: str = ""
+    model: str = MODEL_CLAUDE_MAC_DINH
 
     def co_khoa(self) -> bool:
         return bool((self.api_key or "").strip())
 
     @property
     def ten_hien_thi(self) -> str:
-        return TEN_HIEN_THI.get(self.provider, self.provider)
+        return TEN_HIEN_THI
 
 
-def chuan_hoa(provider: str = "", api_key: str = "", model: str = "") -> ThongTinAI:
-    """Ép về bộ giá trị hợp lệ; mô hình lạ thì rơi về mặc định của nhà đó."""
-    p = (provider or "").strip().lower()
-    if p not in NHA_CUNG_CAP:
-        p = GEMINI
-
+def chuan_hoa(api_key: str = "", model: str = "") -> ThongTinAI:
+    """Ép về bộ giá trị hợp lệ; mô hình lạ thì rơi về mặc định."""
     m = (model or "").strip()
-    if p == CLAUDE:
-        if m not in MODEL_CLAUDE_CHO_PHEP:
-            m = MODEL_CLAUDE_MAC_DINH
-    else:
-        if m not in MODEL_GEMINI_CHO_PHEP:
-            m = MODEL_GEMINI_MAC_DINH
-
-    return ThongTinAI(provider=p, api_key=(api_key or "").strip(), model=m)
+    if m not in MODEL_CLAUDE_CHO_PHEP:
+        m = MODEL_CLAUDE_MAC_DINH
+    return ThongTinAI(api_key=(api_key or "").strip(), model=m)
 
 
 # ---------------------------------------------------------------------------
@@ -109,16 +91,15 @@ def boc_json(van_ban: str):
     """
     Lấy JSON ra khỏi câu trả lời.
 
-    Gemini có chế độ trả JSON thuần, còn Claude thì hay bọc trong rào ```json.
-    Gỡ rào trước, nếu vẫn không phân tích được thì cắt từ dấu ngoặc đầu tới dấu
-    ngoặc cuối — mô hình đôi khi thêm một câu dẫn trước JSON.
+    Claude hay bọc câu trả lời trong rào ```json. Gỡ rào trước, nếu vẫn không
+    phân tích được thì cắt từ dấu ngoặc đầu tới dấu ngoặc cuối — mô hình đôi khi
+    thêm một câu dẫn trước JSON.
 
-    `strict=False` là chỗ quan trọng nhất. Gemini bật chế độ ép JSON nên chuỗi
-    trả về luôn hợp lệ; Claude KHÔNG có chế độ đó nên hay để nguyên dấu xuống
-    dòng thật bên trong chuỗi — về mặt chuẩn JSON là sai, `json.loads` mặc định
-    báo "Invalid control character". Đã gặp thật ngày 19/09/2026: một lô 25 câu
-    hỏng nguyên vì đúng lỗi này, rơi hết về bộ xử lý ngoại tuyến. Nội dung thì
-    hoàn toàn dùng được, chỉ vướng đúng một ký tự.
+    `strict=False` là chỗ quan trọng nhất. Claude không có chế độ ép JSON nên
+    hay để nguyên dấu xuống dòng thật bên trong chuỗi — về mặt chuẩn JSON là
+    sai, `json.loads` mặc định báo "Invalid control character". Đã gặp thật ngày
+    19/09/2026: một lô 25 câu hỏng nguyên vì đúng lỗi này, rơi hết về bộ xử lý
+    ngoại tuyến. Nội dung thì hoàn toàn dùng được, chỉ vướng đúng một ký tự.
     """
     t = (van_ban or "").strip()
     if not t:
@@ -162,6 +143,10 @@ def goi_ai(
     """
     Gửi một câu lệnh, nhận về văn bản thô.
 
+    `json_mode` giữ lại trong chữ ký cho nơi gọi khỏi phải sửa, nhưng Claude
+    KHÔNG có chế độ ép JSON — việc gỡ rào ```json và chịu ký tự điều khiển do
+    `boc_json()` lo ở phía nhận.
+
     Không bắt lỗi ở đây: nơi gọi cần biết lô nào hỏng để rơi về chế độ ngoại
     tuyến cho riêng lô đó, nên lỗi phải nổi lên. Riêng lỗi hết hạn mức thì đổi
     thành LoiHanMuc cho dễ phân biệt.
@@ -170,9 +155,7 @@ def goi_ai(
         raise ValueError("Chưa có khóa API cho lượt gọi này")
 
     try:
-        if tt.provider == CLAUDE:
-            return _goi_claude(tt, prompt, max_tokens)
-        return _goi_gemini(tt, prompt, json_mode)
+        return _goi_claude(tt, prompt, max_tokens)
     except Exception as e:
         if la_loi_han_muc(e):
             raise LoiHanMuc(
@@ -181,46 +164,10 @@ def goi_ai(
         raise
 
 
-def _goi_gemini(tt: ThongTinAI, prompt: str, json_mode: bool) -> str:
-    from google import genai
-    from google.genai import types
-
-    client = genai.Client(api_key=tt.api_key)
-    cau_hinh = (
-        types.GenerateContentConfig(response_mime_type="application/json")
-        if json_mode else None
-    )
-    response = client.models.generate_content(
-        model=tt.model, contents=prompt, config=cau_hinh
-    )
-    van_ban = response.text or ""
-    ly_do = ""
-    try:
-        ly_do = str(response.candidates[0].finish_reason or "")
-    except Exception:
-        pass
-
-    if not van_ban.strip():
-        raise LoiDauRaThieu(
-            "Gemini trả về rỗng"
-            + (f" (dừng vì: {ly_do})" if ly_do else "")
-            + ". Lô này không dùng được."
-        )
-    if "MAX_TOKENS" in ly_do.upper():
-        raise LoiDauRaThieu(
-            f"Gemini bị cắt giữa chừng ở {len(van_ban)} ký tự vì chạm trần token. "
-            f"JSON cụt không bóc được, phải chia lô nhỏ hơn."
-        )
-    return van_ban
-
-
 def _goi_claude(tt: ThongTinAI, prompt: str, max_tokens: int) -> str:
     """
     Dùng truyền phát (streaming) vì đầu ra của ta thường dài — cả lô 25 câu kèm
     lời giải — và yêu cầu không truyền phát với max_tokens lớn dễ hết giờ.
-
-    Claude không có chế độ ép JSON như Gemini; ta để `boc_json()` gỡ rào ```json
-    ở phía nhận.
     """
     import anthropic
 
@@ -265,4 +212,68 @@ def _goi_claude(tt: ThongTinAI, prompt: str, max_tokens: int) -> str:
             f"{max_tokens} token. JSON cụt không bóc được, phải chia lô nhỏ hơn."
         )
 
+    return van_ban
+
+
+# Kiểu ảnh Claude nhận. Đuôi tệp lạ thì coi là PNG — thà gửi sai kiểu còn hơn
+# đoán bừa rồi bỏ qua cả ảnh.
+_KIEU_ANH = {
+    ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+    ".png": "image/png", ".gif": "image/gif", ".webp": "image/webp",
+}
+
+
+def goi_ai_kem_anh(tt: ThongTinAI, prompt: str, duong_dan_anh,
+                   max_tokens: int = 8000) -> str:
+    """
+    Gửi một câu lệnh KÈM ẢNH, dùng cho ảnh chụp đề thi.
+
+    Để ở đây chứ không để trong `parser.py` vì cùng một lý do như mọi lượt gọi
+    khác: mô-đun nào tự gọi SDK là mô-đun đó có thể làm khóa đi lạc. `parser.py`
+    từng gọi thẳng `genai.Client` để đọc ảnh, nên khóa nào truyền vào cũng bay
+    sang máy chủ Google — kể cả khóa Anthropic.
+    """
+    import base64
+    from pathlib import Path
+
+    if not tt.co_khoa():
+        raise ValueError("Chưa có khóa API cho lượt gọi này")
+
+    import anthropic
+
+    p = Path(duong_dan_anh)
+    kieu = _KIEU_ANH.get(p.suffix.lower(), "image/png")
+    du_lieu = base64.standard_b64encode(p.read_bytes()).decode("ascii")
+
+    client = anthropic.Anthropic(api_key=tt.api_key)
+    tham_so = {
+        "model": tt.model,
+        "max_tokens": max_tokens,
+        "messages": [{
+            "role": "user",
+            "content": [
+                {"type": "image",
+                 "source": {"type": "base64", "media_type": kieu, "data": du_lieu}},
+                {"type": "text", "text": prompt},
+            ],
+        }],
+    }
+    if tt.model in MODEL_CLAUDE_CO_SUY_LUAN:
+        tham_so["thinking"] = {"type": "adaptive"}
+        tham_so["output_config"] = {"effort": "medium"}
+
+    try:
+        with client.messages.stream(**tham_so) as luong:
+            tin = luong.get_final_message()
+    except Exception as e:
+        if la_loi_han_muc(e):
+            raise LoiHanMuc(f"{tt.ten_hien_thi} báo hết hạn mức hoặc hết tín dụng: {e}") from e
+        raise
+
+    van_ban = "".join(b.text for b in tin.content if getattr(b, "type", "") == "text")
+    if not van_ban.strip():
+        raise LoiDauRaThieu(
+            f"Claude đọc ảnh nhưng không trả về chữ nào "
+            f"(dừng vì: {getattr(tin, 'stop_reason', '') or 'không rõ'})."
+        )
     return van_ban

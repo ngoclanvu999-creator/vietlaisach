@@ -11,7 +11,7 @@ config.py         LOCAL_MODE, ACCESS_TOKEN, đọc/ghi app_settings.json
 core/parser.py       Bóc tách docx / xlsx / pdf / ảnh  → QuestionItem
 core/math_engine     Làm sạch ký hiệu toán, số mũ, phân số
 core/theory_bank     Ngân hàng lý thuyết theo 16 chuyên đề
-core/ai_provider.py  MỘT cửa gọi AI cho cả Gemini lẫn Claude
+core/ai_provider.py  MỘT cửa gọi Claude — văn bản và ảnh
 core/skill_loader.py Nạp chuẩn nghiệp vụ từ skills/ vào câu lệnh
 core/loai_dau_ra.py  Chín loại đầu ra + cấu trúc & thang điểm đề
 core/rewriter.py     Tái cấu trúc + gọi AI → RewrittenBook
@@ -70,12 +70,21 @@ sách cho học sinh là lỗi không thể chấp nhận. Mọi câu hỏi thê
 `VERIFIED_QUESTION_BANK` (core/rewriter.py) phải được **tính lại độc lập bằng
 Python** trước khi đưa vào, không tin vào trí nhớ.
 
-**Khóa API là của riêng từng người.** Khóa đi theo header `X-Gemini-Key` hoặc
-`X-Claude-Key` từng yêu cầu, máy chủ không lưu. Hai nhà cung cấp KHÔNG dùng lẫn
-khóa của nhau: chọn Claude mà chỉ có khóa Gemini thì chạy ngoại tuyến, không mượn. Trên Web (`LOCAL_MODE=False`) nếu người dùng chưa
+**Chỉ dùng Claude.** Bỏ hẳn Gemini ngày 19/09/2026. Đừng thêm lại nhà cung cấp
+thứ hai nếu chưa có yêu cầu rõ: chính việc đỡ hai nhà cùng lúc đã sinh ra **bốn
+chỗ rò rỉ khóa** — `ai_namer`, `question_forge`, `parser` (đọc ảnh) và
+`get_effective_api_key`. Khóa Anthropic từng bị gửi thẳng sang máy chủ Google.
+
+**Mọi lượt gọi AI phải đi qua `core/ai_provider.py`.** Mô-đun nào tự gọi SDK là
+mô-đun đó có thể làm khóa đi lạc. Luật KL10 canh đúng điều này.
+
+**Khóa API là của riêng từng người.** Khóa đi theo header `X-Claude-Key` từng
+yêu cầu, máy chủ không lưu. Trên Web (`LOCAL_MODE=False`) nếu người dùng chưa
 dán khóa thì chạy offline, **tuyệt đối không mượn khóa của máy chủ** — làm vậy
-là tiêu hạn mức của người khác. Đường dễ lọt nhất là
+là tiêu tiền của người khác. Đường dễ lọt nhất là
 `core/ai_namer.get_effective_api_key()`, nó tự đọc settings và biến môi trường.
+Máy chủ dự án còn sót biến môi trường `GEMINI_API_KEY`; không mô-đun nào được
+đọc nó nữa.
 
 **Không tin vào bộ thẩm định tự cho điểm.** `PreFlightValidator` từng chấm cứng
 20/20 cho tiêu chí thể thức mà không mở file. Mọi tiêu chí phải đo trên dữ liệu
@@ -147,12 +156,18 @@ Nếu sau này thật sự cần cho người ngoài dùng: chạy ở máy rồ
 vào bản `LOCAL_MODE` mà không có token nghĩa là ai có địa chỉ cũng duyệt được ổ
 đĩa và tiêu được khóa API đã lưu.
 
-## Hạn mức Gemini
+## Chi phí và tốc độ khi gọi Claude
 
-Gói free `gemini-3.6-flash` chỉ **20 request/ngày**. Một tài liệu tốn
-`ceil(số_câu / 25) + 2` lượt. Tài liệu 240 câu ăn 12 lượt — hơn nửa hạn mức.
-Chạy test nhiều sẽ cháy hạn mức; khi đó hệ thống tự rơi về chế độ offline,
-đó là hành vi đúng chứ không phải lỗi.
+Claude tính tiền ngay từ lượt đầu, không có bậc miễn phí. Một tài liệu tốn
+`ceil(số_câu / 25) + 2` lượt gọi. Chạy test nhiều là tốn tiền thật — hãy thử
+bằng tệp nhỏ (`input/sample_toan_goc.xlsx`, 4 câu) trước khi chạy tài liệu lớn.
+
+Các lô gọi **song song 4 lô một lúc** (`SO_LO_SONG_SONG`, tối đa 8). Đo thật
+trên 60 câu chia 3 lô: tuần tự 253 giây, song song 78 giây — nhanh gấp 3,2 lần.
+
+Trần số lô là `SO_LO_TOI_DA` (mặc định 12, tức 300 câu). Câu vượt trần KHÔNG bị
+mất — chúng chạy bằng bộ ngoại tuyến — nhưng chất lượng khác hẳn, nên hệ thống
+in cảnh báo rõ số câu bị chuyển.
 
 ## Không commit
 

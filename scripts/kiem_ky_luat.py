@@ -218,10 +218,21 @@ def kl8(kq: KetQua):
                "Máy này không có ~/.claude/skills — bỏ qua (máy chủ triển khai cũng vậy)")
         return
 
+    # CHỈ so các skill CỦA DỰ ÁN. Claude Code tự đồng bộ skill riêng của nó vào
+    # ~/.claude/skills/synced/..., không liên quan gì tới dự án — so cả thư mục
+    # thì luật báo hỏng oan, đã xảy ra ngày 19/09/2026.
+    cua_du_an = {d.name for d in trong_repo.iterdir() if d.is_dir()}
+
     def bang(goc: Path):
-        return {str(p.relative_to(goc)).replace("\\", "/"):
-                p.read_bytes().replace(b"\r\n", b"\n")
-                for p in goc.rglob("*.md")}
+        ra = {}
+        for ten in cua_du_an:
+            thu_muc = goc / ten
+            if not thu_muc.is_dir():
+                continue
+            for p in thu_muc.rglob("*.md"):
+                khoa = str(p.relative_to(goc)).replace("\\", "/")
+                ra[khoa] = p.read_bytes().replace(b"\r\n", b"\n")
+        return ra
 
     a, b = bang(trong_repo), bang(ca_nhan)
     lech = ["chỉ có trong repo: %s" % k for k in sorted(set(a) - set(b))]
@@ -230,7 +241,7 @@ def kl8(kq: KetQua):
     kq.ghi("KL8 · skills/ repo và ~/.claude/skills giống nhau",
            not lech,
            "\n".join(lech) + "\n→ chạy: python scripts/dong_bo_skill.py --ra-may"
-           if lech else "%d tệp skill trùng khớp" % len(a))
+           if lech else "%d tệp của %d skill dự án trùng khớp" % (len(a), len(cua_du_an)))
 
 
 # ---------------------------------------------------------------------------
@@ -271,94 +282,85 @@ def kl9(kq: KetQua):
 
 def kl10(kq: KetQua):
     """
-    Chọn Claude mà chỉ dán khóa Gemini thì phải chạy ngoại tuyến, KHÔNG mượn.
+    Khóa là của riêng từng người, và KHÔNG mô-đun nào được gọi thẳng SDK.
 
-    Kiểm bằng hành vi thật: dựng yêu cầu giả rồi gọi thẳng request_credentials,
-    chứ không đọc mã đoán ý.
+    Luật này gộp hai luật cũ (KL10 kiểm cửa vào, KL13 kiểm cửa trong) sau khi
+    chủ dự án chốt bỏ hẳn Gemini ngày 19/09/2026. Bỏ một nhà cung cấp thì không
+    còn chuyện "mượn khóa của nhau" nữa, nhưng hai mối nguy vẫn còn nguyên:
+
+      1. Bản Web lặng lẽ mượn khóa của chủ máy chủ — tiêu tiền của người khác.
+      2. Một mô-đun gọi thẳng SDK, khiến khóa đi đâu không ai kiểm soát. Đã xảy
+         ra ở BỐN chỗ: ai_namer, question_forge, parser (đọc ảnh), và chính
+         rewriter thời trước khi có ai_provider.
+
+    Kiểm bằng hành vi thật, không đọc mã đoán ý.
     """
+    hong = []
+
     try:
         import app as ung_dung
+        import core.ai_namer as an
     except Exception as e:                      # pragma: no cover
-        kq.ghi("KL10 · Hai nhà cung cấp không mượn khóa của nhau", False,
-               "Không nạp được app.py: %s" % e)
+        kq.ghi("KL10 · Khóa của riêng từng người, không mô-đun nào gọi tắt SDK",
+               False, "Không nạp được mô-đun: %s" % e)
         return
 
     class YeuCauGia:
         def __init__(self, h):
             self.headers = h
 
-    that_bai = []
-    goc_local = getattr(ung_dung, "LOCAL_MODE", False)
+    # 1. Bản Web: chưa dán khóa thì phải trả rỗng, không mượn của máy chủ
+    goc_app, goc_namer = ung_dung.LOCAL_MODE, an.LOCAL_MODE
     try:
-        ung_dung.LOCAL_MODE = False            # giả lập bản Web
-        key, _, nha = ung_dung.request_credentials(
-            YeuCauGia({"X-AI-Provider": "claude", "X-Gemini-Key": "KHOA-GEMINI-CUA-NGUOI-KHAC"}))
+        ung_dung.LOCAL_MODE = an.LOCAL_MODE = False
+        key, _ = ung_dung.request_credentials(YeuCauGia({}))
         if key:
-            that_bai.append("Chọn Claude, chỉ có khóa Gemini → vẫn lấy được khóa %r" % key[:12])
-
-        key2, _, _ = ung_dung.request_credentials(
-            YeuCauGia({"X-AI-Provider": "gemini", "X-Claude-Key": "KHOA-CLAUDE-CUA-NGUOI-KHAC"}))
-        if key2:
-            that_bai.append("Chọn Gemini, chỉ có khóa Claude → vẫn lấy được khóa %r" % key2[:12])
-
-        key3, _, _ = ung_dung.request_credentials(YeuCauGia({"X-AI-Provider": "gemini"}))
-        if key3:
-            that_bai.append("Không dán khóa nào → vẫn mượn được khóa của máy chủ")
+            hong.append("Bản Web không dán khóa mà vẫn lấy được khóa máy chủ")
+        if an.get_effective_api_key():
+            hong.append("Bản Web: ai_namer vẫn mượn được khóa máy chủ")
     finally:
-        ung_dung.LOCAL_MODE = goc_local
+        ung_dung.LOCAL_MODE, an.LOCAL_MODE = goc_app, goc_namer
 
-    kq.ghi("KL10 · Hai nhà cung cấp không mượn khóa của nhau",
-           not that_bai,
-           "\n".join(that_bai) if that_bai else
-           "Thử 3 tình huống trên bản Web: đều trả về khóa rỗng, chạy ngoại tuyến")
+    # 2. Khóa người dùng gửi lên phải được tôn trọng nguyên vẹn
+    k, _ = ung_dung.request_credentials(YeuCauGia({"X-Claude-Key": "sk-ant-RIENG"}))
+    if k != "sk-ant-RIENG":
+        hong.append("Khóa người dùng gửi lên bị đổi thành %r" % k[:16])
 
-
-def kl13(kq: KetQua):
-    """
-    Khóa của nhà cung cấp này KHÔNG được gửi sang nhà cung cấp kia.
-
-    Đã rò rỉ thật ngày 19/09/2026: `ai_namer` chỉ biết Gemini nhưng nhận bất kỳ
-    khóa nào được truyền vào, nên khi chạy cả dây chuyền bằng Claude thì khóa
-    Anthropic bị gửi thẳng sang máy chủ Google. Chiều ngược lại cũng hỏng:
-    `get_effective_api_key()` luôn trả khóa Gemini đã lưu, kể cả lúc đang gọi
-    Claude. Đây là rò rỉ bí mật sang bên thứ ba, không chỉ là tiêu nhầm hạn mức.
-
-    KL10 canh cửa vào (header từ người dùng); luật này canh cửa trong.
-    """
-    try:
-        import core.ai_namer as an
-    except Exception as e:                      # pragma: no cover
-        kq.ghi("KL13 · Khóa không đi lạc sang nhà cung cấp khác", False,
-               "Không nạp được ai_namer: %s" % e)
-        return
-
-    hong = []
-    kg = an.get_effective_api_key(None, "gemini")
-    kc = an.get_effective_api_key(None, "claude")
-    if kg.startswith("sk-ant"):
-        hong.append("Chọn Gemini mà lấy phải khóa Anthropic")
-    if kc and not kc.startswith("sk-ant"):
-        hong.append("Chọn Claude mà lấy phải khóa không phải Anthropic")
-
-    goc = an.LOCAL_MODE
-    try:
-        an.LOCAL_MODE = False
-        for nha in ("gemini", "claude"):
-            if an.get_effective_api_key(None, nha):
-                hong.append("Bản Web vẫn mượn được khóa máy chủ cho %s" % nha)
-    finally:
-        an.LOCAL_MODE = goc
-
-    # Không mô-đun nào được gọi thẳng SDK của một nhà cung cấp ngoài ai_provider
-    for tep in ("core/ai_namer.py", "core/rewriter.py", "core/question_forge.py"):
+    # 3. Không mô-đun nào gọi thẳng SDK ngoài chính cổng chung
+    for tep in ("core/ai_namer.py", "core/rewriter.py", "core/question_forge.py",
+                "core/parser.py", "app.py"):
         nd = doc(tep)
-        if "genai.Client(" in nd or "anthropic.Anthropic(" in nd:
-            hong.append("%s gọi thẳng SDK, phải đi qua core/ai_provider.py" % tep)
+        for dau_hieu in ("genai.Client(", "anthropic.Anthropic("):
+            if dau_hieu in nd:
+                hong.append("%s gọi thẳng SDK (%s), phải đi qua core/ai_provider.py"
+                            % (tep, dau_hieu.rstrip("(")))
 
-    kq.ghi("KL13 · Khóa không đi lạc sang nhà cung cấp khác",
+    # 4. Bỏ Gemini rồi thì không chỗ nào được đọc lại biến môi trường của nó.
+    #    Bắt theo CÁCH DÙNG THẬT chứ không bắt chữ: bản đầu của luật này tìm
+    #    chuỗi "GEMINI_API_KEY" ở bất cứ đâu, nên nó báo hỏng vì một dòng CHÚ
+    #    THÍCH ghi lại lịch sử. Luật sai thì siết cho đúng, không nới ra.
+    DUNG_THAT = (
+        r"""environ\.get\(\s*["'](?:GEMINI|GOOGLE)_API_KEY""",
+        r"""environ\[\s*["'](?:GEMINI|GOOGLE)_API_KEY""",
+        r"^\s*from\s+google(?:\.\w+)?\s+import",
+        r"^\s*import\s+google\b",
+        r"genai\.Client\(",
+    )
+    for tep in ("core/ai_namer.py", "core/parser.py", "app.py", "config.py",
+                "core/ai_provider.py", "core/rewriter.py", "core/question_forge.py"):
+        nd = doc(tep)
+        for mau in DUNG_THAT:
+            for m in re.finditer(mau, nd, re.M):
+                so = nd[: m.start()].count("\n") + 1
+                hong.append("%s:%d còn dùng Gemini thật sự: %s"
+                            % (tep, so, m.group(0).strip()[:50]))
+
+    kq.ghi("KL10 · Khóa của riêng từng người, không mô-đun nào gọi tắt SDK",
            not hong,
            "\n".join(hong) if hong else
-           "Thử 4 tình huống lấy khóa + soát 3 mô-đun: không chỗ nào gọi tắt SDK")
+           "Bản Web không mượn khóa · khóa người dùng giữ nguyên · "
+           "5 mô-đun không gọi tắt SDK · không còn vết Gemini nào")
+
 
 
 # ---------------------------------------------------------------------------
@@ -420,7 +422,7 @@ LUAT: List[Tuple[str, Callable]] = [
     ("NHÓM 4 — Thẩm định đo trên dữ liệu thật", None),
     ("", kl9),
     ("NHÓM 5 — Khóa API là của riêng từng người", None),
-    ("", kl10), ("", kl13),
+    ("", kl10),
     ("NHÓM 6 — Chống lưu đệm và an toàn", None),
     ("", kl11), ("", kl12),
 ]

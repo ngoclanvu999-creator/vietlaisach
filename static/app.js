@@ -27,7 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const folderPathInput = document.getElementById("folder-path-input");
     const btnScanFolder = document.getElementById("btn-scan-folder");
 
-    // Dán bản nháp soạn sẵn (từ Gemini Pro trong ứng dụng chat)
+    // Dán bản nháp soạn sẵn (từ ứng dụng chat, Word, web...)
     const togglePaste = document.getElementById("toggle-paste");
     const pasteBox = document.getElementById("paste-box");
     const pasteInput = document.getElementById("paste-input");
@@ -103,14 +103,10 @@ document.addEventListener("DOMContentLoaded", () => {
     // KHÓA API CỦA RIÊNG TỪNG NGƯỜI DÙNG
     // Khóa nằm trong trình duyệt của người dùng và gửi kèm từng yêu cầu qua
     // header. Máy chủ không lưu, nên nhiều người cùng vào một trang web vẫn
-    // tiêu hạn mức trên tài khoản Google của riêng mỗi người.
+    // tiêu tiền trên tài khoản Anthropic của riêng mỗi người.
     // ==========================================
-    const KEY_STORE = "gemini_api_key";
-    const MODEL_STORE = "gemini_model";
-    // Khóa Claude nằm riêng: hai nhà cung cấp, hai khóa, không dùng lẫn của nhau.
     const CLAUDE_KEY_STORE = "claude_api_key";
     const CLAUDE_MODEL_STORE = "claude_model";
-    const PROVIDER_STORE = "ai_provider";
 
     function readStore(name) {
         try {
@@ -137,20 +133,11 @@ document.addEventListener("DOMContentLoaded", () => {
     function apiFetch(url, options) {
         const opts = options || {};
         const headers = new Headers(opts.headers || {});
-        const key = readStore(KEY_STORE);
-        const model = readStore(MODEL_STORE);
         const access = readStore(ACCESS_STORE);
-        const provider = readStore(PROVIDER_STORE) || "gemini";
-        headers.set("X-AI-Provider", provider);
-        if (provider === "claude") {
-            const ck = readStore(CLAUDE_KEY_STORE);
-            const cm = readStore(CLAUDE_MODEL_STORE);
-            if (ck) headers.set("X-Claude-Key", ck);
-            if (cm) headers.set("X-Claude-Model", cm);
-        } else {
-            if (key) headers.set("X-Gemini-Key", key);
-            if (model) headers.set("X-Gemini-Model", model);
-        }
+        const ck = readStore(CLAUDE_KEY_STORE);
+        const cm = readStore(CLAUDE_MODEL_STORE);
+        if (ck) headers.set("X-Claude-Key", ck);
+        if (cm) headers.set("X-Claude-Model", cm);
         if (access) headers.set("X-Access-Token", access);
         return fetch(url, Object.assign({}, opts, { headers: headers }));
     }
@@ -198,18 +185,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const btnSettings = document.getElementById("btn-settings");
     const modalSettings = document.getElementById("modal-settings");
     const btnCloseModal = document.getElementById("btn-close-modal");
-    const geminiApiKeyInput = document.getElementById("gemini-api-key");
-    const aiProviderSelect = document.getElementById("ai-provider");
-    const khoiGemini = document.getElementById("khoi-gemini");
     const khoiClaude = document.getElementById("khoi-claude");
     const claudeApiKeyInput = document.getElementById("claude-api-key");
     const claudeModelSelect = document.getElementById("claude-model");
     const btnToggleClaudeKey = document.getElementById("btn-toggle-claude-key");
     const claudeKeyStatus = document.getElementById("claude-key-status");
-    const btnToggleKey = document.getElementById("btn-toggle-key");
-    const geminiModelSelect = document.getElementById("gemini-model");
     const btnSaveSettings = document.getElementById("btn-save-settings");
-    const keyStatusEl = document.getElementById("key-status");
 
     const modalReader = document.getElementById("modal-reader");
     const btnCloseReader = document.getElementById("btn-close-reader");
@@ -500,7 +481,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // ==========================================
     // DÁN BẢN NHÁP SOẠN SẴN
     //
-    // Vì sao có luồng này: gói Gemini Pro trong ứng dụng chat không tính theo
+    // Vì sao có luồng này: gói thuê bao ứng dụng chat không tính theo
     // token, còn API thì tính — mà phần sinh nội dung (đầu ra) lại là phần đắt
     // nhất. Để người dùng soạn bản nháp bên chat rồi dán vào đây thì phần tốn
     // tiền nhất thành miễn phí, công cụ chỉ lo định dạng và soi lỗi.
@@ -657,7 +638,7 @@ Các câu cần giải:
         btnPasteSubmit.addEventListener("click", async () => {
             const noiDung = (pasteInput.value || "").trim();
             if (noiDung.length < 40) {
-                alert("Bản nháp quá ngắn. Hãy dán toàn bộ nội dung Gemini đã soạn.");
+                alert("Bản nháp quá ngắn. Hãy dán toàn bộ nội dung đã soạn.");
                 return;
             }
 
@@ -670,7 +651,7 @@ Các câu cần giải:
                     body: JSON.stringify({
                         noi_dung: noiDung,
                         subject: selectedSubject,
-                        ten_tai_lieu: "ban_nhap_gemini",
+                        ten_tai_lieu: "ban_nhap_dan_vao",
                     }),
                 });
                 const data = await res.json();
@@ -1131,7 +1112,7 @@ Các câu cần giải:
     }
 
     // ==========================================
-    // AI GEMINI CREATIVE TITLES DRAWER
+    // NGĂN KÉO TỰA SÁCH DO AI ĐỀ XUẤT
     // ==========================================
     if (btnSuggestTitles) {
         btnSuggestTitles.addEventListener("click", () => goiYTuaSach(false));
@@ -1647,17 +1628,17 @@ Các câu cần giải:
     }
 
     function refreshKeyStatus() {
-        if (!keyStatusEl) return;
-        const key = readStore(KEY_STORE);
+        if (!claudeKeyStatus) return;
+        const key = readStore(CLAUDE_KEY_STORE);
         if (key) {
-            keyStatusEl.textContent = `✅ Đang dùng khóa của bạn (${describeKey(key)}) — lưu trên trình duyệt này`;
-            keyStatusEl.className = "key-status key-status-on";
+            claudeKeyStatus.textContent = `✅ Đang dùng khóa của bạn (${describeKey(key)}) — lưu trên trình duyệt này`;
+            claudeKeyStatus.className = "key-status key-status-on";
         } else if (serverHasKey) {
-            keyStatusEl.textContent = "💻 Đang chạy trên máy cá nhân, dùng khóa đã cấu hình sẵn trong máy";
-            keyStatusEl.className = "key-status key-status-local";
+            claudeKeyStatus.textContent = "💻 Đang chạy trên máy cá nhân, dùng khóa đã lưu sẵn trong máy";
+            claudeKeyStatus.className = "key-status key-status-local";
         } else {
-            keyStatusEl.textContent = "Chưa có khóa — đang dùng Bộ máy Offline (vẫn biên soạn được sách)";
-            keyStatusEl.className = "key-status";
+            claudeKeyStatus.textContent = "Chưa có khóa — đang dùng Bộ máy Offline (vẫn biên soạn được sách)";
+            claudeKeyStatus.className = "key-status";
         }
     }
 
@@ -1665,12 +1646,8 @@ Các câu cần giải:
 
     btnSettings.addEventListener("click", async () => {
         // Khóa lấy từ trình duyệt, không hỏi máy chủ
-        geminiApiKeyInput.value = readStore(KEY_STORE);
-        geminiModelSelect.value = readStore(MODEL_STORE) || "gemini-3.6-flash";
         if (claudeApiKeyInput) claudeApiKeyInput.value = readStore(CLAUDE_KEY_STORE);
         if (claudeModelSelect) claudeModelSelect.value = readStore(CLAUDE_MODEL_STORE) || "claude-sonnet-5";
-        if (aiProviderSelect) aiProviderSelect.value = readStore(PROVIDER_STORE) || "gemini";
-        doiKhoiNhaCungCap();
 
         try {
             const res = await apiFetch("/api/settings");
@@ -1689,20 +1666,10 @@ Các câu cần giải:
         if (e.target === modalSettings) modalSettings.classList.add("hidden");
     });
 
-    btnToggleKey.addEventListener("click", () => {
-        if (geminiApiKeyInput.type === "password") {
-            geminiApiKeyInput.type = "text";
-            btnToggleKey.textContent = "Ẩn";
-        } else {
-            geminiApiKeyInput.type = "password";
-            btnToggleKey.textContent = "Hiện";
-        }
-    });
-
     // ----- Thử khóa API -----
     // Gửi thẳng khóa đang GÕ TRONG Ô, không lấy khóa đã lưu: người dùng phải thử
     // được trước khi bấm lưu, nếu không thì nút này vô dụng đúng lúc cần nhất.
-    async function thuKhoa(nhaCungCap, oNhap, oKetQua, nut) {
+    async function thuKhoa(oNhap, oKetQua, nut) {
         const khoa = (oNhap.value || "").trim();
         oKetQua.classList.remove("hidden", "key-ok", "key-loi");
         if (!khoa) {
@@ -1717,17 +1684,9 @@ Các câu cần giải:
         oKetQua.textContent = "Đang gọi thử một lượt rất ngắn…";
 
         try {
-            const headers = new Headers({ "X-AI-Provider": nhaCungCap });
-            if (nhaCungCap === "claude") {
-                headers.set("X-Claude-Key", khoa);
-                if (claudeModelSelect && claudeModelSelect.value) {
-                    headers.set("X-Claude-Model", claudeModelSelect.value);
-                }
-            } else {
-                headers.set("X-Gemini-Key", khoa);
-                if (geminiModelSelect && geminiModelSelect.value) {
-                    headers.set("X-Gemini-Model", geminiModelSelect.value);
-                }
+            const headers = new Headers({ "X-Claude-Key": khoa });
+            if (claudeModelSelect && claudeModelSelect.value) {
+                headers.set("X-Claude-Model", claudeModelSelect.value);
             }
             const access = readStore(ACCESS_STORE);
             if (access) headers.set("X-Access-Token", access);
@@ -1753,27 +1712,12 @@ Các câu cần giải:
         }
     }
 
-    const btnThuKhoaGemini = document.getElementById("btn-thu-khoa-gemini");
-    if (btnThuKhoaGemini) {
-        btnThuKhoaGemini.addEventListener("click", () => thuKhoa(
-            "gemini", geminiApiKeyInput,
-            document.getElementById("ket-qua-thu-gemini"), btnThuKhoaGemini));
-    }
     const btnThuKhoaClaude = document.getElementById("btn-thu-khoa-claude");
     if (btnThuKhoaClaude) {
         btnThuKhoaClaude.addEventListener("click", () => thuKhoa(
-            "claude", claudeApiKeyInput,
+            claudeApiKeyInput,
             document.getElementById("ket-qua-thu-claude"), btnThuKhoaClaude));
     }
-
-    // Chỉ hiện khối của nhà cung cấp đang chọn, để khỏi rối mắt khi dán khóa.
-    function doiKhoiNhaCungCap() {
-        if (!aiProviderSelect || !khoiGemini || !khoiClaude) return;
-        const la_claude = aiProviderSelect.value === "claude";
-        khoiGemini.classList.toggle("hidden", la_claude);
-        khoiClaude.classList.toggle("hidden", !la_claude);
-    }
-    if (aiProviderSelect) aiProviderSelect.addEventListener("change", doiKhoiNhaCungCap);
 
     if (btnToggleClaudeKey) {
         btnToggleClaudeKey.addEventListener("click", () => {
@@ -1788,17 +1732,11 @@ Các câu cần giải:
     }
 
     btnSaveSettings.addEventListener("click", () => {
-        const key = geminiApiKeyInput.value.trim();
-        const model = geminiModelSelect.value;
         const claudeKey = claudeApiKeyInput ? claudeApiKeyInput.value.trim() : "";
         const claudeModel = claudeModelSelect ? claudeModelSelect.value : "claude-sonnet-5";
-        const provider = aiProviderSelect ? aiProviderSelect.value : "gemini";
 
-        const okKey = writeStore(KEY_STORE, key);
-        const okModel = writeStore(MODEL_STORE, model);
-        writeStore(CLAUDE_KEY_STORE, claudeKey);
-        writeStore(CLAUDE_MODEL_STORE, claudeModel);
-        writeStore(PROVIDER_STORE, provider);
+        const okKey = writeStore(CLAUDE_KEY_STORE, claudeKey);
+        const okModel = writeStore(CLAUDE_MODEL_STORE, claudeModel);
 
         if (!okKey || !okModel) {
             alert(
@@ -1810,12 +1748,10 @@ Các câu cần giải:
         refreshKeyStatus();
         modalSettings.classList.add("hidden");
 
-        const dangDung = provider === "claude" ? claudeKey : key;
-        const tenNha = provider === "claude" ? "Anthropic Claude" : "Google Gemini";
-        if (dangDung) {
-            alert("Đã lưu. Đang dùng " + tenNha + ". Khóa nằm trong trình duyệt của bạn, chỉ mình bạn dùng.");
+        if (claudeKey) {
+            alert("Đã lưu khóa Claude. Khóa nằm trong trình duyệt của bạn, chỉ mình bạn dùng.");
         } else {
-            alert("Chưa có khóa cho " + tenNha + " nên ứng dụng sẽ chạy bằng Bộ máy Offline.");
+            alert("Chưa có khóa Claude nên ứng dụng sẽ chạy bằng Bộ máy Offline.");
         }
     });
 

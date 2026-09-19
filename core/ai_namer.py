@@ -1,7 +1,13 @@
 """
-Mô-đun Đấu Nối API & Trí Tuệ Nhân Tạo Đặt Tên Sách Độc Bản & Sáng Tạo Nội Dung Đắt Giá
-(AI Book Title Hypnotizer & Creative Pedagogical Content Synthesizer)
-Hỗ trợ cả Gemini API trực tuyến lẫn Bộ suy luận ngữ nghĩa ngoại tuyến thông minh.
+Đặt tên sách và soạn nội dung mở rộng (lời tựa, bí kíp, góc thực tiễn).
+
+Gọi Claude qua `core/ai_provider.py`, và luôn có bộ suy luận ngoại tuyến để
+không có khóa thì vẫn ra được tài liệu.
+
+KHÔNG gọi thẳng SDK của bất kỳ nhà cung cấp nào ở đây. Trước ngày 19/09/2026
+tệp này gọi thẳng `genai.Client` với bất kỳ khóa nào được truyền vào, nên khi
+chạy bằng Claude thì khóa Anthropic bị gửi sang máy chủ Google. Luật KL13 trong
+`scripts/kiem_ky_luat.py` canh đúng chỗ này.
 """
 
 import os
@@ -10,6 +16,7 @@ import json
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from config import load_settings, LOCAL_MODE
+from core.ai_provider import MODEL_CLAUDE_MAC_DINH
 
 def extract_grade_and_subject(text: str, default_subject: str = "toan") -> Dict[str, str]:
     t_lower = text.lower()
@@ -23,8 +30,8 @@ def extract_grade_and_subject(text: str, default_subject: str = "toan") -> Dict[
         grade = "Lớp 12"
     return {"subject": subject, "grade": grade}
 
-# Bộ nhớ đệm trong tiến trình: cùng một tài liệu không gọi lại Gemini nhiều lần.
-# Chế độ biên soạn cả thư mục trước đây gọi API 2 lần cho MỖI tệp, rất tốn hạn mức.
+# Bộ nhớ đệm trong tiến trình: cùng một tài liệu không gọi lại AI nhiều lần.
+# Chế độ biên soạn cả thư mục trước đây gọi API 2 lần cho MỖI tệp, rất tốn tiền.
 _METADATA_CACHE: Dict[str, Any] = {}
 _CACHE_LIMIT = 128
 
@@ -40,23 +47,19 @@ def _cache_put(key: str, value):
     return value
 
 
-def get_effective_api_key(explicit_key: Optional[str] = None,
-                          provider: str = "gemini") -> str:
+def get_effective_api_key(explicit_key: Optional[str] = None) -> str:
     """
-    Khóa dùng cho lần gọi này.
+    Khóa Claude dùng cho lần gọi này.
 
     Trên bản Web/Cloud chỉ chấp nhận khóa do chính người dùng gửi lên. Nếu họ
     chưa dán khóa thì trả về rỗng để hệ thống chạy chế độ ngoại tuyến — tuyệt
-    đối không lặng lẽ mượn khóa của chủ máy chủ, vì làm vậy là tiêu hạn mức của
+    đối không lặng lẽ mượn khóa của chủ máy chủ, vì làm vậy là tiêu tiền của
     người khác mà họ không hề biết.
 
     Khi chạy trên máy cá nhân thì mới lấy tiếp khóa đã lưu hoặc biến môi trường.
 
-    PHẢI BIẾT NHÀ CUNG CẤP. Trước đây hàm này luôn trả về khóa GEMINI khi không
-    có khóa tường minh, kể cả lúc đang gọi Claude — và khóa Gemini đó bị gửi
-    thẳng sang Anthropic. Chiều ngược lại còn tệ hơn: khóa Claude từng bị đưa
-    sang máy chủ Google vì `ai_namer` mặc định chỉ biết Gemini. Rò rỉ bí mật
-    sang bên thứ ba, phát hiện ngày 19/09/2026 khi chạy thử cả dây chuyền.
+    Chỉ đọc khóa Claude. Máy của chủ dự án còn sót biến môi trường
+    `GEMINI_API_KEY`; sau khi bỏ Gemini thì không mô-đun nào được đọc nó nữa.
     """
     explicit = (explicit_key or "").strip()
     if explicit:
@@ -66,15 +69,9 @@ def get_effective_api_key(explicit_key: Optional[str] = None,
         return ""
 
     settings = load_settings()
-    if (provider or "").strip().lower() == "claude":
-        return (
-            settings.get("claude_api_key", "").strip()
-            or os.environ.get("ANTHROPIC_API_KEY", "").strip()
-        )
     return (
-        settings.get("gemini_api_key", "").strip()
-        or os.environ.get("GEMINI_API_KEY", "").strip()
-        or os.environ.get("GOOGLE_API_KEY", "").strip()
+        settings.get("claude_api_key", "").strip()
+        or os.environ.get("ANTHROPIC_API_KEY", "").strip()
     )
 
 # Tên gọi NGẮN của từng chuyên đề, dùng khi đặt tựa.
@@ -143,16 +140,15 @@ def _gon_tua(t: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
-def generate_creative_titles_gemini(
+def dat_tua_sach(
     sample_text: str = "",
     filename: str = "",
     chapter_titles: Optional[List[str]] = None,
     subject: str = "toan",
     api_key: Optional[str] = None,
-    model_name: str = "gemini-3.6-flash",
+    model_name: str = MODEL_CLAUDE_MAC_DINH,
     exclude_titles: Optional[List[str]] = None,
     doc_type: str = "",
-    provider: str = "gemini"
 ) -> List[Dict[str, Any]]:
     """
     Sáng tạo 5 tựa NGẮN GỌN kèm hook đủ mạnh để người đọc muốn xem từ đầu đến cuối.
@@ -164,7 +160,7 @@ def generate_creative_titles_gemini(
     exclude_titles: các tựa đã đề xuất lần trước, để nút "Đổi 5 tựa khác" cho ra
     phương án thực sự mới chứ không lặp lại.
     """
-    key = get_effective_api_key(api_key, provider)
+    key = get_effective_api_key(api_key)
     info = extract_grade_and_subject(f"{filename} {sample_text}", default_subject=subject)
     subj_name = "Toán Học" if info["subject"] == "toan" else "Vật Lý"
     loai_tl = "đề thi" if doc_type == "DE_THI" else "cuốn sách"
@@ -229,14 +225,14 @@ TRẢ VỀ JSON DUY NHẤT:
   ]
 }}
 """
-            tt = chuan_hoa(provider, key, model_name)
+            tt = chuan_hoa(key, model_name)
             data = boc_json(goi_ai(tt, prompt, json_mode=True, max_tokens=4000)) or {}
             titles = data.get("titles", [])
             if titles and len(titles) >= 3:
                 titles = [_gon_tua(t) for t in titles]
                 return titles if tranh else _cache_put(cache_key, titles)
         except Exception as e:
-            print(f"Lỗi {provider} khi đặt tựa sách: {e}. Dùng bộ sáng tạo mặc định.")
+            print(f"Lỗi Claude khi đặt tựa sách: {e}. Dùng bộ sáng tạo mặc định.")
 
     # BỘ DỰ PHÒNG NGOẠI TUYẾN — cũng phải ngắn gọn và có hook thật.
     # Có nhiều bộ khác nhau để nút "Đổi 5 tựa khác" vẫn cho ra phương án mới
@@ -303,13 +299,12 @@ TRẢ VỀ JSON DUY NHẤT:
     return ket_qua
 
 
-def generate_creative_enrichment_gemini(
+def soan_noi_dung_mo_rong(
     book_title: str,
     subject: str = "toan",
     sample_questions: Optional[List[str]] = None,
     api_key: Optional[str] = None,
-    model_name: str = "gemini-3.6-flash",
-    provider: str = "gemini"
+    model_name: str = MODEL_CLAUDE_MAC_DINH,
 ) -> Dict[str, Any]:
     """
     Sáng tạo thêm các nội dung giá trị gia tăng cho cuốn sách:
@@ -317,7 +312,7 @@ def generate_creative_enrichment_gemini(
     2. Hộp bí kíp thủ khoa & phân tích tâm lý làm bài thi.
     3. Kết nối toán học với thế giới thực (STEM & Công nghệ tương lai).
     """
-    key = get_effective_api_key(api_key, provider)
+    key = get_effective_api_key(api_key)
     subj_name = "Toán Học" if subject == "toan" else "Vật Lý"
 
     cache_key = f"enrich|{book_title}|{subject}"
@@ -348,11 +343,11 @@ TRẢ VỀ ĐỊNH DẠNG JSON:
   "stem_connection": "..."
 }}
 """
-            tt = chuan_hoa(provider, key, model_name)
+            tt = chuan_hoa(key, model_name)
             return _cache_put(cache_key,
                               boc_json(goi_ai(tt, prompt, json_mode=True, max_tokens=4000)) or {})
         except Exception as e:
-            print(f"Lỗi {provider} khi soạn nội dung mở rộng: {e}. Dùng nội dung mặc định.")
+            print(f"Lỗi Claude khi soạn nội dung mở rộng: {e}. Dùng nội dung mặc định.")
 
     # OFFLINE ENRICHMENT FALLBACK
     return {
@@ -386,10 +381,9 @@ def synthesize_book_metadata(
     sample_content: str = "",
     subject: str = "toan",
     api_key: Optional[str] = None,
-    model_name: str = "gemini-3.6-flash",
+    model_name: str = MODEL_CLAUDE_MAC_DINH,
     options: Optional[Dict[str, Any]] = None,
     doc_type: str = "",
-    provider: str = "gemini"
 ) -> Dict[str, Any]:
     """
     Đặt tên sách độc bản, ấn tượng, đúng tinh thần tài liệu, không trùng lặp giữa các cuốn.
@@ -403,7 +397,7 @@ def synthesize_book_metadata(
       - Nội dung sáng tạo: chỉ gọi khi còn ít nhất một trong lời tựa, bí kíp,
         góc STEM được bật.
     """
-    key = get_effective_api_key(api_key, provider)
+    key = get_effective_api_key(api_key)
     opts = options or {}
     can_tua_sang_tao = str(doc_type or "").upper() != "DE_THI"
     can_noi_dung = any(
@@ -414,14 +408,13 @@ def synthesize_book_metadata(
     subj_name = "Toán Học" if info["subject"] == "toan" else "Vật Lý"
 
     # Lấy tựa sách thôi miên phong cách Thủ Khoa
-    creative_titles = generate_creative_titles_gemini(
+    creative_titles = dat_tua_sach(
         sample_text=sample_content,
         filename=filename,
         chapter_titles=chapter_titles,
         subject=subject,
         api_key=key,
         model_name=model_name,
-        provider=provider
     ) if can_tua_sang_tao else []
 
     best_match = creative_titles[0] if creative_titles else {}
@@ -436,12 +429,11 @@ def synthesize_book_metadata(
     final_series = series if series else f"TỦ SÁCH {subj_name.upper()} THPT — {info['grade'].upper()}"
 
     # Lấy phần nội dung mở rộng truyền cảm hứng
-    enrichment = generate_creative_enrichment_gemini(
+    enrichment = soan_noi_dung_mo_rong(
         book_title=book_title,
         subject=subject,
         api_key=key,
         model_name=model_name,
-        provider=provider
     ) if can_noi_dung else {}
 
     return {
@@ -455,5 +447,5 @@ def synthesize_book_metadata(
         "grade": info["grade"],
         "subject": info["subject"],
         "creative_options": creative_titles,
-        "source_api": "Gemini AI (Creative Suite)" if key else "Expert Pedagogical Engine"
+        "source_api": "Claude" if key else "Bộ suy luận ngoại tuyến"
     }

@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 
 from config import BASE_DIR
+from core.ai_provider import MODEL_CLAUDE_MAC_DINH
 from core.math_engine import clean_paragraph_text
 from core.theory_bank import (
     MATH_THEORY_DATABASE, PHYSICS_THEORY_DATABASE,
@@ -260,7 +261,7 @@ class LoiHanMuc(RuntimeError):
 
 def _goi_json(tt, model_name: str, prompt: str) -> Dict[str, Any]:
     """
-    Đi qua cổng chung `core/ai_provider.py` chứ KHÔNG gọi thẳng SDK của Google.
+    Đi qua cổng chung `core/ai_provider.py` chứ KHÔNG gọi thẳng SDK nào.
 
     Gọi thẳng SDK là chỗ khóa đi lạc: hàm này nhận khóa nào cũng đưa sang máy
     chủ Google, nên chọn Claude là khóa Anthropic bay sang Google. Đã xảy ra
@@ -274,8 +275,7 @@ def _goi_json(tt, model_name: str, prompt: str) -> Dict[str, Any]:
         if "RESOURCE_EXHAUSTED" in loi or "429" in loi:
             raise LoiHanMuc(
                 f"Đã hết hạn mức gọi API trong ngày của khóa này (model {model_name}). "
-                "Gói Gemini miễn phí chỉ cho 20 lượt/ngày. Hãy thử lại vào ngày "
-                "mai, đổi sang khóa khác, hoặc nâng cấp gói."
+                "Hãy thử lại sau, đổi sang khóa khác, hoặc nạp thêm tín dụng."
             ) from e
         if "API_KEY_INVALID" in loi or "API key not valid" in loi:
             raise RuntimeError("Khóa API không hợp lệ. Kiểm tra lại trong phần Cài Đặt AI.") from e
@@ -294,8 +294,7 @@ def sinh_cau_hoi(
     level: str = "Vận dụng",
     so_luong: int = 4,
     api_key: str = "",
-    model_name: str = "gemini-3.6-flash",
-    provider: str = "gemini",
+    model_name: str = MODEL_CLAUDE_MAC_DINH,
 ) -> List[ForgedQuestion]:
     """Gọi AI sinh một lô câu hỏi thô. Chưa kiểm chứng gì ở bước này."""
     if not api_key.strip():
@@ -303,7 +302,7 @@ def sinh_cau_hoi(
 
     so_luong = max(1, min(int(so_luong), MAX_PER_BATCH))
     from core.ai_provider import chuan_hoa
-    tt = chuan_hoa(provider, api_key.strip(), model_name)
+    tt = chuan_hoa(api_key.strip(), model_name)
 
     chu_de = _mo_ta_chuyen_de(topic_key, subject)
     mon = "Toán học" if subject == "toan" else "Vật lý"
@@ -374,8 +373,7 @@ TRẢ VỀ JSON THUẦN:
 def giai_lai_doc_lap(
     ds: List[ForgedQuestion],
     api_key: str,
-    model_name: str = "gemini-3.6-flash",
-    provider: str = "gemini",
+    model_name: str = MODEL_CLAUDE_MAC_DINH,
 ) -> Dict[int, str]:
     """
     Đưa lại đề cho mô hình nhưng GIẤU đáp án và lời giải, bắt nó giải từ đầu.
@@ -387,7 +385,7 @@ def giai_lai_doc_lap(
         return {}
 
     from core.ai_provider import chuan_hoa
-    tt = chuan_hoa(provider, api_key.strip(), model_name)
+    tt = chuan_hoa(api_key.strip(), model_name)
 
     khoi = []
     for i, q in enumerate(ds):
@@ -439,12 +437,11 @@ def sinh_va_tham_dinh(
     level: str = "Vận dụng",
     so_luong: int = 4,
     api_key: str = "",
-    model_name: str = "gemini-3.6-flash",
-    provider: str = "gemini",
+    model_name: str = MODEL_CLAUDE_MAC_DINH,
 ) -> Dict[str, Any]:
     """Sinh một lô câu hỏi rồi chạy đủ ba lớp kiểm chứng."""
     tho = sinh_cau_hoi(topic_key, subject, grade, level, so_luong, api_key,
-                       model_name, provider)
+                       model_name)
     if not tho:
         return {"dat": [], "truot": [], "tong": 0, "so_luot_goi_api": 1}
 
@@ -464,7 +461,7 @@ def sinh_va_tham_dinh(
         so_luot += 1
         try:
             ds_giai = [q for _, q in qua_cau_truc]
-            ket = giai_lai_doc_lap(ds_giai, api_key, model_name, provider)
+            ket = giai_lai_doc_lap(ds_giai, api_key, model_name)
             for vi_tri, (_, q) in enumerate(qua_cau_truc):
                 tra_loi = ket.get(vi_tri, "")
                 q.resolve_answer = tra_loi

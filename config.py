@@ -33,9 +33,7 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 DEFAULT_CONFIG = {
     # Khóa chỉ được lưu ở đây khi chạy trên MÁY CÁ NHÂN (LOCAL_MODE).
     # Trên Web mỗi người dán khóa của riêng mình, máy chủ không giữ.
-    "ai_provider": "gemini",          # 'gemini' hoặc 'claude'
-    "gemini_api_key": "",
-    "gemini_model": "gemini-3.6-flash",
+    # Chỉ còn Claude: chủ dự án chốt bỏ hẳn Gemini ngày 19/09/2026.
     "claude_api_key": "",
     "claude_model": "claude-sonnet-5",
     "default_subject": "toan",  # 'toan' or 'vatly'

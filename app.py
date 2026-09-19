@@ -29,11 +29,10 @@ from core.rewriter import (
     process_rewrite_pipeline, create_master_book_from_chapters,
     AI_SCOPE_THIEU, AI_SCOPE_TAT_CA, AI_SCOPE_KHONG, can_ai_xu_ly
 )
-from core.ai_namer import generate_creative_titles_gemini
+from core.ai_namer import dat_tua_sach
 from core.ai_provider import (
-    GEMINI, CLAUDE, NHA_CUNG_CAP, chuan_hoa,
-    MODEL_GEMINI_CHO_PHEP, MODEL_CLAUDE_CHO_PHEP,
-    MODEL_CLAUDE_MAC_DINH, TEN_HIEN_THI as TEN_NHA_CUNG_CAP,
+    chuan_hoa, MODEL_CLAUDE_CHO_PHEP, MODEL_CLAUDE_MAC_DINH,
+    TEN_HIEN_THI as TEN_NHA_CUNG_CAP,
     goi_ai, LoiHanMuc, LoiDauRaThieu,
 )
 from core import tien_do
@@ -235,33 +234,25 @@ async def serve_home():
         headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
     )
 
-DEFAULT_MODEL = "gemini-3.6-flash"
+DEFAULT_MODEL = MODEL_CLAUDE_MAC_DINH
 
 # Các model người dùng được phép chọn. Chặn giá trị lạ để không ai lợi dụng
 # trường này gọi sang endpoint khác.
-ALLOWED_MODELS = {
-    "gemini-3.6-flash",
-    "gemini-3.6-pro",
-    "gemini-2.5-flash",
-    "gemini-2.5-pro",
-    "gemini-2.0-flash",
-}
+ALLOWED_MODELS = set(MODEL_CLAUDE_CHO_PHEP)
 
 
-def dau_an_nha_cung_cap(provider: str, model_name: str, api_key: str) -> dict:
+def dau_an_nha_cung_cap(model_name: str, api_key: str) -> dict:
     """
-    Ghi lại tài liệu này do bên nào biên soạn.
+    Ghi lại tài liệu này do AI hay bộ máy ngoại tuyến biên soạn.
 
-    Người dùng muốn so Gemini với Claude xem bên nào làm tốt hơn. So bằng cảm
-    giác thì không kết luận được gì, nên gắn dấu vào báo cáo thẩm định: cùng một
-    tệp chạy hai bên rồi đối chiếu số câu bị bắt lỗi là ra ngay.
+    Gắn dấu vào báo cáo thẩm định để biết chắc lượt chạy nào có AI, lượt nào rơi
+    về ngoại tuyến — nhìn file thành phẩm thì không phân biệt được.
 
     Không bao giờ ghi lại chính khóa API, chỉ ghi có khóa hay không.
     """
     co_khoa = bool((api_key or "").strip())
     return {
-        "provider": provider,
-        "ten_hien_thi": TEN_NHA_CUNG_CAP.get(provider, provider) if co_khoa else "Bộ máy Offline",
+        "ten_hien_thi": TEN_NHA_CUNG_CAP if co_khoa else "Bộ máy ngoại tuyến",
         "model": model_name if co_khoa else "",
         "dung_ai": co_khoa,
     }
@@ -269,40 +260,27 @@ def dau_an_nha_cung_cap(provider: str, model_name: str, api_key: str) -> dict:
 
 def request_credentials(request: Request) -> tuple:
     """
-    Lấy khóa Gemini và model THEO TỪNG NGƯỜI DÙNG, gửi kèm mỗi yêu cầu qua header.
+    Lấy khóa Claude và model THEO TỪNG NGƯỜI DÙNG, gửi kèm mỗi yêu cầu qua header.
 
     Nguyên tắc: khóa là tài sản riêng của mỗi người, máy chủ không lưu và không
     dùng chung. Trên bản Web/Cloud, nếu người dùng chưa dán khóa thì coi như
     không có khóa — tuyệt đối KHÔNG mượn khóa của chủ máy chủ để chạy, vì như vậy
-    là tiêu hạn mức của người khác.
+    là tiêu tiền của người khác.
 
     Riêng khi chạy trên máy cá nhân (LOCAL_MODE) thì vẫn cho phép lấy khóa đã lưu
     trong app_settings.json hoặc biến môi trường, vì đó chính là máy của bạn.
     """
-    provider = (request.headers.get("X-AI-Provider") or "").strip().lower()
-    if provider not in NHA_CUNG_CAP:
-        provider = GEMINI
+    key = (request.headers.get("X-Claude-Key") or "").strip()
+    model = (request.headers.get("X-Claude-Model") or "").strip()
+    if not key and LOCAL_MODE:
+        settings = load_settings()
+        key = (settings.get("claude_api_key") or "").strip()
+        if not model:
+            model = (settings.get("claude_model") or "").strip()
 
-    if provider == CLAUDE:
-        key = (request.headers.get("X-Claude-Key") or "").strip()
-        model = (request.headers.get("X-Claude-Model") or "").strip()
-        if not key and LOCAL_MODE:
-            settings = load_settings()
-            key = (settings.get("claude_api_key") or "").strip()
-            if not model:
-                model = (settings.get("claude_model") or "").strip()
-    else:
-        key = (request.headers.get("X-Gemini-Key") or "").strip()
-        model = (request.headers.get("X-Gemini-Model") or "").strip()
-        if not key and LOCAL_MODE:
-            settings = load_settings()
-            key = (settings.get("gemini_api_key") or "").strip()
-            if not model:
-                model = (settings.get("gemini_model") or "").strip()
-
-    # chuan_hoa tự ép model lạ về mặc định đúng của nhà cung cấp đó
-    tt = chuan_hoa(provider, key, model)
-    return tt.api_key, tt.model, tt.provider
+    # chuan_hoa tự ép model lạ về mặc định
+    tt = chuan_hoa(key, model)
+    return tt.api_key, tt.model
 
 
 # Những tùy chọn KHÔNG phải bí mật, lưu chung trên máy chủ được.
@@ -323,8 +301,8 @@ def _public_settings(settings: dict) -> dict:
     # Trên máy cá nhân, báo cho giao diện biết máy đã có sẵn khóa để dùng
     out["server_key_available"] = bool(
         LOCAL_MODE and (
-            (load_settings().get("gemini_api_key") or "").strip()
-            or os.environ.get("GEMINI_API_KEY", "").strip()
+            (load_settings().get("claude_api_key") or "").strip()
+            or os.environ.get("ANTHROPIC_API_KEY", "").strip()
         )
     )
     return out
@@ -388,16 +366,16 @@ def api_thu_khoa(request: Request):
     `goi_ai()` mà bản thân phần biên soạn dùng, để cái gì chạy được ở đây thì
     chắc chắn chạy được ở đó.
     """
-    api_key, model_name, provider = request_credentials(request)
-    ten_nha = TEN_NHA_CUNG_CAP.get(provider, provider)
+    api_key, model_name = request_credentials(request)
+    ten_nha = TEN_NHA_CUNG_CAP
 
     if not api_key:
         return {
-            "status": "error", "dung_duoc": False, "provider": provider,
+            "status": "error", "dung_duoc": False,
             "thong_bao": f"Chưa dán khóa {ten_nha}. Ứng dụng sẽ chạy bằng bộ máy ngoại tuyến.",
         }
 
-    tt = chuan_hoa(provider, api_key, model_name)
+    tt = chuan_hoa(api_key, model_name)
     t0 = time.time()
     try:
         # 1500 token là dư cho câu này, nhưng vẫn cần rộng: model có suy luận
@@ -405,11 +383,11 @@ def api_thu_khoa(request: Request):
         tra_loi = goi_ai(tt, "Trả lời đúng một số, không thêm gì khác: 12 x 12 bằng mấy?",
                          max_tokens=1500)
     except LoiHanMuc as e:
-        return {"status": "error", "dung_duoc": False, "provider": provider,
+        return {"status": "error", "dung_duoc": False,
                 "thong_bao": f"Khóa {ten_nha} đúng nhưng đã hết hạn mức hoặc hết tín dụng.",
                 "chi_tiet": str(e)[:300]}
     except LoiDauRaThieu as e:
-        return {"status": "error", "dung_duoc": False, "provider": provider,
+        return {"status": "error", "dung_duoc": False,
                 "thong_bao": f"Khóa {ten_nha} gọi được nhưng đầu ra không dùng được.",
                 "chi_tiet": str(e)[:300]}
     except Exception as e:
@@ -423,14 +401,14 @@ def api_thu_khoa(request: Request):
                      "tạo lại khóa và chọn một Workspace cụ thể.")
         elif ma == 429:
             goi_y = "Bị chặn vì gọi quá nhanh hoặc hết hạn mức. Thử lại sau ít phút."
-        return {"status": "error", "dung_duoc": False, "provider": provider,
+        return {"status": "error", "dung_duoc": False,
                 "thong_bao": goi_y or f"Không gọi được {ten_nha}.",
                 "chi_tiet": tin[:300]}
 
     # Bài nhân này có đáp số cố định, kiểm luôn xem mô hình trả lời có đúng không
     dung_dap_so = "144" in (tra_loi or "")
     return {
-        "status": "success", "dung_duoc": True, "provider": provider,
+        "status": "success", "dung_duoc": True,
         "model": tt.model,
         "giay": round(time.time() - t0, 2),
         "dap_so_dung": dung_dap_so,
@@ -615,7 +593,7 @@ def ingest_documents(
         only = Path(found[0]["path"])
         single_rel = f"{session_dir.name}/{only.name}"
         try:
-            api_key, _, _ = request_credentials(request)
+            api_key, _ = request_credentials(request)
             parsed = parse_input_file(only, subject=subject, api_key=api_key)
             total_items = len(parsed)
             preview = [item.to_dict() for item in parsed[:15]]
@@ -663,17 +641,16 @@ class SuggestTitlesRequest(BaseModel):
 
 @app.post("/api/suggest-titles")
 def api_suggest_titles(req: SuggestTitlesRequest, request: Request):
-    api_key, model_name, provider = request_credentials(request)
+    api_key, model_name = request_credentials(request)
 
-    titles = generate_creative_titles_gemini(
+    titles = dat_tua_sach(
         sample_text=req.sample_text,
         filename=req.filename,
         subject=req.subject,
         api_key=api_key,
         model_name=model_name,
         exclude_titles=req.exclude_titles,
-        doc_type=req.doc_type,
-        provider=provider
+        doc_type=req.doc_type
     )
     return {
         "status": "success",
@@ -697,7 +674,7 @@ def upload_file(
     with open(save_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    api_key, _, _ = request_credentials(request)
+    api_key, _ = request_credentials(request)
 
     try:
         parsed_items = parse_input_file(save_path, subject=subject, api_key=api_key)
@@ -870,7 +847,7 @@ def process_single_document(
         raise HTTPException(status_code=404, detail="Không tìm thấy file nguồn đã tải lên")
 
     settings = load_settings()
-    api_key, model_name, provider = request_credentials(request)
+    api_key, model_name = request_credentials(request)
     paper_format = settings.get("output_format", "a4")
 
     try:
@@ -896,7 +873,7 @@ def process_single_document(
             doc_type=loai,
             exam_info=thong_tin_de,
             ai_scope=ai_scope if ai_scope in (AI_SCOPE_THIEU, AI_SCOPE_TAT_CA, AI_SCOPE_KHONG) else AI_SCOPE_THIEU,
-            provider=provider, options=book_options,
+            options=book_options,
             cap_hoc=cap_hoc if cap_hoc in (TIEU_HOC, THCS, THPT) else "",
             loai_dau_ra=loai_dau_ra if quy_cach(loai_dau_ra) else ""
         )
@@ -926,7 +903,7 @@ def process_single_document(
                 "book": book.to_dict(),
                 "nhan_dien": nhan_dien,
                 "validation_report": None,
-                "nha_cung_cap": dau_an_nha_cung_cap(provider, model_name, api_key),
+                "nha_cung_cap": dau_an_nha_cung_cap(model_name, api_key),
                 "output_filename": out_filename,
                 "download_url": f"/api/download/{duong_tai}",
             }
@@ -952,7 +929,7 @@ def process_single_document(
             "book": book.to_dict(),
             "nhan_dien": nhan_dien,
             "validation_report": val_report.to_dict(),
-            "nha_cung_cap": dau_an_nha_cung_cap(provider, model_name, api_key),
+            "nha_cung_cap": dau_an_nha_cung_cap(model_name, api_key),
             "output_filename": out_filename,
             "download_url": f"/api/download/{duong_tai}"
         }
@@ -991,7 +968,7 @@ def process_folder(
     p = resolve_user_folder(folder_path)
 
     settings = load_settings()
-    api_key, model_name, provider = request_credentials(request)
+    api_key, model_name = request_credentials(request)
     paper_format = settings.get("output_format", "a4")
 
     files = scan_directory(p)
@@ -1063,7 +1040,7 @@ def process_folder(
                 "mode": "merge",
                 "book": master_book.to_dict(),
                 "validation_report": val_report.to_dict(),
-                "nha_cung_cap": dau_an_nha_cung_cap(provider, model_name, api_key),
+                "nha_cung_cap": dau_an_nha_cung_cap(model_name, api_key),
                 "output_filename": out_filename,
                 "download_url": f"/api/download/{duong_tai}"
             }
@@ -1093,7 +1070,7 @@ def process_folder(
                         doc_type=loai_f,
                         exam_info=tt_de_f,
                         ai_scope=ai_scope if ai_scope in (AI_SCOPE_THIEU, AI_SCOPE_TAT_CA, AI_SCOPE_KHONG) else AI_SCOPE_THIEU,
-                        provider=provider, options=book_options,
+                        options=book_options,
                         cap_hoc=cap_hoc if cap_hoc in (TIEU_HOC, THCS, THPT) else "",
                         loai_dau_ra=loai_dau_ra if quy_cach(loai_dau_ra) else ""
                     )
@@ -1121,7 +1098,7 @@ def process_folder(
                         "title": single_book.new_title,
                         "total_questions": sum(len(c.questions) for c in single_book.chapters) if single_book.chapters else len(single_book.questions),
                         "validation_report": val_report.to_dict(),
-                        "nha_cung_cap": dau_an_nha_cung_cap(provider, model_name, api_key)
+                        "nha_cung_cap": dau_an_nha_cung_cap(model_name, api_key)
                     })
                 except Exception as e:
                     print(f"Lỗi khi xử lý {f_path.name}: {e}")
@@ -1186,7 +1163,7 @@ def api_generate_questions(req: GenerateRequest, request: Request):
     Sinh câu hỏi mới bằng AI rồi chạy đủ ba lớp thẩm định.
     Chỉ câu qua được TẤT CẢ mới vào ngân hàng; câu trượt trả về kèm lý do.
     """
-    api_key, model_name, provider = request_credentials(request)
+    api_key, model_name = request_credentials(request)
     if not api_key:
         raise HTTPException(
             status_code=400,
@@ -1202,7 +1179,6 @@ def api_generate_questions(req: GenerateRequest, request: Request):
             so_luong=req.so_luong,
             api_key=api_key,
             model_name=model_name,
-            provider=provider,
         )
     except LoiHanMuc as e:
         raise HTTPException(status_code=429, detail=str(e))
@@ -1289,9 +1265,9 @@ def api_import_bank(file: UploadFile = File(...)):
 # ===========================================================================
 # NHẬN BẢN NHÁP DÁN VÀO
 #
-# Luồng làm việc tiết kiệm nhất: người dùng cho Gemini Pro trong ứng dụng chat
-# soạn bản nháp (gói thuê bao, không tốn hạn mức API), rồi dán vào đây. Công cụ
-# lo phần định dạng chuẩn và kiểm chứng đáp án — cả hai đều KHÔNG tốn API.
+# Luồng làm việc tiết kiệm nhất: người dùng nhờ trợ lý trong ứng dụng chat soạn
+# bản nháp (gói thuê bao, không tốn tiền API), rồi dán vào đây. Công cụ lo phần
+# định dạng chuẩn và kiểm chứng đáp án — cả hai đều KHÔNG tốn API.
 # ===========================================================================
 
 class DanVanBanRequest(BaseModel):

@@ -535,15 +535,14 @@ class ExcelParser:
 
 class ImageParser:
     @classmethod
-    def parse(cls, file_path: Path, subject: str = "toan", api_key: Optional[str] = None) -> List[QuestionItem]:
+    def parse(cls, file_path: Path, subject: str = "toan", api_key: Optional[str] = None,
+              model_name: str = "") -> List[QuestionItem]:
         if api_key and api_key.strip():
             try:
-                from google import genai
-                from google.genai import types
-                import json
-
-                client = genai.Client(api_key=api_key.strip())
-                image_bytes = file_path.read_bytes()
+                # Đi qua cổng chung, KHÔNG gọi thẳng SDK. Trước ngày 19/09/2026
+                # chỗ này gọi `genai.Client` với bất kỳ khóa nào nhận được, nên
+                # khóa Anthropic cũng bị gửi sang máy chủ Google.
+                from core.ai_provider import chuan_hoa, goi_ai_kem_anh, boc_json
 
                 prompt = """
 Hãy đọc kỹ hình ảnh tài liệu này (chứa các câu hỏi Toán hoặc Vật lý) và bóc tách toàn bộ:
@@ -565,15 +564,8 @@ Hãy đọc kỹ hình ảnh tài liệu này (chứa các câu hỏi Toán ho�
   ]
 }
 """
-                response = client.models.generate_content(
-                    model="gemini-3.6-flash",
-                    contents=[
-                        types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg" if file_path.suffix.lower() in [".jpg", ".jpeg"] else "image/png"),
-                        prompt
-                    ],
-                    config=types.GenerateContentConfig(response_mime_type="application/json")
-                )
-                data = json.loads(response.text)
+                tt = chuan_hoa(api_key.strip(), model_name or "")
+                data = boc_json(goi_ai_kem_anh(tt, prompt, file_path)) or {}
                 items = []
                 for q in data.get("questions", []):
                     items.append(QuestionItem(
@@ -589,7 +581,7 @@ Hãy đọc kỹ hình ảnh tài liệu này (chứa các câu hỏi Toán ho�
                 if items:
                     return items
             except Exception as e:
-                print(f"Lỗi Gemini Vision: {e}")
+                print(f"Lỗi khi đọc ảnh bằng AI: {e}")
 
         return [
             QuestionItem(
@@ -643,7 +635,7 @@ class TextParser:
     """
     Đọc văn bản thuần (.txt / .md).
 
-    Dùng cho luồng: người dùng cho AI Gemini soạn bản nháp trong ứng dụng chat
+    Dùng cho luồng: người dùng nhờ trợ lý soạn bản nháp trong ứng dụng chat
     (gói Pro, không tốn hạn mức API), rồi dán bản nháp đó vào công cụ để chuẩn
     hóa định dạng và kiểm chứng đáp án.
     """

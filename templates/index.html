@@ -33,7 +33,7 @@
                 <button id="btn-forge" class="btn btn-outline" title="Dùng AI soạn câu hỏi mới cho ngân hàng, có thẩm định trước khi nhận">
                     <span class="icon">🏭</span> Lò Soạn Đề AI
                 </button>
-                <button id="btn-settings" class="btn btn-outline" title="Cấu hình Google Gemini AI">
+                <button id="btn-settings" class="btn btn-outline" title="Cấu hình khóa AI">
                     <span class="icon">⚙️</span> Cài Đặt AI
                 </button>
             </div>
@@ -117,17 +117,17 @@
                             <input type="file" id="folder-input" webkitdirectory directory multiple
                                    style="display:none !important;">
 
-                            <!-- DÁN BẢN NHÁP TỪ GEMINI PRO -->
+                            <!-- DÁN BẢN NHÁP SOẠN SẴN -->
                             <div class="paste-zone">
                                 <button type="button" id="toggle-paste" class="btn-link">
-                                    📋 Hoặc dán bản nháp đã soạn sẵn (từ Gemini Pro, Word, web...)
+                                    📋 Hoặc dán bản nháp đã soạn sẵn (từ ứng dụng chat, Word, web...)
                                 </button>
                                 <div id="paste-box" class="paste-box hidden">
                                     <div class="paste-flow">
                                         <strong>Quy trình tiết kiệm nhất:</strong>
                                         <span class="flow-step">1. Lấy câu lệnh mẫu bên dưới</span>
                                         <span class="flow-arrow">→</span>
-                                        <span class="flow-step">2. Dán vào Gemini Pro, cho nó soạn</span>
+                                        <span class="flow-step">2. Dán vào ứng dụng chat, cho nó soạn</span>
                                         <span class="flow-arrow">→</span>
                                         <span class="flow-step">3. Dán kết quả về đây</span>
                                         <span class="flow-arrow">→</span>
@@ -135,7 +135,7 @@
                                     </div>
 
                                     <div class="prompt-row">
-                                        <label for="prompt-kind">Câu lệnh mẫu cho Gemini Pro:</label>
+                                        <label for="prompt-kind">Câu lệnh mẫu để dán vào ứng dụng chat:</label>
                                         <select id="prompt-kind" class="form-control">
                                             <option value="de_thi_2025">Soạn đề thi chuẩn 2025 (3 phần I/II/III)</option>
                                             <option value="de_thi_cu">Soạn đề trắc nghiệm truyền thống (4 phương án)</option>
@@ -298,7 +298,7 @@
                         <div class="form-group">
                             <div class="label-with-action">
                                 <label for="custom-title">Tựa đề sách / Đại cẩm nang:</label>
-                                <button type="button" id="btn-suggest-titles" class="btn-ai-magic" title="Bấm để AI Gemini phân tích và sáng tạo 5 tựa sách cuốn hút người đọc nhất">
+                                <button type="button" id="btn-suggest-titles" class="btn-ai-magic" title="Bấm để AI phân tích và sáng tạo 5 tựa sách cuốn hút người đọc nhất">
                                     ✨ AI Gợi Ý 5 Tựa Sách Thôi Miên
                                 </button>
                             </div>
@@ -314,7 +314,7 @@
                                     </div>
                                 </div>
                                 <div id="ai-titles-list" class="ai-titles-list">
-                                    <div class="ai-title-loading">Đang phân tích tài liệu và kích hoạt động cơ sáng tạo Gemini AI...</div>
+                                    <div class="ai-title-loading">Đang phân tích tài liệu và kích hoạt động cơ sáng tạo...</div>
                                 </div>
                             </div>
                         </div>
@@ -366,15 +366,15 @@
                             </label>
                             <label class="checkbox-row">
                                 <input type="checkbox" id="check-foreword" checked>
-                                <span>✨ AI Gemini sáng tạo: <strong>Lời tựa mở đầu truyền cảm hứng & Sứ mệnh cuốn sách</strong></span>
+                                <span>✨ AI sáng tạo: <strong>Lời tựa mở đầu truyền cảm hứng & Sứ mệnh cuốn sách</strong></span>
                             </label>
                             <label class="checkbox-row">
                                 <input type="checkbox" id="check-secrets" checked>
-                                <span>🏆 AI Gemini sáng tạo: <strong>Hộp bí kíp vàng & Chiến thuật phòng thi từ Thủ khoa</strong></span>
+                                <span>🏆 AI sáng tạo: <strong>Hộp bí kíp vàng & Chiến thuật phòng thi từ Thủ khoa</strong></span>
                             </label>
                             <label class="checkbox-row">
                                 <input type="checkbox" id="check-stem" checked>
-                                <span>🌐 AI Gemini sáng tạo: <strong>Góc kết nối thực tiễn đời sống STEM (GDPT 2018)</strong></span>
+                                <span>🌐 AI sáng tạo: <strong>Góc kết nối thực tiễn đời sống STEM (GDPT 2018)</strong></span>
                             </label>
                             <label class="checkbox-row">
                                 <input type="checkbox" id="check-casio" checked>
@@ -498,54 +498,8 @@
                     <button id="btn-close-modal" class="btn-close">✕</button>
                 </div>
                 <div class="modal-body">
-                    <div class="form-group">
-                        <label for="ai-provider">Dùng AI của nhà nào:</label>
-                        <select id="ai-provider" class="form-control">
-                            <option value="gemini" selected>Google Gemini — có 20 lượt/ngày miễn phí</option>
-                            <option value="claude">Anthropic Claude — không có bậc miễn phí</option>
-                        </select>
-                        <p class="field-hint">
-                            Dán được cả hai khóa rồi đổi qua lại để so bên nào biên soạn tốt hơn.
-                            <strong>Báo cáo thẩm định sẽ ghi rõ tài liệu này do bên nào làm</strong>,
-                            kèm số câu bị bắt lỗi — so bằng số chứ không bằng cảm giác.
-                        </p>
-                    </div>
 
-                    <div id="khoi-gemini">
-                    <div class="form-group">
-                        <label for="gemini-api-key">Gemini API Key của riêng bạn:</label>
-                        <div class="input-with-button">
-                            <input type="password" id="gemini-api-key" class="form-control" placeholder="Dán khóa API của bạn (AIzaSy...)">
-                            <button id="btn-toggle-key" class="btn-small" type="button">Hiện</button>
-                            <button id="btn-thu-khoa-gemini" class="btn-small" type="button">Thử khóa</button>
-                        </div>
-                        <div id="key-status" class="key-status">Chưa có khóa — đang dùng Bộ máy Offline</div>
-                        <div id="ket-qua-thu-gemini" class="key-status hidden"></div>
-                        <p class="field-hint">
-                            🔒 <strong>Khóa chỉ được lưu trên trình duyệt của chính bạn</strong> và gửi kèm từng lượt biên soạn.
-                            Máy chủ không lưu lại và không dùng chung với ai. Người khác vào trang này phải dán khóa của họ,
-                            mỗi người tiêu hạn mức trên tài khoản Google của riêng mình.
-                        </p>
-                        <p class="field-hint">
-                            Lấy API Key miễn phí tại <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>.
-                            Để trống thì ứng dụng vẫn chạy bằng <strong>Bộ máy Toán học Thông minh Offline</strong>.
-                        </p>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="gemini-model">Mô hình AI:</label>
-                        <select id="gemini-model" class="form-control">
-                            <option value="gemini-3.6-flash" selected>Gemini 3.6 Flash — nhanh, tiết kiệm hạn mức (khuyên dùng)</option>
-                            <option value="gemini-3.6-pro">Gemini 3.6 Pro — lời giải sâu hơn, tốn hạn mức hơn</option>
-                            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                            <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-                            <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-                        </select>
-                        <p class="field-hint">Mô hình áp dụng cho riêng bạn, không ảnh hưởng người khác đang dùng trang.</p>
-                    </div>
-                    </div><!-- /khoi-gemini -->
-
-                    <div id="khoi-claude" class="hidden">
+                    <div id="khoi-claude">
                     <div class="form-group">
                         <label for="claude-api-key">Claude API Key của riêng bạn:</label>
                         <div class="input-with-button">
@@ -557,11 +511,11 @@
                         <div id="ket-qua-thu-claude" class="key-status hidden"></div>
                         <p class="field-hint">
                             🔒 <strong>Khóa chỉ được lưu trên trình duyệt của chính bạn</strong> và gửi kèm từng lượt biên soạn,
-                            y như khóa Gemini. Máy chủ không lưu lại và không dùng chung với ai.
+                            Máy chủ không lưu lại và không dùng chung với ai.
                         </p>
                         <p class="field-hint">
                             Lấy khóa tại <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.
-                            ⚠️ <strong>Claude không có bậc miễn phí</strong> như Gemini — cần nạp tín dụng vào tài khoản trước,
+                            ⚠️ <strong>Claude không có bậc miễn phí</strong> — cần nạp tín dụng vào tài khoản trước,
                             tính tiền ngay từ lượt gọi đầu tiên.
                         </p>
                     </div>
@@ -659,7 +613,7 @@
                         </button>
                         <p class="field-hint">
                             Mỗi lượt soạn tốn <strong>2 lượt gọi API</strong> (1 soạn + 1 giải lại đối chiếu),
-                            không phụ thuộc số câu. Gói Gemini miễn phí cho 20 lượt/ngày.
+                            không phụ thuộc số câu.
                         </p>
                     </div>
 
