@@ -842,7 +842,12 @@ Các câu cần giải:
         previewPlaceholder.classList.add("hidden");
         previewList.classList.remove("hidden");
         previewToolbar.classList.add("hidden");
-        previewBadge.textContent = `Bóc tách thành công ${items.length} / ${total} câu gốc`;
+        // `items` chỉ là phần XEM TRƯỚC, không phải số câu bóc tách được. Câu
+        // cũ ghi "Bóc tách thành công 15 / 348" khiến người dùng tưởng mất 333
+        // câu, trong khi cả 348 câu đều đã vào.
+        previewBadge.textContent = total > items.length
+            ? `Đã bóc tách ${total} câu — xem trước ${items.length} câu đầu`
+            : `Đã bóc tách ${total} câu`;
         previewList.innerHTML = "";
 
         items.forEach(q => {
@@ -1237,21 +1242,54 @@ Các câu cần giải:
         ];
 
         let msgIdx = 0;
-        let pct = 15;
+        let pct = 5;
         progressStatus.textContent = progressMessages[0];
-        progressBar.style.width = "15%";
+        progressBar.style.width = "5%";
 
-        const timer = setInterval(() => {
-            msgIdx = (msgIdx + 1) % progressMessages.length;
-            progressStatus.textContent = progressMessages[msgIdx];
-            pct = Math.min(92, pct + 18);
-            progressBar.style.width = `${pct}%`;
+        function docGiay(s) {
+            if (s == null) return "";
+            const p = Math.floor(s / 60), g = s % 60;
+            return p > 0 ? `${p} phút ${g} giây` : `${g} giây`;
+        }
 
-            if (pct >= 30) pstep1.classList.add("completed");
-            if (pct >= 55) pstep2.classList.add("completed");
-            if (pct >= 75) pstep3.classList.add("completed");
-            if (pct >= 90) pstep4.classList.add("completed");
-        }, 1800);
+        // Hỏi máy chủ tiến độ THẬT. Bản cũ chỉ chạy đồng hồ: cứ 1,8 giây nhảy
+        // một nấc rồi đứng ở 92%, nên với tài liệu 348 câu (mười hai lô gọi AI)
+        // nó đứng im hàng chục phút và người dùng kết luận phần mềm treo.
+        const timer = setInterval(async () => {
+            let td = null;
+            try {
+                const r = await fetch("/api/tien-do");
+                if (r.ok) td = await r.json();
+            } catch (e) { /* mất mạng trong chốc lát thì bỏ qua nhịp này */ }
+
+            if (td && td.tong_lo > 0) {
+                pct = Math.max(pct, td.phan_tram || 0);
+                progressBar.style.width = `${pct}%`;
+
+                let dong = td.viec || "Đang biên soạn…";
+                if (td.lo_hien_tai > 0) {
+                    dong = `Lô ${td.lo_hien_tai}/${td.tong_lo} — đã xong `
+                         + `${td.cau_xong}/${td.tong_cau} câu`;
+                }
+                if (td.uoc_con_lai_giay != null) {
+                    dong += ` · còn khoảng ${docGiay(td.uoc_con_lai_giay)}`;
+                }
+                dong += ` · đã chạy ${docGiay(td.da_chay_giay)}`;
+                if (td.loi) dong += ` · lưu ý: ${td.loi}`;
+                progressStatus.textContent = dong;
+            } else {
+                // Chưa tới bước gọi AI: vẫn phải nhúc nhích cho biết còn sống
+                msgIdx = (msgIdx + 1) % progressMessages.length;
+                progressStatus.textContent = progressMessages[msgIdx];
+                pct = Math.min(12, pct + 1);
+                progressBar.style.width = `${pct}%`;
+            }
+
+            if (pct >= 10) pstep1.classList.add("completed");
+            if (pct >= 40) pstep2.classList.add("completed");
+            if (pct >= 65) pstep3.classList.add("completed");
+            if (pct >= 88) pstep4.classList.add("completed");
+        }, 2000);
 
         // Khổ giấy được lưu vào cài đặt để bộ xuất bản dùng đúng kích thước trang
         if (paperFormatSelect) {

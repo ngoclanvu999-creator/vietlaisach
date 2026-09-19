@@ -36,6 +36,7 @@ from core.ai_provider import (
     MODEL_CLAUDE_MAC_DINH, TEN_HIEN_THI as TEN_NHA_CUNG_CAP,
     goi_ai, LoiHanMuc, LoiDauRaThieu,
 )
+from core import tien_do
 from core.loai_dau_ra import (
     QUY_CACH, DANH_SACH as DS_DAU_RA, quy_cach, la_de, thu_muc_cua,
 )
@@ -438,6 +439,18 @@ def api_thu_khoa(request: Request):
     }
 
 
+@app.get("/api/tien-do")
+def api_tien_do():
+    """
+    Tiến độ THẬT của lượt biên soạn đang chạy.
+
+    Thanh tiến trình cũ chạy theo đồng hồ nên với tài liệu lớn nó lên 92% rồi
+    đứng im hàng chục phút, khiến người dùng tưởng phần mềm treo. Nay giao diện
+    hỏi ở đây và báo đúng lô thứ mấy trên bao nhiêu.
+    """
+    return tien_do.doc()
+
+
 @app.post("/api/scan-folder")
 def api_scan_folder(req: ScanFolderRequest):
     p = resolve_user_folder(req.folder_path)
@@ -659,7 +672,8 @@ def api_suggest_titles(req: SuggestTitlesRequest, request: Request):
         api_key=api_key,
         model_name=model_name,
         exclude_titles=req.exclude_titles,
-        doc_type=req.doc_type
+        doc_type=req.doc_type,
+        provider=provider
     )
     return {
         "status": "success",

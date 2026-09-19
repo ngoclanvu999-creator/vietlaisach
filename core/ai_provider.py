@@ -112,21 +112,30 @@ def boc_json(van_ban: str):
     Gemini có chế độ trả JSON thuần, còn Claude thì hay bọc trong rào ```json.
     Gỡ rào trước, nếu vẫn không phân tích được thì cắt từ dấu ngoặc đầu tới dấu
     ngoặc cuối — mô hình đôi khi thêm một câu dẫn trước JSON.
+
+    `strict=False` là chỗ quan trọng nhất. Gemini bật chế độ ép JSON nên chuỗi
+    trả về luôn hợp lệ; Claude KHÔNG có chế độ đó nên hay để nguyên dấu xuống
+    dòng thật bên trong chuỗi — về mặt chuẩn JSON là sai, `json.loads` mặc định
+    báo "Invalid control character". Đã gặp thật ngày 19/09/2026: một lô 25 câu
+    hỏng nguyên vì đúng lỗi này, rơi hết về bộ xử lý ngoại tuyến. Nội dung thì
+    hoàn toàn dùng được, chỉ vướng đúng một ký tự.
     """
     t = (van_ban or "").strip()
     if not t:
         raise ValueError("Câu trả lời rỗng")
 
     t = _RAO_MA.sub("", t).strip()
-    try:
-        return json.loads(t)
-    except json.JSONDecodeError:
-        pass
-
-    dau = min((i for i in (t.find("{"), t.find("[")) if i >= 0), default=-1)
-    cuoi = max(t.rfind("}"), t.rfind("]"))
-    if dau >= 0 and cuoi > dau:
-        return json.loads(t[dau:cuoi + 1])
+    for doan in (t, None):
+        if doan is None:
+            dau = min((i for i in (t.find("{"), t.find("[")) if i >= 0), default=-1)
+            cuoi = max(t.rfind("}"), t.rfind("]"))
+            if not (dau >= 0 and cuoi > dau):
+                break
+            doan = t[dau:cuoi + 1]
+        try:
+            return json.loads(doan, strict=False)
+        except json.JSONDecodeError:
+            continue
 
     raise ValueError("Không tìm thấy JSON hợp lệ trong câu trả lời")
 

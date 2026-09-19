@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import json
 from pathlib import Path
 from dataclasses import dataclass, field, asdict
@@ -11,6 +12,7 @@ from core.theory_bank import (
     get_casio_tip, get_trap_warning
 )
 from core.ai_namer import synthesize_book_metadata
+from core import tien_do
 from core.doc_type import DE_THI, SACH, CHUYEN_DE
 from core.ai_provider import GEMINI, CLAUDE, chuan_hoa, goi_ai, boc_json, LoiHanMuc
 from core.skill_loader import (
@@ -760,7 +762,22 @@ def rewrite_with_gemini(
     # Mỗi lần gọi chỉ gửi một lô để không vượt giới hạn ngữ cảnh
     BATCH_SIZE = 25
     MAX_BATCHES = 12
-    batches = [can_ai[i:i + BATCH_SIZE] for i in range(0, len(can_ai), BATCH_SIZE)][:MAX_BATCHES]
+    tat_ca_lo = [can_ai[i:i + BATCH_SIZE] for i in range(0, len(can_ai), BATCH_SIZE)]
+    batches = tat_ca_lo[:MAX_BATCHES]
+
+    # Vượt trần số lô thì phần dư vẫn được xử lý ngoại tuyến ở cuối hàm, không
+    # mất bài — nhưng PHẢI nói ra, vì chất lượng hai nhánh khác nhau rõ rệt.
+    so_cau_ngoai_tuyen = sum(len(lo) for lo in tat_ca_lo[MAX_BATCHES:])
+    if so_cau_ngoai_tuyen:
+        print(f"[!] Tài liệu có {len(can_ai)} câu cần AI, vượt trần {MAX_BATCHES} lô "
+              f"({MAX_BATCHES * BATCH_SIZE} câu). {so_cau_ngoai_tuyen} câu cuối sẽ "
+              f"dùng bộ xử lý ngoại tuyến.")
+
+    tong_lo = len(batches)
+    tien_do.bat_dau(tong_cau=len(can_ai), tong_lo=tong_lo,
+                    viec=f"Chuẩn bị gọi {tt.ten_hien_thi} cho {tong_lo} lô")
+    print(f"[*] Bắt đầu biên soạn: {len(can_ai)} câu, chia {tong_lo} lô, "
+          f"mỗi lô tối đa {BATCH_SIZE} câu — dùng {tt.ten_hien_thi} ({tt.model}).")
 
     rewritten_items: List[RewrittenQuestionItem] = []
     ai_processed = 0
@@ -845,17 +862,29 @@ TRẢ VỀ ĐỊNH DẠNG JSON:
 }}
 Chỉ trả về JSON thuần túy.
 """
+        tien_do.dat_viec(f"Đang gọi {tt.ten_hien_thi} cho lô {batch_no}/{tong_lo} "
+                         f"({len(batch)} câu)")
+        t_lo = time.time()
         try:
             data = boc_json(goi_ai(tt, prompt, json_mode=True, max_tokens=32000))
         except Exception as e:
             # Một lô lỗi không được làm hỏng cả cuốn sách: rơi về bộ xử lý ngoại
             # tuyến cho riêng lô đó rồi đi tiếp.
-            print(f"Lô {batch_no} gặp lỗi {tt.ten_hien_thi} ({e}), dùng bộ xử lý ngoại tuyến cho lô này.")
+            giay = time.time() - t_lo
+            print(f"[!] Lô {batch_no}/{tong_lo} lỗi {tt.ten_hien_thi} sau {giay:.0f}s "
+                  f"({e}) — dùng bộ xử lý ngoại tuyến cho lô này.")
+            tien_do.ghi_loi(f"Lô {batch_no}: {e}")
+            tien_do.xong_mot_lo(batch_no, tong_lo, len(batch), giay,
+                                f"Lô {batch_no}/{tong_lo} lỗi, đã chuyển ngoại tuyến")
             for vi_tri, q in batch:
                 ket_qua_theo_vi_tri[vi_tri] = generate_offline_enhancement(
                     q, vi_tri + 1, new_total, subject, topic_key=topic_data.get("topic_key")
                 )
             continue
+
+        giay = time.time() - t_lo
+        tien_do.xong_mot_lo(batch_no, tong_lo, len(batch), giay)
+        print(f"[*] Xong lô {batch_no}/{tong_lo} ({len(batch)} câu) sau {giay:.0f}s")
 
         if batch_no == 1:
             meta_from_ai = {
