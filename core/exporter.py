@@ -404,7 +404,7 @@ class DocxBookExporter(NenWord):
         # Tài liệu HSG không dùng chung bộ dựng sách: đề HSG là tự luận, phải
         # giấu phương án đi chứ không cho sẵn bốn lựa chọn để đoán.
         if loai_ra == "TAI_LIEU_HSG":
-            from core.exporter_hsg import xuat_tai_lieu_hsg
+            from app_chuyen_de.bo_dung.exporter_hsg import xuat_tai_lieu_hsg
             xuat_tai_lieu_hsg(doc, book, mon, opts)
             output_path.parent.mkdir(parents=True, exist_ok=True)
             doc.save(str(output_path))
@@ -414,7 +414,7 @@ class DocxBookExporter(NenWord):
         # loại này không có nhánh riêng nên rơi xuống bộ dựng sách bên dưới, mà
         # bộ đó in lời giải ngay dưới mỗi bài — trái hẳn skill chuyen-de-bai-tap.
         if loai_ra == "CHUYEN_DE_BT":
-            from core.exporter_chuyen_de import xuat_chuyen_de
+            from app_chuyen_de.bo_dung.exporter_chuyen_de import xuat_chuyen_de
             xuat_chuyen_de(doc, book, mon, opts)
             output_path.parent.mkdir(parents=True, exist_ok=True)
             doc.save(str(output_path))

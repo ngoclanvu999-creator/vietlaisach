@@ -188,7 +188,7 @@ def kl7(kq: KetQua):
     from core.skill_loader import thu_muc_skill
 
     cap = [
-        ("core/exporter_hsg.py", "tai-lieu-hsg"),
+        ("app_chuyen_de/bo_dung/exporter_hsg.py", "tai-lieu-hsg"),
     ]
     lech = []
     for tep, skill in cap:

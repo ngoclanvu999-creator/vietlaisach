@@ -34,3 +34,8 @@ input/evil_test.docx
 data/thu_vien_cache.json
 data/thu_vien_cache.tmp
 output/bao_cao_thu_vien.json
+
+# Thu muc lam viec RIENG cua tung app. Phai rieng vi don_thu_muc_ra() quet ca
+# thu muc de don tep cu — dung chung thi app nay xoa mat ket qua cua app kia.
+app_*/output/
+app_*/input/

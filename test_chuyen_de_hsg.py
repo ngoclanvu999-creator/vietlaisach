@@ -9,7 +9,7 @@ chính mình viết thì bao giờ cũng khớp mẫu do chính mình đặt.
 
 import sys
 
-from core.chuyen_de_hsg import (
+from app_chuyen_de.bo_dung.chuyen_de_hsg import (
     DANH_MUC, MA_KHAC, NHOM_A, NHOM_B, NHOM_C, TEN,
     cham_diem, cho_vong_thi, danh_sach, gom_theo_chuyen_de, phan_loai,
 )

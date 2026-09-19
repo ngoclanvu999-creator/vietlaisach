@@ -24,7 +24,7 @@ from typing import List, Any, Dict, Tuple
 from docx.shared import Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
-from core.chuyen_de_hsg import TEN as TEN_CHUYEN_DE, gom_theo_chuyen_de
+from app_chuyen_de.bo_dung.chuyen_de_hsg import TEN as TEN_CHUYEN_DE, gom_theo_chuyen_de
 
 FONT_MAIN = "Times New Roman"
 COLOR_PRIMARY = RGBColor(26, 54, 93)
