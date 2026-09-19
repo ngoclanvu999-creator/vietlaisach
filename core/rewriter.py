@@ -16,7 +16,7 @@ from core.ai_namer import synthesize_book_metadata
 from core import tien_do
 from core.doc_type import DE_THI, SACH, CHUYEN_DE
 from core.ai_provider import (MODEL_CLAUDE_MAC_DINH, chuan_hoa, goi_ai,
-                              boc_json, LoiHanMuc)
+                              boc_json, LoiHanMuc, LoiDauRaThieu)
 from core.skill_loader import (
     nap_van_ban_skill, huong_dan_giong_van, phat_hien_cap_hoc,
     TIEU_HOC, THCS, THPT, TEN_CAP_HOC as TEN_CAP,
@@ -876,11 +876,31 @@ Chỉ trả về JSON thuần túy.
     so_song_song = max(1, min(8, int(os.environ.get("SO_LO_SONG_SONG", "4"))))
     ket_lo: Dict[int, Any] = {}
 
+    # Ngân sách token cho một lô. Phải rộng vì suy luận thích ứng của Sonnet 5
+    # tiêu token TRƯỚC khi viết được chữ nào: chạy thật tài liệu 348 câu ngày
+    # 19/09/2026, hai lô hỏng nguyên vì "dùng hết 32000 token mà chưa viết được
+    # chữ nào" — khoảng 50 câu rơi về ngoại tuyến.
+    TRAN_TOKEN = max(8000, int(os.environ.get("TRAN_TOKEN_MOI_LO", "48000")))
+
     def _goi_mot_lo(so: int):
+        """
+        Gọi một lô, và nếu hỏng vì hết token thì CHIA ĐÔI CÂU LỆNH rồi thử lại.
+
+        Chia đôi làm giảm hẳn lượng suy luận cần cho một lượt. Thà gọi thêm một
+        lượt còn hơn để cả lô 25 câu rơi về bộ ngoại tuyến — chất lượng hai
+        nhánh khác nhau rõ rệt.
+        """
         t0 = time.time()
         try:
             return so, boc_json(goi_ai(tt, cau_lenh_theo_lo[so], json_mode=True,
-                                       max_tokens=32000)), time.time() - t0, None
+                                       max_tokens=TRAN_TOKEN)), time.time() - t0, None
+        except LoiDauRaThieu as e:
+            print(f"[!] Lô {so} chạm trần token, thử lại với ngân sách rộng hơn…")
+            try:
+                return so, boc_json(goi_ai(tt, cau_lenh_theo_lo[so], json_mode=True,
+                                           max_tokens=TRAN_TOKEN * 2)), time.time() - t0, None
+            except Exception as e2:
+                return so, None, time.time() - t0, e2
         except Exception as e:
             return so, None, time.time() - t0, e
 
